@@ -16,6 +16,7 @@
 | SCR-003 | ギルド納品画面 | 自動決算の結果確認（操作なし） | [guild-delivery.md](screens/guild-delivery.md) |
 | SCR-004 | 工房強化・ショップ画面 | 恒久投資/消耗投資の購入 | [workshop-shop.md](screens/workshop-shop.md) |
 | SCR-005 | 昇格試験画面 | ランク到達時の特殊局面。庭なし・専用試験HP・超短期ターンで調合画面をほぼ流用（🔵2026-08-04確定、数値は🟡TBD） | [promotion-exam.md](screens/promotion-exam.md) |
+| SCR-006 | 結果画面（ゲームクリア/ゲームオーバー） | Sランク昇格試験成功、または規定回数連続降格時の終了画面 | 🔴2026-08-05追加、PRレビューWarning対応。旧版は`architecture.md`の`ResultScene`定義と画面一覧が不整合だった。詳細設計は未作成（🟡TBD） |
 
 ## 画面遷移図
 
@@ -30,9 +31,13 @@ stateDiagram-v2
     SCR_002_Alchemy --> SCR_004_Workshop: ショップアイコン押下
     SCR_004_Workshop --> SCR_001_Garden: 画面を閉じる
     SCR_001_Garden --> SCR_005_PromotionExam: 制限ターン到達+ランクHP0
-    SCR_005_PromotionExam --> SCR_004_Workshop: 試験成功（恒久投資選択強制）
+    SCR_005_PromotionExam --> SCR_004_Workshop: 試験成功 かつ 現ランク != S（工房強化画面を自動表示、購入は任意）
+    SCR_005_PromotionExam --> SCR_006_Result: 試験成功 かつ 現ランク == S（ゲームクリア）
     SCR_005_PromotionExam --> SCR_001_Garden: 試験失敗（降格・同ランク再挑戦）
+    SCR_001_Garden --> SCR_006_Result: 規定回数連続降格（ゲームオーバー）
 ```
+
+🔵 **2026-08-05修正（PRレビュー対応）**: 「試験成功（恒久投資選択強制）」という遷移ラベルは、恒久投資の**購入**が任意である（要件定義書§3「工房強化・ショップ」）こととの誤解を招くため、「工房強化画面を自動表示、購入は任意」に修正した。Sランク試験成功時は工房強化を経由せず直接`SCR-006`（結果画面）へ遷移するよう追加した（次ランクが存在せず恒久投資が無意味なため。[`../dataflow.md`](../dataflow.md) 参照）。
 
 🟡 「庭画面⇔調合画面」をタブで自由行き来できる設計、および「ギルド納品画面」を調合実行後に挟む（自動決算だが一瞬結果を見せる）設計は、要件定義書に画面遷移の明示規定がないための本文書での提案（[`architecture.md`](../architecture.md) のシーン遷移図と同一方針）。
 

@@ -22,16 +22,19 @@ flowchart TD
         SkipDelivery --> Feedback
         Feedback --> EndTurn[ターンを終了する]
         EndTurn --> GrowGarden[庭の生育がターン経過分進む<br/>※調合の有無に関わらず毎ターン必ず実行]
+        GrowGarden --> Wither[枯死判定・スロット解放<br/>Harvest.resolve_withering]
+        Wither --> UpdateOrder[日替わり指定調合物を再抽選]
     end
 
-    GrowGarden --> CheckRank{制限ターン到達?}
+    UpdateOrder --> CheckRank{制限ターン到達?}
     CheckRank -->|No| TurnStart
     CheckRank -->|Yes| CheckHp{ランクHP0?}
 
     CheckHp -->|Yes| PromotionExam[昇格試験へ<br/>庭なし・専用試験HP・超短期ターンで<br/>通常の調合/納品ループを流用]
     CheckHp -->|No| Demotion[降格<br/>同ランクに留まり再挑戦]
 
-    Demotion --> CheckDemotionCount{規定回数連続降格?}
+    Demotion --> ResetRankRetry[ランクHP/残りターンをリセット<br/>庭・在庫・ゴールド・恒久投資は維持<br/>RankHpResolver.reset_for_retry]
+    ResetRankRetry --> CheckDemotionCount{規定回数連続降格?}
     CheckDemotionCount -->|No| TurnStart
     CheckDemotionCount -->|Yes| GameOver[ゲームオーバー]
 
@@ -40,8 +43,8 @@ flowchart TD
     ExamResult -->|No| Demotion
 
     CheckMaxRank -->|Yes| GameClear[ゲームクリア]
-    CheckMaxRank -->|No| Workshop[工房強化画面<br/>恒久投資を選択]
-    Workshop --> NextRank[次ランクへ昇格]
+    CheckMaxRank -->|No| Workshop[工房強化画面<br/>恒久投資を選択（購入は任意）]
+    Workshop --> NextRank[次ランクへ昇格<br/>降格回数カウンタを0にリセット]
     NextRank --> TurnStart
 
     GameOver --> End([終了])
@@ -96,7 +99,7 @@ sequenceDiagram
     AlchemyUI-->>Player: ④フィードバック表示（貢献度ダメージ演出・報酬獲得・指定合致ボーナス・HPバー変化）
 ```
 
-🔵 要件定義書§1「③結果反映」の内容をシーケンス図化。呼び出し順序（品質計算→特性発現→価値算出→納品判定→HP反映）は本文書での設計判断（🟡）だが、各ステップの計算式自体は要件定義書に明記された式（L117-118）に忠実。
+🔵 要件定義書§1「③結果反映」の内容をシーケンス図化。呼び出し順序（品質計算→特性発現→価値算出→納品判定→HP反映）は本文書での設計判断（🟡）だが、各ステップの計算式自体は要件定義書§4「調合物（Product）」に明記された式に忠実。指定合致ボーナスは`ProductValueCalculator`ではなく`DeliveryResolver.resolve`が一手に適用する（🔵2026-08-05修正、PRレビューCritical#4対応。[`core-systems.md`](./core-systems.md) AlchemySystem節参照）。
 
 ## 庭（栽培）のデータフロー
 
@@ -117,16 +120,21 @@ sequenceDiagram
     Note over GameState,GardenLogic: ターン終了時に毎回実行（調合の有無に関わらず）
     GameState->>GardenLogic: Harvest.advance_growth(plant_state, 1)
     GardenLogic-->>GameState: 更新後のPlantState
+    GameState->>GardenLogic: Harvest.resolve_withering(garden_state, masters)
+    GardenLogic-->>GameState: 枯死株を除去したGardenState（🔵2026-08-05追加、PRレビューCritical#11対応。プレイヤーが収穫しなくても自動でスロットが解放される）
 
     Player->>GardenUI: 収穫可能な株を収穫する
     GardenUI->>GameState: harvest(plant_id)
     GameState->>GardenLogic: Harvest.is_dead(plant_state, master)
-    GardenLogic-->>GameState: false（枯死していない）
+    GardenLogic-->>GameState: false（枯死していない。真の場合は既にresolve_witheringで除去済みのため収穫UIに現れない）
     GameState->>RngService: get_random_value()
-    RngService-->>GameState: rng_roll
-    GameState->>GardenLogic: Harvest.harvest(plant_state, rng_roll)
-    GardenLogic->>GardenLogic: TraitRoll.roll_trait(seed_master, rng_roll2)
-    GardenLogic-->>GameState: MaterialInstance(quality, trait)
+    RngService-->>GameState: rng_roll_quality
+    GameState->>RngService: get_random_value()
+    RngService-->>GameState: rng_roll_trait
+    Note over GameState,RngService: 品質上昇判定用と特性選択用の乱数は別個に払い出す<br/>（🔵2026-08-05修正、PRレビューWarning対応。旧版はDomain層内部で2つ目の乱数値を自己生成する読み取りが可能だった）
+    GameState->>GardenLogic: Harvest.harvest(plant_state, rng_roll_quality, rng_roll_trait)
+    GardenLogic->>GardenLogic: TraitRoll.roll_trait(seed_master, rng_roll_trait)
+    GardenLogic-->>GameState: Result（成功時 MaterialInstance(quality, trait)）
     GameState->>GameState: 在庫にMaterialInstanceを追加
     GameState-->>GardenUI: signal material_harvested(material)
 ```
@@ -146,33 +154,43 @@ sequenceDiagram
     participant GuildLogic as GuildSystem(logic)
     participant RankLogic as RankSystem(logic)
 
-    Note over GameState,RankLogic: PromotionExamResolver.start_exam でExamState生成済み<br/>（exam_hp = rank_master.max_hp × exam_hp_multiplier）
+    Note over GameState,RankLogic: PromotionExamResolver.start_exam でExamState生成済み<br/>（exam_hp = (max_hp ÷ limit_turn) × exam_turn_limit × exam_difficulty_coefficient<br/>🔵2026-08-05修正、PRレビューCritical#5対応。旧式「max_hp×倍率」は成立しなかったため撤回）
 
     loop 試験制限ターン以内、exam_hp > 0の間
-        Player->>AlchemyUI: レシピ選択 → 在庫から投入枠へ配置<br/>（庭は選択肢に出さない。新規収穫不可）
-        Player->>AlchemyUI: 「調合を実行する」を押下
-        AlchemyUI->>GameState: execute_alchemy(selected_recipe_id, slot_materials)
+        alt 調合を実行する場合
+            Player->>AlchemyUI: レシピ選択 → 在庫から投入枠へ配置<br/>（庭は選択肢に出さない。新規収穫不可）
+            Player->>AlchemyUI: 「調合を実行する」を押下
+            AlchemyUI->>GameState: execute_alchemy(selected_recipe_id, slot_materials)
 
-        GameState->>AlchemyLogic: QualityCalculator / TraitActivation / ProductValueCalculator
-        AlchemyLogic-->>GameState: ProductInstance(quality, traits, contribution, reward)
+            GameState->>AlchemyLogic: QualityCalculator / TraitActivation / ProductValueCalculator
+            AlchemyLogic-->>GameState: ProductInstance(quality, traits, contribution, reward)
 
-        GameState->>GuildLogic: DeliveryResolver.resolve(product, null)
-        Note right of GuildLogic: daily_orderにnullを渡す→matches_orderは常に偽<br/>（指定合致ボーナスは適用しない）
-        GuildLogic-->>GameState: DeliveryResult(final_contribution, final_reward, order_matched=false)
+            GameState->>GuildLogic: DeliveryResolver.resolve(product, null)
+            Note right of GuildLogic: daily_orderにnullを渡す→matches_orderは常にfalse<br/>（指定合致ボーナスは不適用。報酬系特性のボーナス自体は通常どおり計算される）
+            GuildLogic-->>GameState: DeliveryResult(final_contribution, final_reward, order_matched=false)
 
-        GameState->>RankLogic: RankHpResolver.apply_contribution(exam_state.exam_hp, final_contribution)
-        RankLogic-->>GameState: new_exam_hp
+            GameState->>RankLogic: RankHpResolver.apply_contribution(exam_state.exam_hp, final_contribution)
+            RankLogic-->>GameState: new_exam_hp
 
-        GameState->>GameState: exam_state.exam_hp = new_exam_hp<br/>exam_state.exam_elapsed_turn += 1
+            GameState->>GameState: exam_state.exam_hp = new_exam_hp<br/>player.gold += final_reward（🔵2026-08-05追加、PRレビュー対応。報酬は通常どおり獲得する）<br/>exam_state.exam_elapsed_turn += 1
+        else 調合を実行せずターンだけ進める（🔵2026-08-05追加、PRレビューCritical#10対応）
+            Player->>AlchemyUI: 「ターンを進める」を押下<br/>（在庫/解禁レシピが尽きて調合できない場合の脱出手段）
+            AlchemyUI->>GameState: pass_exam_turn()
+            GameState->>RankLogic: PromotionExamResolver.advance_turn(exam_state)
+            RankLogic-->>GameState: exam_state（exam_elapsed_turnのみ+1）
+        end
 
         GameState->>RankLogic: PromotionExamResolver.resolve_outcome(exam_state)
         RankLogic-->>GameState: ExamOutcome(CONTINUE/SUCCESS/FAILURE)
     end
 
     alt ExamOutcome == SUCCESS
+        GameState->>GameState: demotion_count = 0（🔵2026-08-05追加、PRレビューCritical#3対応）
         GameState-->>AlchemyUI: signal exam_succeeded
         AlchemyUI-->>Player: WorkshopScreenへ遷移（恒久投資、購入は任意）
     else ExamOutcome == FAILURE
+        GameState->>RankLogic: RankHpResolver.reset_for_retry(rank_master)
+        RankLogic-->>GameState: リセット済みRankState（🔵2026-08-05追加、PRレビューCritical#3対応）
         GameState-->>AlchemyUI: signal exam_failed
         AlchemyUI-->>Player: 降格回数+1、庭画面へ戻る（同ランク再挑戦）
     end
@@ -200,20 +218,23 @@ stateDiagram-v2
 
     state PromotionExam2 <<choice>>
     PromotionExam --> PromotionExam2
-    PromotionExam2 --> Workshop: 試験成功
+    PromotionExam2 --> GameClear: 試験成功 かつ 現ランク == S
+    PromotionExam2 --> Workshop: 試験成功 かつ 現ランク != S
     PromotionExam2 --> Demotion: 試験失敗
 
-    Demotion --> DemotionCheck
+    Demotion --> ResetRankRetry: ランクHP/残りターンをリセット<br/>（庭・在庫・ゴールド・恒久投資は維持）
+    ResetRankRetry --> DemotionCheck
     state DemotionCheck <<choice>>
     DemotionCheck --> TurnLoop: 降格回数 < 規定回数
     DemotionCheck --> GameOver: 降格回数 >= 規定回数
 
-    Workshop --> RankNext: 恒久投資選択完了
+    Workshop --> RankNext: 恒久投資選択完了（降格回数カウンタを0にリセット）
     RankNext --> TurnLoop: 次ランクのターンループ開始
 
-    RankNext --> GameClear: 直前のランクがSだった場合
     GameClear --> [*]
     GameOver --> [*]
 ```
 
 🔵 要件定義書§2「勝敗条件」の「降格」定義（ランク文字は下がらず同一ランクに留まる）に忠実に、`Demotion`から`TurnLoop`へ戻る遷移（ランクは変わらない）として表現した。
+
+🔵 **2026-08-05修正（PRレビューWarning対応）**: 旧版は「試験成功→常にWorkshop経由→RankNext→（Sランクだった場合のみ）GameClear」という経路になっており、全体フロー図（本文書冒頭）の「Sランクは工房強化を経由せず直接ゲームクリア」という経路と矛盾していた。次ランクが存在しないSランクで恒久投資画面を経由する意味がないため、`PromotionExam2`からの分岐時点でSランクなら`GameClear`へ直接遷移するよう修正した。あわせて降格時のランクHP/残りターンのリセット、昇格成功時の降格回数カウンタのリセットも明示した（[`core-systems.md`](./core-systems.md) RankSystem節参照）。

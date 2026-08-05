@@ -46,7 +46,7 @@
 | txt-preview-quality | テキスト | 現在の投入内容から算出される品質スコアのライブプレビュー | - |
 | txt-preview-traits | テキスト | 現在の投入内容から発現見込みの特性一覧（2個未満のタグは「あと1個」等のヒント表示、🟡TBD） | - |
 | txt-preview-value | テキスト | 見込み貢献度・見込み報酬のライブプレビュー | - |
-| btn-execute | プライマリボタン | 調合を実行する。レシピ未選択、または投入枠が0個の場合は無効化（🔵要件定義書L75「0個投入では実行不可」＋レシピ事前選択の必須化） | 有効（レシピ選択済み・1個以上投入）/無効（未選択 or 0個） |
+| btn-execute | プライマリボタン | 調合を実行する。レシピ未選択、投入枠が0個、または投入枠上限を超える場合は無効化（🔵要件定義書§3「調合（主戦場）」「0個投入では実行不可」＋レシピ事前選択の必須化＋上限チェック） | 有効（レシピ選択済み・1個以上`max_slots`以下投入）/無効（未選択・0個・上限超過） |
 | btn-clear-slot-{n} | セカンダリボタン | 個別の投入枠を取り消す | 投入済みの枠にのみ表示 |
 
 ## 状態遷移
@@ -57,7 +57,7 @@
 
 ### 投入中状態
 
-素材を1つ投入するたびに、`txt-preview-quality`・`txt-preview-traits`・`txt-preview-value`をリアルタイム再計算して更新する（[`core-systems.md`](../core-systems.md) `QualityCalculator`/`TraitActivation`/`ProductValueCalculator`をUIから同期呼び出し）。**この画面の核心体験**は、投入を1つ変えるたびに「品質を盛るか特性を宿すか」のトレードオフがプレビューに反映され、プレイヤーが一瞬迷うことである（コンセプト文書§6「検証すべき最優先の仮説」参照🔵）。
+素材を1つ投入するたびに、`txt-preview-quality`・`txt-preview-traits`・`txt-preview-value`をリアルタイム再計算して更新する（[`core-systems.md`](../core-systems.md) `QualityCalculator`/`TraitActivation`/`ProductValueCalculator`**に加えて`DeliveryResolver`（指定合致ボーナス判定）まで**をUIから同期呼び出しする。🔵2026-08-05修正、PRレビューCritical#4対応。旧版は`ProductValueCalculator`までしか呼んでおらず、指定合致ボーナス抜きの値が表示され実際の納品結果と食い違っていた）。**この画面の核心体験**は、投入を1つ変えるたびに「品質を盛るか特性を宿すか」のトレードオフがプレビューに反映され、プレイヤーが一瞬迷うことである（コンセプト文書§6「検証すべき最優先の仮説」参照🔵）。
 
 ### 実行可能状態
 
@@ -85,7 +85,7 @@
 |-----------|----------|----------|
 | OnMaterialSlotted | 在庫カードをタップ/ドラッグ | 投入枠に配置し、プレビューを再計算 |
 | OnSlotCleared | 投入枠のクリアボタン押下 | 投入を取り消し、在庫に戻す |
-| OnAlchemyExecuted | 「調合を実行する」押下 | `GameState.execute_alchemy(slot_materials)`呼び出し（[`dataflow.md`](../dataflow.md) シーケンス図参照） |
+| OnAlchemyExecuted | 「調合を実行する」押下 | `GameState.execute_alchemy(selected_recipe_id, slot_materials)`呼び出し（🔵2026-08-05修正、Warning対応。旧版は引数が`slot_materials`のみでdataflow.mdと不一致だった。[`dataflow.md`](../dataflow.md) シーケンス図参照） |
 
 ## アクセシビリティ
 

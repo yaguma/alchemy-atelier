@@ -23,13 +23,15 @@
 | StateManager | `GameState` Autoload（シングルトンNode） |
 | EventBus | Godotネイティブの `signal`（専用Autoloadは持たない。発行元ノードが `signal` を宣言し、購読側が `connect()` する） |
 | RNGサービス | `RngService` Autoload（`RandomNumberGenerator` をラップし、シード管理を一元化） |
-| 純粋関数（services相当） | `res://features/{feature}/logic/*.gd`（`class_name` なしの `static func` 集合、Node非継承） |
+| 純粋関数（services相当） | `res://features/{feature}/logic/*.gd`（`class_name` 付きの `static func` 集合、Node非継承） |
 | UIコンポーネント | `res://features/{feature}/ui/*.tscn` + `*.gd`（`Control` 継承） |
 | GAME_CONFIG / THEME | `res://shared/constants/game_balance.gd` / `res://shared/theme/theme.gd`（いずれも `class_name` 付き、定数のみを持つ静的クラス） |
 | マスターデータ（素材・レシピ・特性・ランク等） | カスタム `Resource`（`class_name` + `.tres`） |
 | インスタンスデータ（素材個体・調合物個体） | プレーンな `RefCounted` 継承クラス（`class_name` 付き。`Resource` ではなくインスタンスごとに使い捨てるため） |
 
-🔵 上記表は `CLAUDE.md` の既存記述を踏襲している。RNGサービス行のみ本文書で明確化した🟡新規追記（要件定義書 L103「乱数は分散のみで期待値は動かさない」を満たすための一元管理ポイントとして必要）。
+🔵 上記表は `CLAUDE.md` の既存記述を踏襲している。RNGサービス行のみ本文書で明確化した🟡新規追記（要件定義書 §4「素材（Material）」の「乱数は分散のみで期待値は動かさない」を満たすための一元管理ポイントとして必要）。
+
+🟡 **2026-08-05修正**: PRレビュー（Naming/Warning#3）で、`class_name`なしと規定しながら全文書で`QualityCalculator.calculate_quality(...)`のようなグローバル識別子呼び出しを前提にしていた矛盾が指摘されたため、`logic/*.gd`も`class_name`付きに統一した。インターフェース定義については引き続き作成しない方針（本文書「インターフェース定義について」参照。`class_name`付与とインターフェースの要否は別問題であり、多態性が不要という判断は変わらない）。
 
 ## レイヤー構造
 
@@ -72,6 +74,17 @@
 - Infrastructure → 他レイヤーに依存しない
 
 🔵 `.claude/rules/architecture.md` の「Functional Core内での副作用禁止」「Imperative Shell内での複雑なビジネスロジック禁止」を階層依存ルールとして明文化したもの。
+
+### 検証責務のレイヤー配置原則（🟡2026-08-05追加。PRレビューのCross-Cutting Analysisを反映）
+
+PRレビューで「ビジネスルール制約の強制がPresentation層のみに依存している」「投入枠上限や在庫の重複投入を検証するDomain層の関数が存在しない」等、検証責務がどのレイヤーに属するか未定義な箇所が複数指摘された。以下を全設計文書共通の原則として定める。
+
+- **Presentation層**: 操作の抑止（ボタンの無効化等）を行う。これはあくまで「先出しフィードバック」であり、正当性の最終担保ではない
+- **Application層（`GameState`）**: 状態を変更する直前に、Domain層の判定関数を**必ず再評価**する（UIの判定結果を信頼しない）。例: 購入実行前に`PurchaseValidator.can_purchase`を再評価する、`execute_alchemy`実行前に投入枠数・在庫所有・重複を再検証する
+- **Domain層（`logic/*.gd`）**: 純粋な判定ロジックを提供する（`SlotState.can_execute`等）。副作用は持たない
+- **Infrastructure層**: 起動時（BootScene）にマスターデータ間のID相互参照が解決可能かを検証し、未解決参照があれば起動を停止する
+
+この原則は、[`core-systems.md`](./core-systems.md) の各システムの主要メソッド仕様、および[`dataflow.md`](./dataflow.md) の各シーケンス図に個別に反映する。
 
 ## コンポーネント図
 
@@ -139,7 +152,7 @@ Godotでは「シーン」がPhaserの`Scene`に相当するが、本ゲーム�
 | **PromotionExamScene** | 昇格試験専用の特殊局面。庭なし・専用試験HP・超短期ターンで通常の調合/納品ループを流用する（🔵2026-08-04ヒアリングで確定） | [`core-systems.md`](./core-systems.md) RankSystem節・[`game-mechanics.md`](./game-mechanics.md) 参照。数値（試験HP倍率等）は🟡TBD |
 | **ResultScene** (`result.tscn`) | ゲームクリア（Sランク昇格試験成功）／ゲームオーバー（規定回数降格）時の終了画面 | スコア表示のみ（詳細🟡TBD） |
 
-🟡 要件定義書はタイトル画面・設定画面・セーブロード画面を明示的にスコープ外としている（`CLAUDE.md` L33参照。ただし参照元の`design-interview.md`自体は本リポジトリに存在しないため、この決定の一次ソースは要件定義書の記述のみに依拠する）。本文書ではこれらのシーンを設計しない。
+🟡 要件定義書はタイトル画面・設定画面・セーブロード画面を明示的にスコープ外としている（`CLAUDE.md`「技術スタック」節参照。参照元の`design-interview.md`自体は本リポジトリに存在しないため、この決定の一次ソースは要件定義書冒頭の記述のみに依拠する）。本文書ではこれらのシーンを設計しない。
 
 ## シーン遷移図
 
@@ -156,19 +169,19 @@ stateDiagram-v2
         GuildDeliveryScreen --> GardenScreen: ターン継続
     }
 
-    MainScene --> WorkshopScene: ランクHP0到達（工房強化画面へ）
-    WorkshopScene --> PromotionExamScene: 強化選択完了
-
     MainScene --> PromotionExamScene: 制限ターン到達 かつ ランクHP0
 
-    PromotionExamScene --> WorkshopScene: 試験成功（次ランクへ昇格）
-    PromotionExamScene --> MainScene: 試験失敗（同ランク再挑戦）
+    PromotionExamScene --> WorkshopScene: 試験成功 かつ 現ランク != S（次ランクへ昇格）
+    PromotionExamScene --> MainScene: 試験失敗（同ランク再挑戦。ランクHP/残りターンをリセット）
 
-    PromotionExamScene --> ResultScene: 試験成功 かつ 最高ランク(S)
+    PromotionExamScene --> ResultScene: 試験成功 かつ 現ランク == S
+    WorkshopScene --> MainScene: 恒久投資選択完了（次ランクのターンループ開始）
     MainScene --> ResultScene: 規定回数連続降格（ゲームオーバー）
 
     ResultScene --> [*]
 ```
+
+🔵 **2026-08-05修正（PRレビューCritical#2対応）**: 旧版は `MainScene --> WorkshopScene: ランクHP0到達` → `WorkshopScene --> PromotionExamScene` という、他の全文書（`dataflow.md`／`core-systems.md`／`ui-design/overview.md`）と逆順の経路を含んでおり、同一図内で「制限ターン到達かつHP0で試験へ」という正しい経路と矛盾していた。恒久投資は「ランク間の工房強化画面でのみ」（要件定義書§3）という制約にも反していたため、逆順の2経路を削除し「試験成功→工房強化→次ランクのターンループ」の1本に統一した。Sランク試験成功時は工房強化を経由せず直接`ResultScene`へ遷移する（次ランクが存在せず恒久投資が無意味なため。[`dataflow.md`](./dataflow.md) 参照）。
 
 🟡 「画面タブ切替」でGardenScreenとAlchemyScreenを自由に行き来できる設計とした（要件定義書に画面遷移の明示規定がないため）。庭と調合は同一ターン内で何度でも行き来して構わない設計だが、この解釈は要件定義書に明記がなく本文書での推測。異なる場合は要件定義書側の追記が必要。
 
@@ -184,8 +197,11 @@ atelier-godot/
 │   ├── garden/                  # 庭（仕込み層）
 │   │   ├── logic/
 │   │   │   ├── planting.gd            # 種植え・スロット管理（static func）
-│   │   │   ├── harvest.gd             # 収穫・品質確定（static func）
+│   │   │   ├── harvest.gd             # 収穫・品質確定・枯死解決（static func）
 │   │   │   └── trait_roll.gd          # 特性乱数付与（static func、乱数は引数で受け取る）
+│   │   ├── state/
+│   │   │   ├── garden_state.gd        # class_name GardenState extends RefCounted
+│   │   │   └── plant_state.gd         # class_name PlantState extends RefCounted
 │   │   ├── resources/
 │   │   │   └── seed_master.gd         # class_name SeedMaster extends Resource
 │   │   └── ui/
@@ -193,9 +209,11 @@ atelier-godot/
 │   │       └── garden_screen.gd
 │   ├── alchemy/                 # 調合（主戦場）
 │   │   ├── logic/
-│   │   │   ├── quality_calculator.gd  # 品質計算（旧Phaser版 calculateQuality 相当の仕様移植）
+│   │   │   ├── quality_calculator.gd  # 品質計算（投入素材の平均、四捨五入、触媒+1）
 │   │   │   ├── trait_activation.gd    # 特性発現判定（閾値2個）
-│   │   │   └── product_value_calculator.gd # 貢献度/報酬算出
+│   │   │   └── product_value_calculator.gd # 貢献度/報酬算出（指定合致ボーナスは含まない）
+│   │   ├── state/
+│   │   │   └── slot_state.gd          # class_name SlotState extends RefCounted
 │   │   ├── resources/
 │   │   │   ├── material_master.gd     # class_name MaterialMaster extends Resource
 │   │   │   └── recipe_master.gd       # class_name RecipeMaster extends Resource
@@ -205,7 +223,9 @@ atelier-godot/
 │   │       └── slot_view.gd           # 投入枠1つ分のUI部品
 │   ├── guild/                   # ギルド納品（決算・自動）
 │   │   ├── logic/
-│   │   │   └── delivery_resolver.gd   # 納品判定・指定合致ボーナス算出
+│   │   │   └── delivery_resolver.gd   # 納品判定・指定合致ボーナス算出（🔵一本化、core-systems.md参照）
+│   │   ├── state/
+│   │   │   └── delivery_result.gd     # class_name DeliveryResult extends RefCounted
 │   │   ├── resources/
 │   │   │   └── daily_order_master.gd  # class_name DailyOrderMaster extends Resource
 │   │   └── ui/
@@ -213,7 +233,7 @@ atelier-godot/
 │   │       └── guild_delivery_screen.gd
 │   ├── workshop/                # 工房強化・ショップ
 │   │   ├── logic/
-│   │   │   └── purchase_validator.gd  # 購入可否判定（所持ゴールド比較）
+│   │   │   └── purchase_validator.gd  # 購入可否判定（ゴールド比較+重複購入上限）
 │   │   ├── resources/
 │   │   │   └── upgrade_master.gd      # class_name UpgradeMaster extends Resource
 │   │   └── ui/
@@ -221,8 +241,11 @@ atelier-godot/
 │   │       └── workshop_screen.gd
 │   └── rank/                    # ランク進行・昇格試験
 │       ├── logic/
-│       │   ├── rank_hp_resolver.gd    # ランクHP減少・0クランプ
+│       │   ├── rank_hp_resolver.gd    # ランクHP減少・0クランプ・再挑戦時リセット
 │       │   └── promotion_exam_resolver.gd  # ExamState管理・AlchemySystem/GuildSystemを流用（🔵確定、数値は🟡TBD）
+│       ├── state/
+│       │   ├── rank_state.gd          # class_name RankState extends RefCounted
+│       │   └── exam_state.gd          # class_name ExamState extends RefCounted
 │       ├── resources/
 │       │   └── rank_master.gd         # class_name RankMaster extends Resource
 │       └── ui/
@@ -256,7 +279,9 @@ atelier-godot/
             └── rank/
 ```
 
-🟡 このディレクトリ構造は本文書での新規提案。`CLAUDE.md` L53は「`architecture.md`内「ディレクトリ構造（案）」を参照」と本文書の存在を前提に書かれていたが、実体がなかったため今回新規に確定した。
+🟡 このディレクトリ構造は本文書での新規提案。`CLAUDE.md`の「アーキテクチャ方針」節は「`architecture.md`内「ディレクトリ構造（案）」を参照」と本文書の存在を前提に書かれていたが、実体がなかったため今回新規に確定した。
+
+🔵 **2026-08-05修正（PRレビューWarning対応）**: `core-systems.md`のクラス図に登場する状態型（`GardenState`/`PlantState`/`SlotState`/`RankState`/`ExamState`/`DeliveryResult`）の配置先が旧版のディレクトリ構造になく、`shared/entities/`の`MaterialInstance`/`ProductInstance`しか明記されていなかった。各Featureに`state/`ディレクトリを追加し配置先を明記した（複数Featureにまたがる`MaterialInstance`/`ProductInstance`のみ`shared/entities/`に残す）。
 
 ## インターフェース定義について
 
@@ -276,3 +301,11 @@ GDScriptには C# の `interface` に相当する言語機能がなく、Godot�
 | Presentation（UI） | GUTのシーンテスト、または手動プレイテスト | クリティカルパスのみ |
 
 🔵 `.claude/rules/testing.md` のカバレッジ目標をGodot/GUT向けに翻訳したもの。GUT採用は `CLAUDE.md` で確定済み。
+
+### テスト運用規約（🔴2026-08-05追加、PRレビューWarning対応）
+
+- **ファイル命名**: `tests/unit/features/{feature}/test_{対象}.gd`（GUTの既定規則 `test_*.gd`、`extends GutTest`）
+- **統合テストの配置**: `tests/integration/`（ディレクトリ構造案に未反映だった。`.claude/rules/testing.md`の`tests/unit/`・`tests/integration/`分離方針に合わせる）
+- **実行コマンド**: `godot --headless -s addons/gut/gut_cmdln.gd`（🟡具体的なCLIオプションは実装着手時に確定）
+- **カバレッジ計測**: GDScript/GUTには標準のカバレッジ計測機構がない。計測プラグインを別途導入するか、「`logic/*.gd`の全public `static func`に正常系・異常系・境界値のテストを最低1本ずつ持つ」という数え上げ可能な基準に置き換えるかは🟡TBD（個人開発規模では後者が現実的）
+- **RNGのテスト方針**: Domain層（`logic/*.gd`）は乱数値を引数で受け取るため、テストにモック（GUTの`double()`）は不要（純粋関数として値を直接渡せばよい）。`double()`はApplication層（Autoload）の統合テストで`RngService`を差し替える場合にのみ使う
