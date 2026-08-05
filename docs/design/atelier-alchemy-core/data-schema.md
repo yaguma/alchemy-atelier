@@ -14,7 +14,6 @@
   "player": {
     "gold": 100,
     "current_rank_id": "G",
-    "elapsed_turn": 0,
     "demotion_count": 0,
     "permanent_upgrades": {
       "alchemy_slot_count": 4,
@@ -23,8 +22,9 @@
     }
   },
   "rank_state": {
-    "rank_hp": 100.0,
-    "rank_hp_max": 100.0,
+    "quota": 100.0,
+    "quota_max": 100.0,
+    "elapsed_turn": 0,
     "limit_turn": 15
   },
   "garden_state": {
@@ -56,8 +56,8 @@
   },
   "exam_state": {
     "in_exam": false,
-    "exam_hp": 0.0,
-    "exam_hp_max": 0.0,
+    "exam_quota": 0.0,
+    "exam_quota_max": 0.0,
     "exam_elapsed_turn": 0,
     "exam_turn_limit": 0
   }
@@ -70,12 +70,12 @@
 |-----------|-----|------|-------------|-------------|
 | player.gold | int | 所持ゴールド | 🟡TBD（仮100、[`balance-design.md`](./balance-design.md)参照） | リセットされない（ゲーム開始時のみ初期化） |
 | player.current_rank_id | String | 現在ランク（G〜S） | "G" | リセットされない |
-| player.elapsed_turn | int | 現ランクでの経過ターン数 | 0 | **降格時に0へリセット**（🔵2026-08-05追加、PRレビューCritical#3対応。要件定義書§2「降格時のリセット規定」参照） |
 | player.demotion_count | int | 現ランクでの降格回数（要件定義書§2「勝敗条件」） | 0 | **昇格成功時に0へリセット**（🔵2026-08-05追加、PRレビューCritical#3対応） |
 | player.permanent_upgrades.alchemy_slot_count | int | 調合投入枠数 | 4 | リセットされない（恒久投資） |
 | player.permanent_upgrades.garden_slot_count | int | 庭スロット数 | 🟡TBD（仮5） | リセットされない（恒久投資） |
 | player.permanent_upgrades.unlocked_recipe_ids | Array[String] | 解禁済みレシピID一覧。**最低1件を保証する**（🔵2026-08-05確定、要件定義書§4「レシピ（Recipe）」参照。0件だと調合が永久に実行不可能になるため） | 🟡TBD（初期解禁レシピの具体的な内容は未定だが、1件以上という制約は確定） | リセットされない（恒久投資） |
-| rank_state.rank_hp | float | 現在のランクHP | ランクマスターの`max_hp`で初期化 | **降格時に`max_hp`へリセット**（`RankHpResolver.reset_for_retry`） |
+| rank_state.quota | float | 現在のランクノルマ残量 | ランクマスターの`quota_max`で初期化 | **降格時に`quota_max`へリセット**（`RankQuotaResolver.reset_for_retry`） |
+| rank_state.elapsed_turn | int | 現ランクでの経過ターン数（🔴2026-08-06修正、実装レディネス監査対応。旧版は`player.elapsed_turn`として定義していたが、`core-systems.md`の`RankQuotaResolver.reset_for_retry`が返す`RankState`のフィールドとして扱われており定義箇所が二重化していたため、`rank_state`側に一本化した） | 0 | **降格時に0へリセット**（`RankQuotaResolver.reset_for_retry`。要件定義書§2「降格時のリセット規定」参照） |
 | rank_state.limit_turn | int | 現ランクの制限ターン数 | 🟡TBD、ランクマスター参照 | 降格時は`elapsed_turn`が0に戻ることで実質的にリセットされる（`limit_turn`自体は不変） |
 | garden_state.plants | Array | 庭スロットごとの生育状況 | 空配列 | リセットされない（降格時も維持） |
 | inventory | Array | 収穫済み・未使用の素材インスタンス一覧 | 空配列。**上限なし（無制限）**（🔵2026-08-04ヒアリングで確定、要件定義書§4「素材（Material）」参照） | リセットされない（降格時も維持） |
@@ -83,7 +83,7 @@
 | alchemy_slot_state.selected_recipe_id | String | 調合実行前に選択中のレシピID（🔵事前選択方式、2026-08-04ヒアリングで確定） | 空文字列（未選択） | 調合実行後に空へ戻す |
 | alchemy_slot_state.materials | Array | 投入枠に配置中の素材インスタンスID一覧 | 空配列 | 調合実行後に空へ戻す |
 | exam_state.in_exam | bool | 昇格試験中かどうか。真の間`GardenScreen`への遷移をUI側で禁止する（🔵[`core-systems.md`](./core-systems.md) RankSystem節参照） | false | 試験終了（成功/失敗）時にfalseへ |
-| exam_state.exam_hp / exam_hp_max | float | 試験専用のHP。通常の`rank_state.rank_hp`とは別管理（🔵2026-08-04ヒアリングで確定） | `PromotionExamResolver.start_exam`で`(rank_master.max_hp ÷ rank_master.limit_turn) × rank_master.exam_turn_limit × rank_master.exam_difficulty_coefficient`により初期化（🔵2026-08-05修正、PRレビューCritical#5対応。旧式`max_hp×倍率`は成立しなかったため撤回。係数は🟡TBD） | 試験開始のたびに再初期化 |
+| exam_state.exam_quota / exam_quota_max | float | 試験専用のノルマ。通常の`rank_state.quota`とは別管理（🔵2026-08-04ヒアリングで確定） | `PromotionExamResolver.start_exam`で`(rank_master.quota_max ÷ rank_master.limit_turn) × rank_master.exam_turn_limit × rank_master.exam_difficulty_coefficient`により初期化（🔵2026-08-05修正、PRレビューCritical#5対応。旧式`quota_max×倍率`は成立しなかったため撤回。係数は🟡TBD） | 試験開始のたびに再初期化 |
 | exam_state.exam_elapsed_turn / exam_turn_limit | int | 試験内の経過ターン・制限ターン | `exam_turn_limit`は`rank_master.exam_turn_limit`から初期化（🟡TBD、仮1〜2ターン） | 試験開始のたびに再初期化 |
 
 🔵 各フィールドは要件定義書§4の「状態」「変化」記述に対応。数値の初期値の多くは[`balance-design.md`](./balance-design.md)の🟡TBD値をそのまま参照する。
@@ -102,8 +102,7 @@
   "maturity_turns": 2,
   "death_grace_turns": 2,
   "base_quality": 2,
-  "trait_pool": ["holy", "gold", "none"],
-  "name_purchase_price": 10
+  "trait_pool": ["holy", "gold", "none"]
 }
 ```
 
@@ -116,7 +115,8 @@
 | death_grace_turns | int | 成熟後の枯死猶予ターン数（🟡TBD具体値） | ○ |
 | base_quality | int | 成熟直後に収穫した場合の品質スコア（🔴TBD、[`core-systems.md`](./core-systems.md)品質確定ロジック参照） | ○ |
 | trait_pool | Array[String] | 収穫時に一様乱数で選ばれる特性タグ候補（「none」＝無特性を含めるかは🔴TBD） | ○ |
-| name_purchase_price | int | 種の指名買い価格（🟡TBD） | ○ |
+
+🔴 **2026-08-06修正（実装レディネス監査対応）**: 旧版は種の指名買い価格を`SeedMaster.name_purchase_price`として保持していたが、`UpgradeMaster`（`effect_type: "seed_name_purchase"`、後述）も同じ「種の指名買い」の価格情報（`price`フィールド）を持っており、価格の正の情報源が二重化していた。`SeedMaster`側の`name_purchase_price`は廃止し、価格は**`UpgradeMaster.price`に一本化**する。`UpgradeMaster.effect_value`が対象の`seed_id`を指す（下記UpgradeMaster節参照）。触媒（`MaterialMaster`）も同様に価格情報を持たず`UpgradeMaster.price`のみに一本化されており、この修正でマスターデータ全体の一貫性が取れる。
 
 ### MaterialMaster（`res://data/materials/*.tres`のうち素材定義）
 
@@ -186,7 +186,7 @@
 {
   "id": "G",
   "display_name": "Gランク",
-  "max_hp": 100.0,
+  "quota_max": 100.0,
   "limit_turn": 15,
   "traits_unlocked": false,
   "exam_turn_limit": 1,
@@ -198,13 +198,15 @@
 |-----------|-----|------|------|
 | id | String | ランク識別子（G/F/E/D/C/B/A/S） | ○ |
 | display_name | String | 表示名 | ○ |
-| max_hp | float | 当該ランクのランクHP上限（🟡TBD） | ○ |
+| quota_max | float | 当該ランクのノルマ上限（🟡TBD） | ○ |
 | limit_turn | int | 当該ランクの制限ターン数（🟡TBD、ランクが上がるほど厳しくする想定） | ○ |
 | traits_unlocked | bool | 特性システムが解禁済みか（Gランクは`false`固定、要件定義書§6「Gランク・1ターン目」の「特性は封印」） | ○ |
 | exam_turn_limit | int | 昇格試験の制限ターン数（🟡TBD、仮1〜2ターン。超短期の方向性のみ確定） | ○ |
-| exam_difficulty_coefficient | float | 昇格試験HPの難度係数。`試験HP = (max_hp ÷ limit_turn) × exam_turn_limit × exam_difficulty_coefficient`（🟡TBD、仮1.0〜1.5） | ○ |
+| exam_difficulty_coefficient | float | 昇格試験ノルマの難度係数。`試験ノルマ = (quota_max ÷ limit_turn) × exam_turn_limit × exam_difficulty_coefficient`（🟡TBD、仮1.0〜1.5） | ○ |
 
-🔴 **2026-08-05修正（PRレビューCritical#5対応）**: `exam_hp_multiplier`（`max_hp`に対する倍率）フィールドは廃止した。試験制限ターンが1〜2ターンしかない設計のため、この式では要求貢献度が通常ランクの約20倍になり成立しなかった。新しい`exam_difficulty_coefficient`は「当該ランクの1手あたり期待貢献度（`max_hp ÷ limit_turn`）」を基準にした係数であり、通常プレイでの貢献度水準と直接比較可能な単位になっている（[`core-systems.md`](./core-systems.md) RankSystem節参照）。
+🔴 **2026-08-05修正（PRレビューCritical#5対応）**: `exam_hp_multiplier`（`max_hp`に対する倍率）フィールドは廃止した。試験制限ターンが1〜2ターンしかない設計のため、この式では要求貢献度が通常ランクの約20倍になり成立しなかった。新しい`exam_difficulty_coefficient`は「当該ランクの1手あたり期待貢献度（`quota_max ÷ limit_turn`）」を基準にした係数であり、通常プレイでの貢献度水準と直接比較可能な単位になっている（[`core-systems.md`](./core-systems.md) RankSystem節参照）。
+
+🔴 **2026-08-06修正（世界観整合性の見直し）**: `max_hp`は`quota_max`に改名した（「HP」がギルドの認定制度という世界観に合わないため。要件定義書§4「ギルドランク（審査基準）」参照）。
 
 ### UpgradeMaster（`res://data/upgrades/*.tres`）
 

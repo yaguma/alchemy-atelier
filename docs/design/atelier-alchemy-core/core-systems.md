@@ -11,7 +11,7 @@
 | AlchemySystem（調合） | 投入枠管理・品質計算・特性発現・調合実行 | なし |
 | GuildSystem（ギルド納品） | 納品の自動決算・指定合致判定 | なし |
 | WorkshopSystem（工房強化・ショップ） | 恒久投資/消耗投資の購入可否判定・適用 | なし |
-| RankSystem（ランク進行・昇格試験） | ランクHP・制限ターン・降格カウンタ・昇格試験の管理 | なし |
+| RankSystem（ランク進行・昇格試験） | ランクノルマ・制限ターン・降格カウンタ・昇格試験の管理 | なし |
 
 🔵 5システムの区分は `CLAUDE.md`（庭/調合/ギルド納品/工房強化/ランク進行の5機能）に基づく確定事項。
 
@@ -164,7 +164,7 @@ classDiagram
 - 貢献度系特性は`calculate_reward`に、報酬系特性は`calculate_contribution`に影響しない（互いに干渉しない設計。要件定義書の式が「貢献度系特性ボーナス」「報酬系特性ボーナス」を別変数として分けていることと整合）
 - 補助系特性「触媒」（品質+1段）は`TraitActivation`（発現閾値2個ルール）の対象外とし、`QualityCalculator.calculate_quality`側で個別処理する（上記メソッド表参照）。触媒素材自身の基準品質スコアは🟡TBD（要件定義書§4「特性タグ（Trait）」参照）
 
-🟡 **将来のリファクタリング候補（PRレビューWarning、任意対応）**: 現状の設計は`GameState.execute_alchemy`が「実行可否判定→品質計算→特性発現→価値算出→納品判定→HP反映→在庫消費→ゴールド加算→signal発行」の一連の手続きを1メソッドで統括する構成になっている（[`dataflow.md`](./dataflow.md) 参照）。将来機能追加でこのメソッドが肥大化する場合は、「投入素材+レシピ→ProductInstance」を返す純粋関数（例: `features/alchemy/logic/alchemy_transaction.gd`）を切り出し、`GameState`は差分の適用とsignal発行のみに縮小することを検討する。現時点では実装前のため必須の変更とはしない。
+🟡 **将来のリファクタリング候補（PRレビューWarning、任意対応）**: 現状の設計は`GameState.execute_alchemy`が「実行可否判定→品質計算→特性発現→価値算出→納品判定→ノルマ反映→在庫消費→ゴールド加算→signal発行」の一連の手続きを1メソッドで統括する構成になっている（[`dataflow.md`](./dataflow.md) 参照）。将来機能追加でこのメソッドが肥大化する場合は、「投入素材+レシピ→ProductInstance」を返す純粋関数（例: `features/alchemy/logic/alchemy_transaction.gd`）を切り出し、`GameState`は差分の適用とsignal発行のみに縮小することを検討する。現時点では実装前のため必須の変更とはしない。
 
 
 ---
@@ -247,22 +247,22 @@ classDiagram
 
 ### 責務
 
-要件定義書 §2「勝敗条件」・§4「ギルドランク（敵）」「昇格試験（Exam）」に基づき、ランクHP管理・制限ターン管理・降格カウンタ・昇格試験の管理を担う。**昇格試験は通常ターンループの調合・納品ロジック（`AlchemySystem`/`GuildSystem`）をそのまま再利用する**設計とする（🔵2026-08-04ヒアリングで確定。以前は骨子のみの設計だったが、本改訂で試験ロジック自体を確定した）。
+要件定義書 §2「勝敗条件」・§4「ギルドランク（審査基準）」「昇格試験（Exam）」に基づき、ランクノルマ管理・制限ターン管理・降格カウンタ・昇格試験の管理を担う。**昇格試験は通常ターンループの調合・納品ロジック（`AlchemySystem`/`GuildSystem`）をそのまま再利用する**設計とする（🔵2026-08-04ヒアリングで確定。以前は骨子のみの設計だったが、本改訂で試験ロジック自体を確定した）。
 
 ### クラス図
 
 ```mermaid
 classDiagram
-    class RankHpResolver {
+    class RankQuotaResolver {
         <<static>>
-        +apply_contribution(current_hp: float, contribution: float) float
-        +is_rank_cleared(current_hp: float) bool
+        +apply_contribution(current_quota: float, contribution: float) float
+        +is_rank_cleared(current_quota: float) bool
         +reset_for_retry(rank_master: RankMaster) RankState
     }
     class TurnLimitResolver {
         <<static>>
         +is_turn_limit_reached(current_turn: int, limit_turn: int) bool
-        +resolve_rank_outcome(hp_cleared: bool, turn_limit_reached: bool) RankOutcome
+        +resolve_rank_outcome(quota_cleared: bool, turn_limit_reached: bool) RankOutcome
     }
     class PromotionExamResolver {
         <<static>>
@@ -271,8 +271,8 @@ classDiagram
         +resolve_outcome(exam_state: ExamState) ExamOutcome
     }
     class ExamState {
-        +exam_hp: float
-        +exam_hp_max: float
+        +exam_quota: float
+        +exam_quota_max: float
         +exam_elapsed_turn: int
         +exam_turn_limit: int
     }
@@ -299,29 +299,31 @@ classDiagram
 
 | メソッド名 | 引数 | 戻り値 | 説明 |
 |-----------|------|--------|------|
-| `RankHpResolver.apply_contribution` | `current_hp: float, contribution: float` | `float` | `max(0.0, current_hp - contribution)`（🔵要件定義書§4「ギルドランク（敵）」の「0未満にはならず0でクランプ。オーバーキル分は切り捨て」） |
-| `RankHpResolver.is_rank_cleared` | `current_hp: float` | `bool` | `current_hp <= 0.0` |
-| `RankHpResolver.reset_for_retry` | `rank_master: RankMaster` | `RankState` | `rank_hp = rank_master.max_hp`、`elapsed_turn = 0`で初期化した`RankState`を返す（🔵2026-08-05追加、PRレビューCritical#3対応。降格して同一ランクに再挑戦する際に呼ぶ。庭・在庫・ゴールド・恒久投資は引き継ぐためこの関数の対象外。要件定義書§2「降格時のリセット規定」参照） |
+| `RankQuotaResolver.apply_contribution` | `current_quota: float, contribution: float` | `float` | `max(0.0, current_quota - contribution)`（🔵要件定義書§4「ギルドランク（審査基準）」の「0未満にはならず0でクランプ。超過分は切り捨て」） |
+| `RankQuotaResolver.is_rank_cleared` | `current_quota: float` | `bool` | `current_quota <= 0.0` |
+| `RankQuotaResolver.reset_for_retry` | `rank_master: RankMaster` | `RankState` | `quota = rank_master.quota_max`、`elapsed_turn = 0`で初期化した`RankState`を返す（🔵2026-08-05追加、PRレビューCritical#3対応。降格して同一ランクに再挑戦する際に呼ぶ。庭・在庫・ゴールド・恒久投資は引き継ぐためこの関数の対象外。要件定義書§2「降格時のリセット規定」参照） |
 | `TurnLimitResolver.is_turn_limit_reached` | `current_turn, limit_turn: int` | `bool` | `current_turn >= limit_turn`（`limit_turn`は🟡TBD、要件定義書§7） |
-| `TurnLimitResolver.resolve_rank_outcome` | `hp_cleared: bool, turn_limit_reached: bool` | `RankOutcome` | **制限ターン到達時にのみ**判定する（`turn_limit_reached`が偽なら常に`CONTINUE`）。到達時、HP0なら`PROMOTION_ELIGIBLE`、0でなければ`DEMOTION`を返す（🔵要件定義書§2「勝敗条件」。2026-08-05ヒアリングで「ランクHPが制限ターンより先に0になっても試験への移行は制限ターン到達まで待つ」ことを明記。それまでの残りターンは通常プレイを継続できる意図的な早期クリアボーナスとする） |
-| `PromotionExamResolver.start_exam` | `rank_master: RankMaster` | `ExamState` | `exam_hp = exam_hp_max = (rank_master.max_hp / rank_master.limit_turn) * rank_master.exam_turn_limit * rank_master.exam_difficulty_coefficient`（🔵2026-08-05修正、PRレビューCritical#5対応。旧式`max_hp × 倍率`は試験制限ターンが1〜2ターンしかないため要求貢献度が通常ランクの約20倍になり成立しなかった。新式は「当該ランクの1手あたり期待貢献度 × 試験制限ターン数 × 難度係数」で、係数`exam_difficulty_coefficient`のみ🟡TBD）、`exam_turn_limit = rank_master.exam_turn_limit`（🟡TBD、仮1〜2ターン）で初期化する |
+| `TurnLimitResolver.resolve_rank_outcome` | `quota_cleared: bool, turn_limit_reached: bool` | `RankOutcome` | **制限ターン到達時にのみ**判定する（`turn_limit_reached`が偽なら常に`CONTINUE`）。到達時、ノルマ0なら`PROMOTION_ELIGIBLE`、0でなければ`DEMOTION`を返す（🔵要件定義書§2「勝敗条件」。2026-08-05ヒアリングで「ランクノルマが制限ターンより先に0になっても試験への移行は制限ターン到達まで待つ」ことを明記。それまでの残りターンは通常プレイを継続できる意図的な早期クリアボーナスとする） |
+| `PromotionExamResolver.start_exam` | `rank_master: RankMaster` | `ExamState` | `exam_quota = exam_quota_max = (rank_master.quota_max / rank_master.limit_turn) * rank_master.exam_turn_limit * rank_master.exam_difficulty_coefficient`（🔵2026-08-05修正、PRレビューCritical#5対応。旧式`quota_max × 倍率`は試験制限ターンが1〜2ターンしかないため要求貢献度が通常ランクの約20倍になり成立しなかった。新式は「当該ランクの1手あたり期待貢献度 × 試験制限ターン数 × 難度係数」で、係数`exam_difficulty_coefficient`のみ🟡TBD）、`exam_turn_limit = rank_master.exam_turn_limit`（🟡TBD、仮1〜2ターン）で初期化する |
 | `PromotionExamResolver.advance_turn` | `exam_state: ExamState` | `ExamState` | `exam_elapsed_turn`を+1した新しい`ExamState`を返す（🔵2026-08-05追加、PRレビューCritical#10対応。調合を実行せずにターンだけ進める操作用。在庫や解禁レシピが尽きて調合できない場合の脱出手段として、UI側に「ターンを進める」ボタンを用意する。[`ui-design/screens/promotion-exam.md`](./ui-design/screens/promotion-exam.md) 参照） |
-| `PromotionExamResolver.resolve_outcome` | `exam_state: ExamState` | `ExamOutcome` | `exam_hp <= 0` なら`SUCCESS`。`exam_elapsed_turn >= exam_turn_limit` かつ `exam_hp > 0` なら`FAILURE`。それ以外は`CONTINUE`（試験続行）。`advance_turn`のみでもこの判定に到達できる |
+| `PromotionExamResolver.resolve_outcome` | `exam_state: ExamState` | `ExamOutcome` | `exam_quota <= 0` なら`SUCCESS`。`exam_elapsed_turn >= exam_turn_limit` かつ `exam_quota > 0` なら`FAILURE`。それ以外は`CONTINUE`（試験続行）。`advance_turn`のみでもこの判定に到達できる |
+
+🔴 **2026-08-06修正（世界観整合性の見直し）**: `RankHpResolver`は`RankQuotaResolver`に、`exam_hp`/`exam_hp_max`は`exam_quota`/`exam_quota_max`に、`RankMaster.max_hp`は`quota_max`にそれぞれ改名した。「HP」「オーバーキル」はゲーム的には自然だが、ギルドの認定制度という世界観に合わないため「ノルマ」「超過分」に統一した（要件定義書§4「ギルドランク（審査基準）」参照）。計算ロジック自体（`max(0, 残量 - 貢献度)`のクランプ処理）は変更していない。
 
 ### 昇格試験の詳細設計（🔵2026-08-04ヒアリングで確定）
 
-昇格試験は「通常のギルドランクループを、庭なし・専用HP・超短期ターンに圧縮した一発勝負」として設計する。新規のゲームメカニクスを発明せず、既存の`AlchemySystem`（レシピ選択・投入枠・品質計算・特性発現）と`GuildSystem`（納品決算）をそのまま呼び出す。
+昇格試験は「通常のギルドランクループを、庭なし・専用ノルマ・超短期ターンに圧縮した一発勝負」として設計する。新規のゲームメカニクスを発明せず、既存の`AlchemySystem`（レシピ選択・投入枠・品質計算・特性発現）と`GuildSystem`（納品決算）をそのまま呼び出す。
 
-- **発生条件**: `TurnLimitResolver.resolve_rank_outcome` が `PROMOTION_ELIGIBLE` を返した時点（制限ターン到達時点でランクHPが0の場合のみ。§2「勝敗条件」参照）で、通常ターンループから離脱し `PromotionExamScene` へ遷移し、`PromotionExamResolver.start_exam` で`ExamState`を生成する（[`dataflow.md`](./dataflow.md) 参照）
+- **発生条件**: `TurnLimitResolver.resolve_rank_outcome` が `PROMOTION_ELIGIBLE` を返した時点（制限ターン到達時点でランクノルマが0の場合のみ。§2「勝敗条件」参照）で、通常ターンループから離脱し `PromotionExamScene` へ遷移し、`PromotionExamResolver.start_exam` で`ExamState`を生成する（[`dataflow.md`](./dataflow.md) 参照）
 - **庭は使用不可**: 試験中は`GardenSystem`を呼び出さない（新規の種植え・収穫ができない）。プレイヤーはランク到達時点までに貯めた在庫のみで挑む（🔵要件定義書§3「昇格試験」参照）
 - **調合・納品は通常と同一操作**: `AlchemySystem`のレシピ選択→投入枠→`SlotState.can_execute()`→`QualityCalculator`→`TraitActivation`→`ProductValueCalculator`→`DeliveryResolver`の流れをそのまま呼び出す
 - **日替わり指定調合物ボーナスは適用しない**: `GuildSystem.DeliveryResolver.resolve`を呼ぶ際、`daily_order`に`null`を渡す。`matches_order`は`null`を渡された場合`false`を返す契約になっている（🔵GuildSystem節「主要メソッド」参照）
 - **報酬（ゴールド）は通常どおり獲得する**: `DeliveryResolver.resolve`が返す`final_reward`は試験中も通常どおり`GameState.player.gold`に加算する（🔵2026-08-05ヒアリングで確定。指定合致ボーナスのみ試験中は常に不適用になるが、報酬系特性のボーナス自体は`ProductValueCalculator.calculate_reward`の時点で通常どおり計算される）
-- **試験HPへの反映**: `DeliveryResolver.resolve`から得られた`final_contribution`を、通常の`RankHpResolver.apply_contribution`と同じクランプロジック（`max(0, hp - contribution)`）で`ExamState.exam_hp`に適用する。実装上は`RankHpResolver.apply_contribution`をそのまま呼び出せる（HPの入れ物が`RankState`か`ExamState`かの違いのみ）
+- **試験ノルマへの反映**: `DeliveryResolver.resolve`から得られた`final_contribution`を、通常の`RankQuotaResolver.apply_contribution`と同じクランプロジック（`max(0, 残量 - contribution)`）で`ExamState.exam_quota`に適用する。実装上は`RankQuotaResolver.apply_contribution`をそのまま呼び出せる（ノルマの入れ物が`RankState`か`ExamState`かの違いのみ）
 - **ターン進行**: 調合を実行した場合はその処理の一部として、実行しなかった場合は`PromotionExamResolver.advance_turn`の呼び出しによって`exam_elapsed_turn`を+1する。**「ターンを進める」操作は調合実行なしでも常に選択できる**（🔵2026-08-05修正、PRレビューCritical#10対応。旧版は調合実行時にしかターンが進まず、在庫や解禁レシピが尽きた状態で試験に入るとデッドロックした）
 - **結果の扱い**:
   - `ExamOutcome.SUCCESS` → 次ランクへ昇格し、`WorkshopScreen`（恒久投資選択、購入は任意）へ遷移。降格回数カウンタ（`GameState.player.demotion_count`）を0にリセットする（🔵2026-08-05追加、PRレビューCritical#3対応）
-  - `ExamOutcome.FAILURE` → 同ランクに留まって再挑戦（「降格」）。降格回数カウンタを+1し、規定回数（🟡TBD、仮3回）に達していればゲームオーバー。再挑戦するランクの状態は`RankHpResolver.reset_for_retry`でリセットする（🔵2026-08-05追加、PRレビューCritical#3対応）
+  - `ExamOutcome.FAILURE` → 同ランクに留まって再挑戦（「降格」）。降格回数カウンタを+1し、規定回数（🟡TBD、仮3回）に達していればゲームオーバー。再挑戦するランクの状態は`RankQuotaResolver.reset_for_retry`でリセットする（🔵2026-08-05追加、PRレビューCritical#3対応）
 
 ---
 

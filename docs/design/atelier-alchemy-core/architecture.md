@@ -7,7 +7,7 @@
 
 ## システム概要
 
-「Atelier」は、庭（仕込み層）→調合（主戦場）→ギルド納品（決算）の三段構成で進行するデッキ・リソース管理RPG。プレイヤーは品質と特性を持つ素材を庭で仕込み、調合台の投入枠（4枠）で「品質を盛るか特性を宿すか」のトレードオフをしながら調合物を作り、ギルドへ自動納品してランク（＝敵）のHPを削っていく。詳細なゲームルールは[`game-mechanics.md`](./game-mechanics.md)を参照。
+「Atelier」は、庭（仕込み層）→調合（主戦場）→ギルド納品（決算）の三段構成で進行するデッキ・リソース管理RPG。プレイヤーは品質と特性を持つ素材を庭で仕込み、調合台の投入枠（4枠）で「品質を盛るか特性を宿すか」のトレードオフをしながら調合物を作り、ギルドへ自動納品してランクのノルマをこなしていく。詳細なゲームルールは[`game-mechanics.md`](./game-mechanics.md)を参照。
 
 ## アーキテクチャパターン
 
@@ -149,7 +149,7 @@ Godotでは「シーン」がPhaserの`Scene`に相当するが、本ゲーム�
 |---|---|---|
 | **BootScene** (`boot.tscn`) | 初期化。マスターデータ（`.tres`）の事前ロード確認 | `preload`/`load`によるResource読み込み |
 | **MainScene** (`main.tscn`) | 常駐シーン。以下の画面をすべて子`Control`として保持し、表示切替で画面遷移を表現 | `GardenScreen` / `AlchemyScreen` / `GuildDeliveryScreen` / `WorkshopScreen` / `RankHud`（常時表示） |
-| **PromotionExamScene** | 昇格試験専用の特殊局面。庭なし・専用試験HP・超短期ターンで通常の調合/納品ループを流用する（🔵2026-08-04ヒアリングで確定） | [`core-systems.md`](./core-systems.md) RankSystem節・[`game-mechanics.md`](./game-mechanics.md) 参照。数値（試験HP倍率等）は🟡TBD |
+| **PromotionExamScene** | 昇格試験専用の特殊局面。庭なし・専用試験ノルマ・超短期ターンで通常の調合/納品ループを流用する（🔵2026-08-04ヒアリングで確定） | [`core-systems.md`](./core-systems.md) RankSystem節・[`game-mechanics.md`](./game-mechanics.md) 参照。数値（試験ノルマ難度係数等）は🟡TBD |
 | **ResultScene** (`result.tscn`) | ゲームクリア（Sランク昇格試験成功）／ゲームオーバー（規定回数降格）時の終了画面 | スコア表示のみ（詳細🟡TBD） |
 
 🟡 要件定義書はタイトル画面・設定画面・セーブロード画面を明示的にスコープ外としている（`CLAUDE.md`「技術スタック」節参照。参照元の`design-interview.md`自体は本リポジトリに存在しないため、この決定の一次ソースは要件定義書冒頭の記述のみに依拠する）。本文書ではこれらのシーンを設計しない。
@@ -167,21 +167,25 @@ stateDiagram-v2
         AlchemyScreen --> GardenScreen: 画面タブ切替
         AlchemyScreen --> GuildDeliveryScreen: 調合実行（自動決算）
         GuildDeliveryScreen --> GardenScreen: ターン継続
+        GardenScreen --> WorkshopScreen: ショップアイコン押下（消耗投資、オーバーレイ表示）
+        AlchemyScreen --> WorkshopScreen: ショップアイコン押下（消耗投資、オーバーレイ表示）
+        WorkshopScreen --> GardenScreen: 画面を閉じる（通常アクセス時）
     }
 
-    MainScene --> PromotionExamScene: 制限ターン到達 かつ ランクHP0
+    MainScene --> PromotionExamScene: 制限ターン到達 かつ ランクノルマ0
 
-    PromotionExamScene --> WorkshopScene: 試験成功 かつ 現ランク != S（次ランクへ昇格）
-    PromotionExamScene --> MainScene: 試験失敗（同ランク再挑戦。ランクHP/残りターンをリセット）
+    PromotionExamScene --> MainScene: 試験成功 かつ 現ランク != S（WorkshopScreenを強制表示、恒久投資選択、購入は任意）
+    PromotionExamScene --> MainScene: 試験失敗（同ランク再挑戦。ランクノルマ/残りターンをリセット）
 
     PromotionExamScene --> ResultScene: 試験成功 かつ 現ランク == S
-    WorkshopScene --> MainScene: 恒久投資選択完了（次ランクのターンループ開始）
     MainScene --> ResultScene: 規定回数連続降格（ゲームオーバー）
 
     ResultScene --> [*]
 ```
 
-🔵 **2026-08-05修正（PRレビューCritical#2対応）**: 旧版は `MainScene --> WorkshopScene: ランクHP0到達` → `WorkshopScene --> PromotionExamScene` という、他の全文書（`dataflow.md`／`core-systems.md`／`ui-design/overview.md`）と逆順の経路を含んでおり、同一図内で「制限ターン到達かつHP0で試験へ」という正しい経路と矛盾していた。恒久投資は「ランク間の工房強化画面でのみ」（要件定義書§3）という制約にも反していたため、逆順の2経路を削除し「試験成功→工房強化→次ランクのターンループ」の1本に統一した。Sランク試験成功時は工房強化を経由せず直接`ResultScene`へ遷移する（次ランクが存在せず恒久投資が無意味なため。[`dataflow.md`](./dataflow.md) 参照）。
+🔵 **2026-08-05修正（PRレビューCritical#2対応）**: 旧版は `MainScene --> WorkshopScene: ランクノルマ0到達` → `WorkshopScene --> PromotionExamScene` という、他の全文書（`dataflow.md`／`core-systems.md`／`ui-design/overview.md`）と逆順の経路を含んでおり、同一図内で「制限ターン到達かつノルマ0で試験へ」という正しい経路と矛盾していた。
+
+🔴 **2026-08-06修正（実装レディネス監査対応）**: 上記2026-08-05修正時点でも、`WorkshopScene`を`PromotionExamScene`からのみ到達可能な独立トップレベルstateとして描いており、本文書「シーン構成」表が`WorkshopScreen`を**MainSceneの子Control**（`GardenScreen`等と同格）と明記していることと矛盾していた。また`ui-design/overview.md`の画面遷移図が定義する「庭/調合画面からショップへいつでも行ける」経路（消耗投資はターン中いつでも購入可能、要件定義書§3参照）の実体もこの図から欠落していた。`WorkshopScreen`を`MainScene`のcomposite state内に子として再配置し、`GardenScreen`/`AlchemyScreen`からのオーバーレイ遷移を追加した。昇格試験成功後の強制表示（恒久投資選択）は、シーン遷移ではなく`MainScene`復帰時に`WorkshopScreen`を自動的に開く**画面内の状態**として表現する（[`ui-design/screens/workshop-shop.md`](./ui-design/screens/workshop-shop.md) の「通常アクセス状態」「昇格直後の強制表示状態」参照）。
 
 🟡 「画面タブ切替」でGardenScreenとAlchemyScreenを自由に行き来できる設計とした（要件定義書に画面遷移の明示規定がないため）。庭と調合は同一ターン内で何度でも行き来して構わない設計だが、この解釈は要件定義書に明記がなく本文書での推測。異なる場合は要件定義書側の追記が必要。
 
@@ -241,7 +245,8 @@ atelier-godot/
 │   │       └── workshop_screen.gd
 │   └── rank/                    # ランク進行・昇格試験
 │       ├── logic/
-│       │   ├── rank_hp_resolver.gd    # ランクHP減少・0クランプ・再挑戦時リセット
+│       │   ├── rank_quota_resolver.gd # ランクノルマ減少・0クランプ・再挑戦時リセット
+│       │   ├── turn_limit_resolver.gd # 制限ターン到達判定（🔴2026-08-06追加、旧版はcore-systems.mdのクラス図にのみ存在しディレクトリ構造案に配置漏れがあった）
 │       │   └── promotion_exam_resolver.gd  # ExamState管理・AlchemySystem/GuildSystemを流用（🔵確定、数値は🟡TBD）
 │       ├── state/
 │       │   ├── rank_state.gd          # class_name RankState extends RefCounted
@@ -249,7 +254,7 @@ atelier-godot/
 │       ├── resources/
 │       │   └── rank_master.gd         # class_name RankMaster extends Resource
 │       └── ui/
-│           ├── rank_hud.gd            # 常時表示のランクHPバー等
+│           ├── rank_hud.gd            # 常時表示のランクノルマバー等
 │           └── promotion_exam_screen.tscn/gd  # alchemy_screen.tscnのUIをほぼ再利用
 ├── shared/
 │   ├── constants/

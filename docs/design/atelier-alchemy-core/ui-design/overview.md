@@ -15,7 +15,7 @@
 | SCR-002 | 調合画面 | 投入枠への素材配置・調合実行（★核心） | [alchemy.md](screens/alchemy.md) |
 | SCR-003 | ギルド納品画面 | 自動決算の結果確認（操作なし） | [guild-delivery.md](screens/guild-delivery.md) |
 | SCR-004 | 工房強化・ショップ画面 | 恒久投資/消耗投資の購入 | [workshop-shop.md](screens/workshop-shop.md) |
-| SCR-005 | 昇格試験画面 | ランク到達時の特殊局面。庭なし・専用試験HP・超短期ターンで調合画面をほぼ流用（🔵2026-08-04確定、数値は🟡TBD） | [promotion-exam.md](screens/promotion-exam.md) |
+| SCR-005 | 昇格試験画面 | ランク到達時の特殊局面。庭なし・専用試験ノルマ・超短期ターンで調合画面をほぼ流用（🔵2026-08-04確定、数値は🟡TBD） | [promotion-exam.md](screens/promotion-exam.md) |
 | SCR-006 | 結果画面（ゲームクリア/ゲームオーバー） | Sランク昇格試験成功、または規定回数連続降格時の終了画面 | 🔴2026-08-05追加、PRレビューWarning対応。旧版は`architecture.md`の`ResultScene`定義と画面一覧が不整合だった。詳細設計は未作成（🟡TBD） |
 
 ## 画面遷移図
@@ -30,7 +30,7 @@ stateDiagram-v2
     SCR_001_Garden --> SCR_004_Workshop: ショップアイコン押下（消耗投資はターン中いつでも）
     SCR_002_Alchemy --> SCR_004_Workshop: ショップアイコン押下
     SCR_004_Workshop --> SCR_001_Garden: 画面を閉じる
-    SCR_001_Garden --> SCR_005_PromotionExam: 制限ターン到達+ランクHP0
+    SCR_001_Garden --> SCR_005_PromotionExam: 制限ターン到達+ランクノルマ0
     SCR_005_PromotionExam --> SCR_004_Workshop: 試験成功 かつ 現ランク != S（工房強化画面を自動表示、購入は任意）
     SCR_005_PromotionExam --> SCR_006_Result: 試験成功 かつ 現ランク == S（ゲームクリア）
     SCR_005_PromotionExam --> SCR_001_Garden: 試験失敗（降格・同ランク再挑戦）
@@ -42,6 +42,17 @@ stateDiagram-v2
 🟡 「庭画面⇔調合画面」をタブで自由行き来できる設計、および「ギルド納品画面」を調合実行後に挟む（自動決算だが一瞬結果を見せる）設計は、要件定義書に画面遷移の明示規定がないための本文書での提案（[`architecture.md`](../architecture.md) のシーン遷移図と同一方針）。
 
 ## 共通UIコンポーネント
+
+### RankHud（全画面共通、常時表示）
+
+🔴2026-08-06追加、実装レディネス監査対応。旧版はRankHudの構成要素が独立して定義されておらず、所持ゴールドの表示要素がworkshop-shop.mdの`txt-gold`にしか存在しなかった。RankHudは以下を常時表示する共通コンポーネントとして定義する。
+
+| 要素ID | 内容 |
+|--------|------|
+| txt-rank-name | 現在ランク（G〜S） |
+| bar-rank-quota | ランクノルマバー |
+| txt-turn-remaining | 残りターン数（`rank_state.limit_turn - rank_state.elapsed_turn`） |
+| txt-gold | 所持ゴールド（`player.gold`）。ショップ画面固有ではなく全画面共通表示とする |
 
 ### ボタン
 

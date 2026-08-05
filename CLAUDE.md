@@ -14,7 +14,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 詳細: [`docs/concept/atelier-concept.md`](docs/concept/atelier-concept.md)
 
-錬金術師が庭で品質・特性を持つ素材を仕込み、調合台の投入枠（4枠）で「品質を盛るか特性を宿すか」のトレードオフをしながら狙った調合物を作り、ギルドに自動納品してランク（＝敵）のHPを削っていくデッキ・リソース管理RPG。
+錬金術師が庭で品質・特性を持つ素材を仕込み、調合台の投入枠（4枠）で「品質を盛るか特性を宿すか」のトレードオフをしながら狙った調合物を作り、ギルドに自動納品してランクのノルマをこなしていくデッキ・リソース管理RPG。
 
 - **庭（仕込み層・戦略）→ 調合（主戦場・戦術、★ゲームの核心）→ ギルド納品（決算・自動）** の三段構成
 - 特性は「貢献度向き／報酬向き」に二分され、庭で何を仕込むかの時点から先行投資として分岐する（真のトレードオフ）
@@ -59,7 +59,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```
 庭（仕込み・戦略層） → 調合（★核心：品質 vs 特性のトレードオフ） → ギルド納品（自動決算）
                                                                        ↓
-                                                          ランクHP 0 → 昇格試験 → 工房強化（恒久投資）
+                                                          ランクノルマ 0 → 昇格試験 → 工房強化（恒久投資）
 ```
 
 ## ドキュメントマップ
@@ -80,7 +80,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | `docs/design/atelier-alchemy-core/prototype-validation-report.md` | 1画面プロトタイプの検証記録 | **存在しない**（過去の記載は誤りだった。別環境の作業記録が混入していたと推測される） |
 | `docs/tasks/atelier-alchemy-core/` | タスク一覧 | **未作成** |
 
-> 昇格試験（ランク到達時の一発勝負の特殊局面）は、2026-08-04の追加ヒアリングで「通常ターンループの調合・納品を、庭なし・専用試験HP・超短期ターン・指定調合物ボーナスなしで流用する」設計として確定した（[`core-systems.md`](docs/design/atelier-alchemy-core/core-systems.md) RankSystem節参照）。残る未確定事項は試験HP倍率・制限ターン数などの具体数値のみ（[`balance-design.md`](docs/design/atelier-alchemy-core/balance-design.md) 参照）。
+> 昇格試験（ランク到達時の一発勝負の特殊局面）は、2026-08-04の追加ヒアリングで「通常ターンループの調合・納品を、庭なし・専用試験ノルマ・超短期ターン・指定調合物ボーナスなしで流用する」設計として確定した（[`core-systems.md`](docs/design/atelier-alchemy-core/core-systems.md) RankSystem節参照）。残る未確定事項は試験ノルマ難度係数・制限ターン数などの具体数値のみ（[`balance-design.md`](docs/design/atelier-alchemy-core/balance-design.md) 参照）。「HP」表記は2026-08-06にギルドの世界観に合わせて「ノルマ」へ全面改称した。
 
 ## 次のステップ（実装着手前に必要な作業）
 
