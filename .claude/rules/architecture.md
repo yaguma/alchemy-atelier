@@ -27,7 +27,7 @@
 ### ディレクトリ構成
 
 ```
-atelier-godot/
+atelier-alchemy/
 ├── project.godot
 ├── autoload/                    # Application層（シングルトンNode）
 │   ├── game_state.gd            # GameState Autoload（状態の一元管理）

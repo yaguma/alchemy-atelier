@@ -18,15 +18,15 @@ Bashツールの作業ディレクトリは呼び出し間で永続化される�
 
 ```bash
 # NG: 毎回cdを繰り返す
-cd atelier-godot && godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/
-cd atelier-godot && gdlint features/
-cd atelier-godot && godot --headless --export-release "Windows Desktop" build/atelier.exe
+cd atelier-alchemy && godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/
+cd atelier-alchemy && gdlint features/
+cd atelier-alchemy && godot --headless --export-release "Windows Desktop" build/atelier.exe
 
 # OK: --pathを活用
-godot --headless --path atelier-godot -s addons/gut/gut_cmdln.gd -gdir=res://tests/
+godot --headless --path atelier-alchemy -s addons/gut/gut_cmdln.gd -gdir=res://tests/
 
 # OK: 最初の1回だけcd（以降は不要）
-cd atelier-godot
+cd atelier-alchemy
 # 次のBash呼び出しではcdなしで実行可能
 godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/
 ```
@@ -83,9 +83,9 @@ cmd1 && cmd2 && cmd3 && cmd4 && cmd5 && cmd6 && cmd7 && cmd8 && cmd9 && cmd10
 
 ```bash
 # NG: 全並列呼び出しで同じcdを繰り返す
-# 呼び出し1: cd atelier-godot && godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/
-# 呼び出し2: cd atelier-godot && gdlint features/
-# 呼び出し3: cd atelier-godot && gdformat --check features/
+# 呼び出し1: cd atelier-alchemy && godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/
+# 呼び出し2: cd atelier-alchemy && gdlint features/
+# 呼び出し3: cd atelier-alchemy && gdformat --check features/
 
 # OK: cdなしで直接実行（作業ディレクトリが既に正しい場合）
 # 呼び出し1: godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/
@@ -118,16 +118,16 @@ gh issue create ... && gh issue create ... && gh issue create ... && ...
 
 ## Godot / GUT 実行ルール
 
-本プロジェクトは`atelier-godot/`配下に単一のGodotプロジェクトを持つ構成（モノレポではない）。コマンドはリポジトリルートまたは`atelier-godot/`のいずれからでも、`--path`指定で絶対パスを渡すのが安全。
+本プロジェクトは`atelier-alchemy/`配下に単一のGodotプロジェクトを持つ構成（モノレポではない）。コマンドはリポジトリルートまたは`atelier-alchemy/`のいずれからでも、`--path`指定で絶対パスを渡すのが安全。
 
 ### 原則: `--path`で対象プロジェクトを明示する
 
 ```bash
 # OK: --pathでプロジェクトディレクトリを明示（cd不要）
-godot --headless --path atelier-godot -s addons/gut/gut_cmdln.gd -gdir=res://tests/
+godot --headless --path atelier-alchemy -s addons/gut/gut_cmdln.gd -gdir=res://tests/
 
 # OK: 最初の1回だけcd（以降は不要）
-cd atelier-godot
+cd atelier-alchemy
 # 次のBash呼び出しではcdなしで実行可能
 godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/
 ```
@@ -136,18 +136,18 @@ godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/
 
 | コマンド | 内容 |
 |---------|------|
-| `godot --path atelier-godot` | エディタをGUIで起動（対話操作、調査用。[`godot-debug-tools.md`](./godot-debug-tools.md)参照） |
-| `godot --headless --path atelier-godot -s addons/gut/gut_cmdln.gd -gdir=res://tests/` | 全GUTテストをヘッドレス実行 |
-| `godot --headless --path atelier-godot -s addons/gut/gut_cmdln.gd -gtest=res://tests/unit/features/{feature}/test_{file}.gd` | 特定テストファイルのみ実行 |
-| `gdlint atelier-godot/features/ atelier-godot/shared/ atelier-godot/autoload/` | 静的解析（gdtoolkit） |
-| `gdformat atelier-godot/features/ atelier-godot/shared/ atelier-godot/autoload/` | 自動フォーマット |
-| `godot --headless --path atelier-godot --export-release "<preset>" <output>` | エクスポートビルド（プリセット名は実装着手時に確定） |
+| `godot --path atelier-alchemy` | エディタをGUIで起動（対話操作、調査用。[`godot-debug-tools.md`](./godot-debug-tools.md)参照） |
+| `godot --headless --path atelier-alchemy -s addons/gut/gut_cmdln.gd -gdir=res://tests/` | 全GUTテストをヘッドレス実行 |
+| `godot --headless --path atelier-alchemy -s addons/gut/gut_cmdln.gd -gtest=res://tests/unit/features/{feature}/test_{file}.gd` | 特定テストファイルのみ実行 |
+| `gdlint atelier-alchemy/features/ atelier-alchemy/shared/ atelier-alchemy/autoload/` | 静的解析（gdtoolkit） |
+| `gdformat atelier-alchemy/features/ atelier-alchemy/shared/ atelier-alchemy/autoload/` | 自動フォーマット |
+| `godot --headless --path atelier-alchemy --export-release "<preset>" <output>` | エクスポートビルド（プリセット名は実装着手時に確定） |
 
 具体的なCLIオプション・GUTアドオンのインストール手順は実装着手時に確定する（🟡TBD、[`docs/design/atelier-alchemy-core/architecture.md`](../../docs/design/atelier-alchemy-core/architecture.md)「テスト運用規約」参照）。
 
 ### サブディレクトリでの直接実行が許される場合
 
-- デバッグ目的で一時的に`atelier-godot/`に`cd`して実行する場合
+- デバッグ目的で一時的に`atelier-alchemy/`に`cd`して実行する場合
 
 ---
 
@@ -159,10 +159,10 @@ devサーバーなど終了しないプロセスは `run_in_background: true` �
 
 ```bash
 # OK: バックグラウンドで起動
-godot --path atelier-godot  # run_in_background: true を設定（エディタ/実機プレイの起動）
+godot --path atelier-alchemy  # run_in_background: true を設定（エディタ/実機プレイの起動）
 
 # NG: フォアグラウンドで起動（タイムアウトする）
-godot --path atelier-godot
+godot --path atelier-alchemy
 ```
 
 ### タイムアウト設定
