@@ -1,5 +1,7 @@
 # セキュリティルール
 
+> 🔴 2026-08-06改訂: 技術スタックがGodot 4.x + GDScriptに確定済み（`CLAUDE.md`参照）のため、Web前提（localStorage/XSS/.env等）の記述をGodotのオフライン単体デスクトップアプリという文脈に合わせて調整した。本ゲームはオフライン・シングルプレイでネットワーク通信を行わないため、Web版で重要だった項目の多くは**現状該当性が低い**。将来オンライン機能（ランキング等）やセーブ/ロード機能（現行スコープ外、`CLAUDE.md`参照）を追加する場合に備えて指針を残す。
+
 ## 基本原則
 
 - すべての外部入力を検証
@@ -8,120 +10,97 @@
 
 ---
 
-## クライアントサイドセキュリティ
+## セーブデータの検証（🟡将来のセーブ/ロード機能追加時に適用。現行スコープ外）
 
-### ローカルストレージ
+セーブ/ロード機能は現時点で設計スコープ外（`CLAUDE.md`参照）だが、将来追加する場合は以下の方針を踏襲する。Godotでは`user://`ディレクトリへの`FileAccess`書き込みがブラウザの`localStorage`に相当する。
 
-```typescript
-// NG: 機密情報を平文で保存
-localStorage.setItem('apiKey', apiKey);
+```gdscript
+# セーブデータ読み込み時は必ず検証する
+func load_save_data() -> Dictionary:
+	if not FileAccess.file_exists("user://save_data.json"):
+		return {}
 
-// OK: 機密情報はサーバーサイドで管理
-// または必要最小限の非機密データのみ保存
-localStorage.setItem('settings', JSON.stringify(userSettings));
-```
+	var file := FileAccess.open("user://save_data.json", FileAccess.READ)
+	var raw := file.get_as_text()
+	var json := JSON.new()
+	if json.parse(raw) != OK:
+		push_warning("Failed to parse save data")
+		return {}
 
-### セーブデータの検証
+	var data: Variant = json.data
+	if not _is_valid_save_data(data):
+		push_warning("Invalid save data format")
+		return {}
+	return data
 
-```typescript
-// セーブデータ読み込み時は必ず検証
-function loadSaveData(): SaveData | null {
-  const raw = localStorage.getItem('saveData');
-  if (!raw) return null;
-
-  try {
-    const data = JSON.parse(raw);
-    // スキーマ検証
-    if (!isValidSaveData(data)) {
-      console.warn('Invalid save data format');
-      return null;
-    }
-    return data;
-  } catch {
-    console.warn('Failed to parse save data');
-    return null;
-  }
-}
-
-// 型ガードで検証
-function isValidSaveData(data: unknown): data is SaveData {
-  if (typeof data !== 'object' || data === null) return false;
-  const d = data as Record<string, unknown>;
-  return (
-    typeof d.version === 'number' &&
-    typeof d.gold === 'number' &&
-    d.gold >= 0 &&
-    Array.isArray(d.inventory)
-  );
-}
+# 型ガードで検証する
+func _is_valid_save_data(data: Variant) -> bool:
+	if not (data is Dictionary):
+		return false
+	var d: Dictionary = data
+	return (
+		d.get("version") is int
+		and d.get("gold") is int
+		and d.gold >= 0
+		and d.get("inventory") is Array
+	)
 ```
 
 ---
 
 ## 入力検証
 
-### ユーザー入力
+### ユーザー入力（プレイヤー名等、将来追加する場合）
 
-```typescript
-// 名前入力の例
-function validatePlayerName(name: string): string | null {
-  // 長さチェック
-  if (name.length < 1 || name.length > 20) {
-    return null;
-  }
+```gdscript
+# 名前入力の例
+func validate_player_name(name: String) -> String:
+	# 長さチェック
+	if name.length() < 1 or name.length() > 20:
+		return ""
 
-  // 危険な文字を除去
-  const sanitized = name.replace(/[<>'"&]/g, '');
+	# 危険な文字を除去（GDScriptではDOM挿入がないためXSS目的の除去は不要だが、
+	# 保存データの破損防止・表示崩れ防止のため制御文字は除去する）
+	var sanitized := name.strip_edges()
 
-  // 空になったらエラー
-  if (sanitized.length === 0) {
-    return null;
-  }
+	if sanitized.is_empty():
+		return ""
 
-  return sanitized;
-}
+	return sanitized
 ```
 
 ### 数値入力
 
-```typescript
-// 数値の範囲チェック
-function validateQuantity(value: unknown): number {
-  const num = Number(value);
-  if (Number.isNaN(num) || !Number.isInteger(num)) {
-    return 1; // デフォルト値
-  }
-  return Math.max(1, Math.min(99, num)); // 1-99の範囲に制限
-}
+```gdscript
+# 数値の範囲チェック
+func validate_quantity(value: Variant) -> int:
+	if not (value is int or value is float):
+		return 1  # デフォルト値
+	var num: int = int(value)
+	return clampi(num, 1, 99)  # 1-99の範囲に制限
 ```
 
 ---
 
 ## 機密情報の管理
 
+本ゲームは現状、外部API通信・認証を持たないオフライン単体アプリのため、この節の該当性は低い。将来オンライン機能（ランキング送信等）を追加する場合に適用する。
+
 ### 禁止事項
 
-- APIキー、パスワードをハードコードしない
-- `.env` ファイルをコミットしない
+- APIキー、パスワードをコード・`project.godot`にハードコードしない
+- 機密情報を含む設定ファイルをコミットしない
 - ログに機密情報を出力しない
 - エラーメッセージでシステム内部情報を露出しない
 
-```typescript
-// NG
-const API_KEY = 'sk-1234567890abcdef';
-console.log('User password:', password);
+```gdscript
+# NG
+const API_KEY := "sk-1234567890abcdef"
+print("User password: ", password)
 
-// OK
-const API_KEY = import.meta.env.VITE_API_KEY;
-console.log('Login attempt for user:', username);
-```
-
-### 環境変数
-
-```
-# .env.local（gitignore対象）
-VITE_API_URL=https://api.example.com
-VITE_DEBUG_MODE=true
+# OK（将来オンライン機能を追加する場合）
+var api_key := OS.get_environment("ATELIER_API_KEY")
+print("Login attempt for user: ", username)
 ```
 
 ---
@@ -130,92 +109,65 @@ VITE_DEBUG_MODE=true
 
 ### チート対策の考え方
 
-ローカルゲームでは完全なチート対策は不可能だが、以下を意識。
+ローカル単体ゲームでは完全なチート対策は不可能だが、以下を意識する。
 
-```typescript
-// 重要な計算はサーバーサイドで行う（オンライン機能がある場合）
-// ローカルでは整合性チェックで改ざんを検出
+```gdscript
+# 重要な計算はGameState/Domain層の一貫した経路のみで行う
+# （UIから直接値を書き換えられる経路を作らない。state-management.md参照）
 
-function validateGameState(state: IGameState): boolean {
-  // ゴールドが負になっていないか
-  if (state.gold < 0) return false;
+func validate_game_state(state: Dictionary) -> bool:
+	# ゴールドが負になっていないか
+	if state.gold < 0:
+		return false
 
-  // 所持アイテム数が上限を超えていないか
-  if (state.inventory.length > MAX_INVENTORY_SIZE) return false;
+	# 所持アイテム数が上限を超えていないか
+	if state.inventory.size() > GameBalance.MAX_INVENTORY_SIZE:
+		return false
 
-  // ランクが正しい範囲か
-  if (!Object.values(GuildRank).includes(state.currentRank)) return false;
+	# ランクが正しい範囲か
+	if not GameBalance.VALID_RANKS.has(state.current_rank):
+		return false
 
-  return true;
-}
+	return true
 ```
 
-### セーブデータの改ざん検出
+### セーブデータの改ざん検出（🟡将来のセーブ/ロード機能追加時に適用）
 
-```typescript
-// 簡易チェックサム
-function calculateChecksum(data: SaveData): string {
-  const str = JSON.stringify(data);
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash;
-  }
-  return hash.toString(16);
-}
+```gdscript
+# 簡易チェックサム
+func calculate_checksum(data: Dictionary) -> String:
+	var json_string := JSON.stringify(data)
+	return json_string.sha256_text()
 
-// 保存時
-const checksum = calculateChecksum(saveData);
-localStorage.setItem('saveData', JSON.stringify({ data: saveData, checksum }));
+# 保存時
+func save(data: Dictionary) -> void:
+	var checksum := calculate_checksum(data)
+	var file := FileAccess.open("user://save_data.json", FileAccess.WRITE)
+	file.store_string(JSON.stringify({"data": data, "checksum": checksum}))
 
-// 読み込み時
-const saved = JSON.parse(localStorage.getItem('saveData') || '{}');
-if (calculateChecksum(saved.data) !== saved.checksum) {
-  console.warn('Save data may be corrupted');
-}
+# 読み込み時
+func load_and_verify() -> Dictionary:
+	var loaded := load_save_data()
+	if loaded.is_empty():
+		return {}
+	if calculate_checksum(loaded.data) != loaded.checksum:
+		push_warning("Save data may be corrupted")
+		return {}
+	return loaded.data
 ```
 
 ---
 
-## 依存関係
+## 依存関係（アドオン）
 
-### 定期チェック
+Godotには`pnpm audit`に相当する標準の脆弱性監査ツールはない。アドオン（`addons/`配下、AssetLib経由で導入するもの）追加時は以下を手動確認する。
 
-```bash
-# 脆弱性チェック
-pnpm audit
-
-# 依存関係の更新確認
-pnpm outdated
-```
-
-### 新規依存追加時の確認
+### 新規アドオン追加時の確認
 
 - ライセンス確認（MIT, Apache 2.0等）
-- メンテナンス状況（最終更新日、Issue対応）
-- ダウンロード数・スター数
-- バンドルサイズ
-
----
-
-## XSS対策
-
-### テキスト表示
-
-```typescript
-// Phaserのテキスト表示は基本的にXSS安全
-// ただしHTML要素を使う場合は注意
-
-// NG: innerHTML直接設定
-element.innerHTML = userInput;
-
-// OK: テキストノードとして追加
-element.textContent = userInput;
-
-// Phaserでは問題なし
-this.add.text(x, y, userInput, style);
-```
+- メンテナンス状況（最終更新日、Godotバージョン対応状況）
+- ソースの信頼性（公式AssetLib掲載か、GitHubスター数・Issue対応状況）
+- 実行時に外部通信を行わないか（オフライン単体アプリの前提を崩さないか）
 
 ---
 
@@ -223,25 +175,22 @@ this.add.text(x, y, userInput, style);
 
 ### 情報漏洩防止
 
-```typescript
-// NG: スタックトレースをユーザーに表示
-catch (error) {
-  showMessage(error.stack);
-}
+```gdscript
+# NG: スタックトレース相当の内部情報をユーザーに表示
+func _on_error(error: String) -> void:
+	show_message(error)  # 内部パス等を含む詳細エラーをそのまま表示
 
-// OK: ユーザーには一般的なメッセージ
-catch (error) {
-  console.error('Internal error:', error);
-  showMessage('エラーが発生しました。');
-}
+# OK: ユーザーには一般的なメッセージ、詳細はログのみ
+func _on_error(error: String) -> void:
+	push_error("Internal error: " + error)
+	show_message("エラーが発生しました。")
 ```
 
 ---
 
 ## 禁止事項
 
-- eval()、Function()の使用
-- 動的コード生成
-- 外部スクリプトの動的読み込み
-- 信頼できないURLへのリダイレクト
-- 検証なしでのデータ使用
+- `Expression.execute()`等による未検証の動的コード評価（ユーザー入力を式として実行しない）
+- 実行時の動的スクリプトロード（`load()`/`ResourceLoader.load()`に外部由来の未検証パスを渡さない）
+- ネットワーク機能を追加する場合の、信頼できないURLへの`OS.shell_open()`等でのリダイレクト
+- 検証なしでのセーブデータ・外部入力の使用

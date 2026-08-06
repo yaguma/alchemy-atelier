@@ -1,5 +1,7 @@
 # TDD実装ルール
 
+> 🔴 2026-08-06改訂: 技術スタックがGodot 4.x + GDScriptに確定済み（`CLAUDE.md`参照）のため、本ファイルはVitest前提からGUT（Godot Unit Test）前提に全面書き換えした。
+
 ## 概要
 
 プロジェクト固有のTDD（テスト駆動開発）実装ルールを定義する。
@@ -14,49 +16,55 @@
 #### テストファイル配置
 
 ```
-tests/unit/features/{feature}/{対象サービス名}.test.ts
+tests/unit/features/{feature}/test_{対象サービス名}.gd
 ```
 
-**禁止**: `src/` 配下へのテストファイル配置
+**禁止**: `features/` 配下へのテストファイル配置
 
-#### インポートルール
+#### クラス参照ルール
 
-```typescript
-// エイリアスを使用（必須）
-import { targetFunction } from '@features/{feature}';
-import { SOME_CONFIG } from '@shared/constants';
+```gdscript
+# class_name経由のグローバル参照を使用（GDScriptにはimport文がない）
+extends GutTest
 
-// 相対パスは禁止
-// import { targetFunction } from '../../../src/features/...';  // NG
+func test_基本的な動作を検証する() -> void:
+	var result := QualityCalculator.calculate_quality(_make_materials())
+	assert_eq(result, 3)
+
+# 相対パスpreloadは、class_nameを付けていない補助クラスの参照時のみ使用
+const TestFixtures = preload("res://tests/mocks/fixtures.gd")
 ```
 
-#### describe構造
+#### 内部テストクラスによるグルーピング（`describe`相当）
 
-正常系と異常系を必ず分離する。
+GUTはネストした内部クラス（いずれも`GutTest`を継承）でテストをグルーピングできる。正常系と異常系を必ず分離する。
 
-```typescript
-describe('関数名またはクラス名', () => {
-  // 共通セットアップ
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
+```gdscript
+extends GutTest
 
-  describe('正常系', () => {
-    it('基本的な動作を検証する', () => { /* ... */ });
-    it('別のケースを検証する', () => { /* ... */ });
-  });
+class TestNormalCases:
+	extends GutTest
 
-  describe('異常系', () => {
-    it('無効な入力でエラーを返す', () => { /* ... */ });
-    it('境界値で適切に処理する', () => { /* ... */ });
-  });
-});
+	func test_基本的な動作を検証する() -> void:
+		pass
+
+	func test_別のケースを検証する() -> void:
+		pass
+
+class TestErrorCases:
+	extends GutTest
+
+	func test_無効な入力でエラーを返す() -> void:
+		pass
+
+	func test_境界値で適切に処理する() -> void:
+		pass
 ```
 
 #### 失敗確認コマンド
 
 ```bash
-pnpm test -- --run tests/unit/features/{feature}/{ファイル}.test.ts
+godot --headless -s addons/gut/gut_cmdln.gd -gtest=res://tests/unit/features/{feature}/test_{ファイル}.gd
 ```
 
 テストが**失敗する**ことを必ず確認する。テストが成功してしまう場合はテスト設計を見直す。
@@ -68,7 +76,7 @@ pnpm test -- --run tests/unit/features/{feature}/{ファイル}.test.ts
 #### 実装先
 
 ```
-src/features/{feature}/services/{サービス名}.ts
+features/{feature}/logic/{サービス名}.gd
 ```
 
 #### 純粋関数の原則
@@ -78,19 +86,19 @@ Functional Coreに配置する関数は以下を遵守する:
 - 副作用なし（外部状態の読み取り・変更をしない）
 - 入力のみに依存（引数以外の情報を使わない）
 - 同じ入力に対して常に同じ出力を返す
-- 乱数が必要な場合はシード値を引数で受け取る
+- 乱数が必要な場合は`RngService`が払い出した値を引数で受け取る
 
-```typescript
-// OK: 純粋関数
-export function calculateReward(difficulty: Difficulty, baseGold: number): number {
-  return baseGold * DIFFICULTY_MULTIPLIER[difficulty];
-}
+```gdscript
+# OK: 純粋関数
+class_name RewardCalculator
 
-// NG: 副作用あり
-export function calculateReward(difficulty: Difficulty): number {
-  const baseGold = stateManager.getState().gold;  // 外部状態の参照
-  return baseGold * DIFFICULTY_MULTIPLIER[difficulty];
-}
+static func calculate_reward(difficulty: StringName, base_gold: int) -> int:
+	return base_gold * GameBalance.DIFFICULTY_MULTIPLIER[difficulty]
+
+# NG: 副作用あり
+static func calculate_reward_bad(difficulty: StringName) -> int:
+	var base_gold: int = GameState.get_state().gold  # 外部状態の参照
+	return base_gold * GameBalance.DIFFICULTY_MULTIPLIER[difficulty]
 ```
 
 #### 最小実装の原則
@@ -104,7 +112,7 @@ export function calculateReward(difficulty: Difficulty): number {
 #### 成功確認コマンド
 
 ```bash
-pnpm test -- --run tests/unit/features/{feature}/{ファイル}.test.ts
+godot --headless -s addons/gut/gut_cmdln.gd -gtest=res://tests/unit/features/{feature}/test_{ファイル}.gd
 ```
 
 テストが**成功する**ことを確認する。
@@ -118,7 +126,7 @@ pnpm test -- --run tests/unit/features/{feature}/{ファイル}.test.ts
 リファクタリング中は頻繁にテストを実行し、グリーン状態を維持する。
 
 ```bash
-pnpm test -- --run tests/unit/features/{feature}/
+godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/unit/features/{feature}/
 ```
 
 #### リファクタリング対象
@@ -128,15 +136,15 @@ pnpm test -- --run tests/unit/features/{feature}/
 | 重複排除 | 同じ計算ロジックの関数化 |
 | 命名改善 | 意図が伝わる変数名・関数名に変更 |
 | 関数分割 | 1関数が長い場合にヘルパー関数に分割 |
-| 定数化 | マジックナンバーをGAME_CONFIGに移動 |
-| 型改善 | より厳密な型定義に変更 |
+| 定数化 | マジックナンバーを`GameBalance`に移動 |
+| 型改善 | より厳密な型注釈に変更（`Variant`の排除） |
 
 #### 定数化の判断基準
 
 ```
 その値を変更するとゲームバランスが変わるか？
-  → YES: GAME_CONFIG（src/shared/constants/game-config.ts）
-  → NO: THEME または feature内の定数ファイル
+  → YES: GameBalance（shared/constants/game_balance.gd）
+  → NO: UiTheme または feature内の定数ファイル
 ```
 
 ---
@@ -147,88 +155,72 @@ pnpm test -- --run tests/unit/features/{feature}/
 
 全テストケースでAAA構造を徹底する。
 
-```typescript
-it('報酬が正しく計算される', () => {
-  // Arrange: テストデータの準備
-  const difficulty = QuestDifficulty.C;
-  const baseGold = 100;
+```gdscript
+func test_報酬が正しく計算される() -> void:
+	# Arrange: テストデータの準備
+	var difficulty := &"C"
+	var base_gold := 100
 
-  // Act: テスト対象の実行
-  const result = calculateReward(difficulty, baseGold);
+	# Act: テスト対象の実行
+	var result := RewardCalculator.calculate_reward(difficulty, base_gold)
 
-  // Assert: 結果の検証
-  expect(result).toBe(200);
-});
+	# Assert: 結果の検証
+	assert_eq(result, 200)
 ```
 
-### 境界値テスト
+### 境界値テスト（`use_parameters`）
 
-`it.each` パターンで境界値を網羅する。
+GUTの`use_parameters()`パターンで境界値を網羅する（VitestやJestの`it.each`に相当）。
 
-```typescript
-describe('境界値', () => {
-  it.each([
-    [0, 'C'],       // 最小値
-    [49, 'C'],       // 閾値直前
-    [50, 'B'],       // 閾値
-    [69, 'B'],       // 次の閾値直前
-    [70, 'A'],       // 次の閾値
-    [89, 'A'],       // 最大閾値直前
-    [90, 'S'],       // 最大閾値
-    [100, 'S'],      // 最大値
-  ])('品質%iの場合、グレード%sを返す', (quality, expectedGrade) => {
-    expect(getGradeFromQuality(quality)).toBe(expectedGrade);
-  });
-});
+```gdscript
+func test_品質からグレードを判定する(params = use_parameters([
+	[0, &"C"],   # 最小値
+	[49, &"C"],  # 閾値直前
+	[50, &"B"],  # 閾値
+	[69, &"B"],  # 次の閾値直前
+	[70, &"A"],  # 次の閾値
+	[89, &"A"],  # 最大閾値直前
+	[90, &"S"],  # 最大閾値
+	[100, &"S"], # 最大値
+])) -> void:
+	var quality: int = params[0]
+	var expected: StringName = params[1]
+	assert_eq(GradeResolver.get_grade(quality), expected)
 ```
 
-### モック使用
+### テストダブル（モック）使用
 
-```typescript
-// beforeEachでリセット
-beforeEach(() => {
-  vi.clearAllMocks();
-});
+```gdscript
+func before_each() -> void:
+	gut.p("setup")
 
-// 関数モック
-const mockHandler = vi.fn();
+# ダブル生成（GUTのdouble()でスクリプトの疑似オブジェクトを生成）
+var doubled_rng = double(RngService).new()
 
-// 戻り値の設定
-const mockCalculate = vi.fn().mockReturnValue(100);
-
-// モジュールモック
-vi.mock('@shared/services/EventBus', () => ({
-  createEventBus: vi.fn(() => ({
-    emit: vi.fn(),
-    on: vi.fn(() => vi.fn()),
-  })),
-}));
+func test_乱数結果を差し替えて検証する() -> void:
+	stub(doubled_rng, "roll_quality").to_return(0.9)
+	var result := Harvest.harvest(_plant_state(), doubled_rng.roll_quality(), 0.5)
+	assert_true(result.success)
 ```
+
+Domain層（`logic/*.gd`）は乱数値を**引数で直接受け取る**設計のため、単体テストでは`double()`は基本不要（値をそのまま渡せばよい）。`double()`が必要になるのは、Application層（Autoload）の統合テストで`RngService`そのものを差し替える場合に限られる。
 
 ---
 
 ## サイクル完了後の作業
 
-### 公開APIの更新
+### クラス参照の確認
 
-`src/features/{feature}/index.ts` に新しいエクスポートを追加する。
-
-```typescript
-// 新しい関数を追加
-export { newFunction } from './services/new-service';
-
-// 新しい型を追加
-export type { NewType } from './types/new-type';
-```
+GDScriptには`index.ts`のような明示的な公開APIファイルはない。新規クラスが`class_name`を持ち、プロジェクト全体からグローバル解決可能であることをGodotエディタの「スクリプトにエラーがないこと」で確認する。
 
 ### 全体確認
 
 ```bash
 # 全テスト
-pnpm test -- --run
+godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/
 
-# 型チェック
-pnpm typecheck
+# gdlint（静的解析。型の欠落やスタイル違反を検出）
+gdlint features/ shared/ autoload/
 ```
 
 ---
@@ -237,13 +229,15 @@ pnpm typecheck
 
 | 領域 | 目標 |
 |------|------|
-| Functional Core（services/） | 90%+ |
+| Functional Core（`logic/`） | 90%+ |
 | 全体 | 80%+ |
+
+GDScript/GUTには標準のカバレッジ計測機構がない。計測プラグインを別途導入するか、「`logic/*.gd`の全public `static func`に正常系・異常系・境界値のテストを最低1本ずつ持つ」という数え上げ可能な基準で代替する（[`docs/design/atelier-alchemy-core/architecture.md`](../../docs/design/atelier-alchemy-core/architecture.md)「テスト運用規約」参照。個人開発規模では後者を採用する）。
 
 ### 除外対象
 
-- 型定義ファイル（`.d.ts`）
-- 設定ファイル（`vite.config.ts`, `vitest.config.ts` 等）
+- マスターデータ型定義ファイル（`resources/*.gd`、ロジックを持たない`Resource`定義）
+- 設定ファイル（`project.godot`等）
 - モック・フィクスチャ（`tests/mocks/`）
 
 ---
@@ -255,6 +249,6 @@ pnpm typecheck
 | テスト未作成で実装を始める | 必ずRedフェーズから開始する |
 | テストが失敗中にリファクタリング | Greenを確認してからRefactorに進む |
 | 過度な実装（テストにないケース） | テストケースに対応するコードのみ書く |
-| `src/` にテストファイルを配置 | `tests/unit/` に配置する |
-| 相対パスでインポート | `@features/`, `@shared/` エイリアスを使用 |
-| services/ に副作用を含む関数 | 副作用はImperative Shell（scenes/等）に分離 |
+| `features/`にテストファイルを配置 | `tests/unit/`に配置する |
+| `logic/*.gd`に副作用を含む関数 | 副作用はImperative Shell（`autoload/`, `ui/`）に分離 |
+| Domain層で乱数を自己生成 | `RngService`から払い出された値を引数で受け取る |

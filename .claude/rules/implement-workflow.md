@@ -42,11 +42,11 @@
 
 | 対象 | 理由 |
 |------|------|
-| `services/` 配下の純粋関数 | Functional Coreの品質保証 |
+| `logic/` 配下の純粋関数 | Functional Coreの品質保証 |
 | ビジネスロジック・計算処理 | 正確性の担保 |
 | バリデーション関数 | 境界値テストが重要 |
 | データ変換関数 | 入出力の明確な定義 |
-| `components/` 配下のUI | イベント連携テスト中心 |
+| `ui/` 配下のUI（`Control`継承） | シグナル連携テスト中心 |
 
 ### Directモード
 
@@ -68,28 +68,28 @@
 
 ### アーキテクチャ
 
-- [ ] Feature-Based Architectureのディレクトリ規約に従っている
-- [ ] `index.ts` で公開APIが更新されている
-- [ ] Functional Core（`services/`）に副作用がない
-- [ ] 機能モジュール間のインポートは `index.ts` 経由
+- [ ] Feature-Based Architectureのディレクトリ規約（`logic/` / `state/` / `resources/` / `ui/`）に従っている
+- [ ] `class_name`が適切に付与され、命名衝突がない
+- [ ] Functional Core（`logic/`）に副作用がない
+- [ ] 他Featureへの参照は`logic/*.gd`・`resources/*.gd`のみ（`state/`・`ui/`への直接参照禁止）
 
 ### コード品質
 
-- [ ] マジックナンバーがGAME_CONFIGまたはTHEMEに定数化されている
-- [ ] `any` 型を使用していない
+- [ ] マジックナンバーが`GameBalance`または`UiTheme`に定数化されている
+- [ ] `Variant` 型を型ガードなしで使用していない
 - [ ] 命名規則に従っている（`coding-style.md` 参照）
 
 ### テスト
 
-- [ ] テストファイルが `tests/unit/` または `tests/integration/` に配置されている
-- [ ] テストファイルで `@features/`, `@shared/` エイリアスを使用している
+- [ ] テストファイルが `tests/unit/` または `tests/integration/` に配置されている（`features/`配下ではない）
+- [ ] テストファイルが`test_*.gd`命名規則・`extends GutTest`に従っている
 - [ ] 正常系・異常系・境界値のテストがある
 
 ### リソース管理
 
-- [ ] EventBus購読にはunsubscribe処理がある
-- [ ] `destroy()` でリソースが解放されている
-- [ ] タイマー・Tweenが適切に停止される
+- [ ] Autoloadへのsignal購読には`_exit_tree()`での`disconnect()`処理がある
+- [ ] `Tween`・`Timer`が適切に停止される
+- [ ] シーン跨ぎのノード参照が残っていない（`queue_free()`後の参照保持がない）
 
 ---
 
@@ -99,17 +99,17 @@
 
 ```bash
 # 1. 全テスト
-pnpm test -- --run
+godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/
 
-# 2. 型チェック
-pnpm typecheck
+# 2. 静的解析
+gdlint features/ shared/ autoload/
 
-# 3. リント
-pnpm lint
+# 3. フォーマットチェック
+gdformat --check features/ shared/ autoload/
 ```
 
 いずれかが失敗している場合はコミットしない。
-`lefthook` のpre-commitフックでも自動チェックされるが、事前に確認することを推奨する。
+pre-commitフックが設定されていれば同様に自動チェックされるが、事前に確認することを推奨する。
 
 ---
 
@@ -131,6 +131,6 @@ pnpm lint
 
 ### リント違反時
 
-1. `pnpm lint:fix` で自動修正を試行
-2. 手動修正が必要な項目を対応
+1. `gdformat features/ shared/ autoload/` で自動フォーマットを試行
+2. `gdlint`が指摘する手動修正が必要な項目を対応
 3. 再実行して確認

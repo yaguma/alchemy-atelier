@@ -1,5 +1,7 @@
 # Bashコマンドルール
 
+> 🔴 2026-08-06改訂: 技術スタックがGodot 4.x + GDScriptに確定済み（`CLAUDE.md`参照）のため、pnpm/Vitest/TypeScript前提だったコマンド例をGodot/GUT前提に更新した（`cd`運用・並列実行・Windows/MSYS注意等の一般原則は変更なし）。
+
 ## 基本原則
 
 - 作業ディレクトリはBash呼び出し間で永続化される
@@ -16,18 +18,17 @@ Bashツールの作業ディレクトリは呼び出し間で永続化される�
 
 ```bash
 # NG: 毎回cdを繰り返す
-cd /path/to/project && pnpm test
-cd /path/to/project && pnpm lint
-cd /path/to/project && pnpm build
+cd atelier-godot && godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/
+cd atelier-godot && gdlint features/
+cd atelier-godot && godot --headless --export-release "Windows Desktop" build/atelier.exe
 
-# OK: 絶対パスを活用
-pnpm test --prefix /path/to/project
-pnpm --dir /path/to/project test
+# OK: --pathを活用
+godot --headless --path atelier-godot -s addons/gut/gut_cmdln.gd -gdir=res://tests/
 
 # OK: 最初の1回だけcd（以降は不要）
-cd /path/to/project
+cd atelier-godot
 # 次のBash呼び出しではcdなしで実行可能
-pnpm test
+godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/
 ```
 
 ---
@@ -82,14 +83,14 @@ cmd1 && cmd2 && cmd3 && cmd4 && cmd5 && cmd6 && cmd7 && cmd8 && cmd9 && cmd10
 
 ```bash
 # NG: 全並列呼び出しで同じcdを繰り返す
-# 呼び出し1: cd /path/to/project && pnpm test
-# 呼び出し2: cd /path/to/project && pnpm lint
-# 呼び出し3: cd /path/to/project && pnpm build
+# 呼び出し1: cd atelier-godot && godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/
+# 呼び出し2: cd atelier-godot && gdlint features/
+# 呼び出し3: cd atelier-godot && gdformat --check features/
 
 # OK: cdなしで直接実行（作業ディレクトリが既に正しい場合）
-# 呼び出し1: pnpm test
-# 呼び出し2: pnpm lint
-# 呼び出し3: pnpm build
+# 呼び出し1: godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/
+# 呼び出し2: gdlint features/
+# 呼び出し3: gdformat --check features/
 ```
 
 ### 独立コマンドの過剰チェーン
@@ -115,52 +116,38 @@ gh issue create ... && gh issue create ... && gh issue create ... && ...
 
 ---
 
-## pnpm ワークスペース実行ルール
+## Godot / GUT 実行ルール
 
-本プロジェクトはルートに `pnpm-workspace.yaml` を持つモノレポ構成。ルートからコマンドを実行する。
+本プロジェクトは`atelier-godot/`配下に単一のGodotプロジェクトを持つ構成（モノレポではない）。コマンドはリポジトリルートまたは`atelier-godot/`のいずれからでも、`--path`指定で絶対パスを渡すのが安全。
 
-### 原則: ルートから `pnpm` を実行
-
-ルートの `package.json` にショートカットスクリプトが定義されているため、`--filter` なしで実行できる。
+### 原則: `--path`で対象プロジェクトを明示する
 
 ```bash
-# OK: ルートから直接実行（推奨）
-pnpm test
-pnpm build
-pnpm lint
-pnpm typecheck
+# OK: --pathでプロジェクトディレクトリを明示（cd不要）
+godot --headless --path atelier-godot -s addons/gut/gut_cmdln.gd -gdir=res://tests/
 
-# OK: 引数を渡す場合
-pnpm test -- --run
-pnpm test -- tests/unit/features/quest/
-
-# NG: --filter を毎回指定（冗長）
-pnpm --filter atelier-guild-rank test
-
-# NG: サブディレクトリに cd してから実行
-cd atelier-guild-rank && pnpm test
+# OK: 最初の1回だけcd（以降は不要）
+cd atelier-godot
+# 次のBash呼び出しではcdなしで実行可能
+godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/
 ```
 
-### ルートで利用可能なスクリプト一覧
+### 利用可能な主要コマンド
 
 | コマンド | 内容 |
 |---------|------|
-| `pnpm dev` | 開発サーバー起動 |
-| `pnpm build` | プロダクションビルド |
-| `pnpm test` | ユニット/統合テスト（Vitest） |
-| `pnpm test:watch` | テストウォッチモード |
-| `pnpm test:coverage` | カバレッジ付きテスト |
-| `pnpm test:e2e` | E2Eテスト（Playwright） |
-| `pnpm test:e2e:headed` | E2E（ブラウザ表示） |
-| `pnpm typecheck` | TypeScript型チェック（tsc --noEmit） |
-| `pnpm lint` | Biome チェック |
-| `pnpm lint:fix` | Biome 自動修正 |
-| `pnpm format` | コードフォーマット |
+| `godot --path atelier-godot` | エディタをGUIで起動（対話操作、調査用。[`godot-debug-tools.md`](./godot-debug-tools.md)参照） |
+| `godot --headless --path atelier-godot -s addons/gut/gut_cmdln.gd -gdir=res://tests/` | 全GUTテストをヘッドレス実行 |
+| `godot --headless --path atelier-godot -s addons/gut/gut_cmdln.gd -gtest=res://tests/unit/features/{feature}/test_{file}.gd` | 特定テストファイルのみ実行 |
+| `gdlint atelier-godot/features/ atelier-godot/shared/ atelier-godot/autoload/` | 静的解析（gdtoolkit） |
+| `gdformat atelier-godot/features/ atelier-godot/shared/ atelier-godot/autoload/` | 自動フォーマット |
+| `godot --headless --path atelier-godot --export-release "<preset>" <output>` | エクスポートビルド（プリセット名は実装着手時に確定） |
+
+具体的なCLIオプション・GUTアドオンのインストール手順は実装着手時に確定する（🟡TBD、[`docs/design/atelier-alchemy-core/architecture.md`](../../docs/design/atelier-alchemy-core/architecture.md)「テスト運用規約」参照）。
 
 ### サブディレクトリでの直接実行が許される場合
 
-- `lefthook` のフック内（`root: atelier-guild-rank/` で設定済み）
-- デバッグ目的で一時的にサブディレクトリで実行する場合
+- デバッグ目的で一時的に`atelier-godot/`に`cd`して実行する場合
 
 ---
 
@@ -172,10 +159,10 @@ devサーバーなど終了しないプロセスは `run_in_background: true` �
 
 ```bash
 # OK: バックグラウンドで起動
-pnpm dev  # run_in_background: true を設定
+godot --path atelier-godot  # run_in_background: true を設定（エディタ/実機プレイの起動）
 
 # NG: フォアグラウンドで起動（タイムアウトする）
-pnpm dev
+godot --path atelier-godot
 ```
 
 ### タイムアウト設定
@@ -184,10 +171,8 @@ pnpm dev
 
 | コマンド | 推奨タイムアウト |
 |---------|---------------|
-| `pnpm test -- --run` | 120000ms（2分） |
-| `pnpm build` | 120000ms（2分） |
-| `pnpm test:e2e` | 300000ms（5分） |
-| `pnpm test:coverage` | 180000ms（3分） |
+| `godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/` | 120000ms（2分） |
+| `godot --headless --export-release ...` | 300000ms（5分、初回エクスポートは特に時間がかかる） |
 
 ---
 
@@ -234,26 +219,26 @@ cd /c/Users/syagu/My Documents
 テストは対象を絞って実行し、出力を読みやすく保つ。
 
 ```bash
-# 特定ファイル
-pnpm --filter atelier-guild-rank test -- --run tests/unit/features/quest/
+# 特定ディレクトリ
+godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/unit/features/garden/
 
-# パターンマッチ
-pnpm --filter atelier-guild-rank test -- --run -t "calculateQuality"
+# 特定ファイル
+godot --headless -s addons/gut/gut_cmdln.gd -gtest=res://tests/unit/features/alchemy/test_quality_calculator.gd
 
 # 全テスト実行（CIまたは最終確認）
-pnpm --filter atelier-guild-rank test -- --run
+godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/
 ```
 
-### `--run` フラグ
+### ヘッドレス実行の徹底
 
-Vitest はデフォルトでウォッチモードで起動する。CI やワンショット実行では `--run` を付ける。
+`godot --headless`を付けないとGUIウィンドウが起動し、CIやワンショット実行がハングする。CI・自動検証では必ず`--headless`を付ける。
 
 ```bash
-# OK: ワンショット実行
-pnpm --filter atelier-guild-rank test -- --run
+# OK: ヘッドレス実行
+godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/
 
-# NG: ウォッチモードのまま起動（終了しない）
-pnpm test
+# NG: --headless忘れ（GUIウィンドウが起動し終了しない）
+godot -s addons/gut/gut_cmdln.gd -gdir=res://tests/
 ```
 
 ### 出力が長い場合
@@ -262,7 +247,7 @@ pnpm test
 
 ```bash
 # 末尾30行のみ表示
-pnpm --filter atelier-guild-rank test -- --run 2>&1 | tail -30
+godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/ 2>&1 | tail -30
 ```
 
 ---
@@ -304,16 +289,16 @@ rmdir target_directory/
 
 ```bash
 # 1. テスト実行
-pnpm test -- --run
+godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/
 
-# 2. 型チェック
-pnpm typecheck
+# 2. 静的解析（gdlint）
+gdlint features/ shared/ autoload/
 
-# 3. リントチェック
-pnpm lint
+# 3. フォーマットチェック
+gdformat --check features/ shared/ autoload/
 ```
 
-全てパスしてからコミットすること。Lefthookのpre-commitフックでも検証されるが、事前に確認することで修正の手戻りを減らせる。
+全てパスしてからコミットすること。pre-commitフックが設定されていれば同様に検証されるが、事前に確認することで修正の手戻りを減らせる。
 
 ### `cd` の安全な使用
 
@@ -342,12 +327,11 @@ rm /some/directory/*.tmp
 
 ```bash
 # NG: 同じコマンドを何度もリトライ
-pnpm build  # 失敗
-pnpm build  # また失敗
-pnpm build  # さらに失敗
+godot --headless --export-release ...  # 失敗
+godot --headless --export-release ...  # また失敗
 
 # OK: エラーメッセージを確認し対処
-pnpm build 2>&1 | tail -50  # エラー詳細を確認
+godot --headless --export-release ... 2>&1 | tail -50  # エラー詳細を確認
 # → 原因に応じた修正を行う
 ```
 
@@ -368,10 +352,10 @@ git commit -m "fix: エラーを修正"
 
 | エラー | 原因 | 対処 |
 |--------|------|------|
-| `ELIFECYCLE` | スクリプト実行失敗 | 詳細ログを確認 |
-| `ERR_MODULE_NOT_FOUND` | インポートパスの誤り | エイリアス設定を確認 |
-| `TypeScript errors` | 型エラー | `pnpm --filter atelier-guild-rank tsc --noEmit` で詳細確認 |
-| `LOCK_FILE_OUTDATED` | lockファイルの不整合 | `pnpm install` で再生成 |
+| `Node not found` | シーンツリー未接続でのノード参照 | `add_child_autofree()`忘れがないか確認（[`godot-debug-tools.md`](./godot-debug-tools.md)参照） |
+| `Identifier not found` | `class_name`未登録、または`preload`パス誤り | スクリプトの`class_name`宣言とファイルパスを確認 |
+| GUTがGUIウィンドウを開いたまま終了しない | `--headless`フラグ忘れ | コマンドに`--headless`を追加 |
+| `Invalid get index` | Resourceのプロパティ名誤り、またはnullアクセス | マスターデータ（`.tres`）のスキーマとロード順序を確認 |
 
 ---
 
@@ -386,8 +370,8 @@ git commit -m "fix: エラーを修正"
 Grepツールを使用して検証する（0件であればOK、ヒットした場合は変更漏れ）。
 
 ```
-# 例: calculateReward → computeReward にリネームした場合
-Grep: pattern="calculateReward", type="ts"
+# 例: calculate_reward → compute_reward にリネームした場合
+Grep: pattern="calculate_reward", glob="*.gd"
 ```
 
 ### インポートパス変更後の検証
@@ -395,8 +379,8 @@ Grep: pattern="calculateReward", type="ts"
 ファイル移動やディレクトリ構造変更でインポートパスが変わった場合、旧パスが残っていないことを確認する。
 
 ```
-# 例: @shared/utils/calc → @shared/services/calc に移動した場合
-Grep: pattern="@shared/utils/calc", type="ts"
+# 例: res://shared/utils/calc.gd → res://shared/services/calc.gd に移動した場合
+Grep: pattern="shared/utils/calc", glob="*.gd"
 ```
 
 ### 型名変更後の検証
@@ -405,7 +389,7 @@ Grep: pattern="@shared/utils/calc", type="ts"
 
 ```
 # 例: QuestData → Quest にリネームした場合
-Grep: pattern="QuestData", type="ts"
+Grep: pattern="QuestData", glob="*.gd"
 ```
 
 ### 検証の実施タイミング

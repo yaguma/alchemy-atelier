@@ -1,11 +1,13 @@
 # テストルール
 
+> 🔴 2026-08-06改訂: 技術スタックがGodot 4.x + GDScriptに確定済み（`CLAUDE.md`参照）のため、本ファイルはVitest+Playwright前提からGUT（Godot Unit Test）前提に全面書き換えした。ブラウザ前提だったPlaywrightMCPの運用は[`godot-debug-tools.md`](./godot-debug-tools.md)（調査・手動検証専用）に置き換えている。
+
 ## 基本原則
 
 - TDD（テスト駆動開発）を推奨
 - テストをスキップせず、問題があれば修正
 - 実装詳細ではなく振る舞いをテスト
-- **回帰テストは Playwright CLI + Page Object（`e2e/`）で書く**。PlaywrightMCP は調査・再現・手動検証専用で、CI 実行しない（詳細は [`playwright-mcp.md`](./playwright-mcp.md)）
+- **回帰テストは GUT（`tests/`配下）で書く**。Godotエディタでの手動プレイ・リモートデバッガでの調査は[`godot-debug-tools.md`](./godot-debug-tools.md)を参照（CI実行しない調査専用）
 
 ---
 
@@ -17,26 +19,22 @@
 tests/
 ├── unit/                    # ユニットテスト
 │   ├── features/            # 機能単位のテスト
-│   │   ├── quest/
+│   │   ├── garden/
 │   │   ├── alchemy/
 │   │   └── ...
-│   └── shared/              # 共通コードのテスト
-├── integration/             # 統合テスト
-└── mocks/                   # テスト用モック
-
-e2e/
-├── specs/                   # E2Eテストスペック
-├── pages/                   # Page Objects
-└── fixtures/                # テストデータ
+│   └── shared/               # 共通コードのテスト
+└── integration/              # 統合テスト（Autoload・シーンツリー経由の連携）
 ```
+
+Godot/GUTには「E2E専用ディレクトリ」に相当する標準構成がない。クリティカルパスのシーン往復確認は`integration/`内でシーンをロードするGUTテストとして書くか、手動プレイテストで代替する（下記「E2E相当のテスト」参照）。
 
 ### テスト種別
 
 | 種別 | ツール | 対象 | カバレッジ目標 |
 |------|--------|------|--------------|
-| ユニット | Vitest | 純粋関数、サービス | 90%+ |
-| 統合 | Vitest | サービス連携、状態管理 | 70%+ |
-| E2E | Playwright | ユーザーフロー | クリティカルパス |
+| ユニット | GUT | 純粋関数（`logic/*.gd`） | 90%+ |
+| 統合 | GUT | Autoload連携、シグナル発行、シーンツリー経由の動作 | 70%+ |
+| E2E相当 | GUTのシーンテスト + 手動プレイテスト | ユーザーフロー | クリティカルパス |
 
 ---
 
@@ -44,61 +42,48 @@ e2e/
 
 ### ファイル命名
 
-- `{対象ファイル名}.test.ts`
-- 配置: `tests/unit/` 以下（`src/`内に配置しない）
+- `test_{対象ファイル名}.gd`（GUTの既定規則、`extends GutTest`）
+- 配置: `tests/unit/`以下（`features/`内に配置しない）
 
 ### 構造
 
-```typescript
-import { describe, it, expect, beforeEach } from 'vitest';
-import { generateQuest } from '@features/quest';
+```gdscript
+extends GutTest
 
-describe('generateQuest', () => {
-  describe('正常系', () => {
-    it('指定された難易度の依頼を生成する', () => {
-      const quest = generateQuest(QuestDifficulty.D, mockClient);
+class TestNormalCases:
+	extends GutTest
 
-      expect(quest.difficulty).toBe(QuestDifficulty.D);
-      expect(quest.client).toBe(mockClient);
-    });
+	func test_指定された難易度の依頼を生成する() -> void:
+		var quest := QuestGenerator.generate(&"D", _mock_client())
 
-    it('報酬がゴールド基準に従う', () => {
-      const quest = generateQuest(QuestDifficulty.C, mockClient);
+		assert_eq(quest.difficulty, &"D")
+		assert_eq(quest.client, _mock_client())
 
-      expect(quest.reward.gold).toBeGreaterThanOrEqual(100);
-      expect(quest.reward.gold).toBeLessThanOrEqual(200);
-    });
-  });
+	func test_報酬がゴールド基準に従う() -> void:
+		var quest := QuestGenerator.generate(&"C", _mock_client())
 
-  describe('異常系', () => {
-    it('無効な難易度でエラーを投げる', () => {
-      expect(() => generateQuest('X' as QuestDifficulty, mockClient))
-        .toThrow('Invalid difficulty');
-    });
-  });
-});
+		assert_true(quest.reward.gold >= 100)
+		assert_true(quest.reward.gold <= 200)
+
+class TestErrorCases:
+	extends GutTest
+
+	func test_無効な難易度でエラーを返す() -> void:
+		var result := QuestGenerator.generate(&"X", _mock_client())
+		assert_true(result.is_error)
 ```
 
-### モック
+### テストダブル
 
-```typescript
-import { vi, Mock } from 'vitest';
+```gdscript
+# ダブル生成
+var doubled_rng = double(RngService).new()
 
-// 関数モック
-const mockCalculate = vi.fn().mockReturnValue(100);
+func before_each() -> void:
+	stub(doubled_rng, "roll_quality").to_return(0.5)
 
-// モジュールモック
-vi.mock('@shared/services/EventBus', () => ({
-  EventBus: {
-    emit: vi.fn(),
-    on: vi.fn(() => vi.fn()),
-  },
-}));
-
-// リセット
-beforeEach(() => {
-  vi.clearAllMocks();
-});
+func after_each() -> void:
+	pass  # GUTはbefore_each/after_eachごとにダブルを再生成するのが基本
 ```
 
 ---
@@ -107,103 +92,63 @@ beforeEach(() => {
 
 ### 配置
 
-`tests/integration/` 以下
+`tests/integration/`以下
 
-### 例: StateManager + EventBus連携
+### 例: GameState + signal連携
 
-```typescript
-describe('StateManager Integration', () => {
-  let stateManager: StateManager;
-  let eventBus: EventBus;
+```gdscript
+extends GutTest
 
-  beforeEach(() => {
-    eventBus = new EventBus();
-    stateManager = new StateManager(eventBus, initialState);
-  });
+var _game_state: GameStateType
 
-  it('フェーズ変更時にイベントが発行される', () => {
-    const handler = vi.fn();
-    eventBus.on(GameEventType.PHASE_CHANGED, handler);
+func before_each() -> void:
+	_game_state = GameStateType.new()
+	add_child_autofree(_game_state)
 
-    stateManager.setPhase(GamePhase.GATHERING);
+func test_フェーズ変更時にシグナルが発行される() -> void:
+	watch_signals(_game_state)
 
-    expect(handler).toHaveBeenCalledWith(
-      expect.objectContaining({
-        payload: {
-          previousPhase: GamePhase.QUEST_ACCEPT,
-          newPhase: GamePhase.GATHERING,
-        },
-      }),
-    );
-  });
-});
+	_game_state.set_phase(&"alchemy")
+
+	assert_signal_emitted_with_parameters(
+		_game_state, "phase_changed", [&"garden", &"alchemy"]
+	)
 ```
+
+GUTの`watch_signals()` / `assert_signal_emitted_with_parameters()`を使うと、Vitestの`vi.fn()`によるイベント検証に相当する検証ができる。
 
 ---
 
-## E2Eテスト
+## E2E相当のテスト（シーンレベル統合テスト + 手動プレイテスト）
 
-### 配置
+Godotには Playwright CLI のようなブラウザ操作ベースのE2Eフレームワークが存在しない。クリティカルパス（ターン一巡・調合実行・納品決算等）は以下の2段構えでカバーする。
 
-`e2e/specs/` 以下
+### 1. GUTのシーンテスト（自動回帰用）
 
-### Page Objectパターン
+シーンを`add_child_autofree()`でロードし、ノードのメソッド呼び出し・シグナル発行で操作をシミュレートする。
 
-```typescript
-// e2e/pages/MainPage.ts
-export class MainPage {
-  constructor(private page: Page) {}
+```gdscript
+extends GutTest
 
-  async goto(): Promise<void> {
-    await this.page.goto('/');
-  }
+func test_調合を実行して納品まで到達する() -> void:
+	var main: Node = load("res://scenes/main.tscn").instantiate()
+	add_child_autofree(main)
 
-  async selectQuest(index: number): Promise<void> {
-    await this.page.locator(`[data-testid="quest-${index}"]`).click();
-  }
+	var alchemy_screen: AlchemyScreen = main.get_node("%AlchemyScreen")
+	alchemy_screen.select_recipe(&"healing_potion")
+	alchemy_screen.insert_material(_mock_material_instance())
+	alchemy_screen.execute()
 
-  async acceptQuest(): Promise<void> {
-    await this.page.locator('[data-testid="accept-button"]').click();
-  }
-
-  async getGoldDisplay(): Promise<string> {
-    return await this.page.locator('[data-testid="gold-display"]').textContent() ?? '';
-  }
-}
+	assert_eq(GameState.get_state().current_phase, &"guild_delivery")
 ```
 
-### テストスペック
+### 2. 手動プレイテスト（調査・目視確認専用）
 
-```typescript
-// e2e/specs/quest-flow.spec.ts
-import { test, expect } from '@playwright/test';
-import { MainPage } from '../pages/MainPage';
+Godotエディタでの実行、またはエクスポートしたデバッグビルドでの実プレイによる確認。手順は[`godot-debug-tools.md`](./godot-debug-tools.md)を参照（CI実行はしない）。
 
-test.describe('依頼フロー', () => {
-  test('依頼を受注して完了できる', async ({ page }) => {
-    const mainPage = new MainPage(page);
-    await mainPage.goto();
+### 回帰テストへの昇格
 
-    // 依頼選択
-    await mainPage.selectQuest(0);
-    await mainPage.acceptQuest();
-
-    // 依頼完了を確認
-    await expect(page.locator('[data-testid="phase-indicator"]'))
-      .toHaveText('GATHERING');
-  });
-});
-```
-
-### data-testid属性
-
-E2E用セレクタは`data-testid`属性を使用。
-
-```typescript
-// コンポーネント側
-this.goldText = this.scene.add.text(x, y, '0 G');
-this.goldText.setData('testid', 'gold-display');
-```
+手動プレイテストで見つけたバグは、再現手順を1のGUTシーンテストへ昇格することを必ず検討する。
 
 ---
 
@@ -212,20 +157,20 @@ this.goldText.setData('testid', 'gold-display');
 ### コマンド
 
 ```bash
-# ユニットテスト
-pnpm test                    # 全テスト実行
-pnpm test:watch              # ウォッチモード
-pnpm test tests/unit/features/quest  # 特定ディレクトリ
-pnpm test -t "generateQuest" # パターンマッチ
+# ユニット/統合テスト（全体）
+godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/
 
-# カバレッジ
-pnpm test:coverage
+# 特定ディレクトリ
+godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/unit/features/garden/
 
-# E2E
-pnpm test:e2e               # ヘッドレス実行
-pnpm test:e2e:headed        # ブラウザ表示
-pnpm test:e2e e2e/specs/quest-flow.spec.ts  # 特定ファイル
+# 特定ファイル
+godot --headless -s addons/gut/gut_cmdln.gd -gtest=res://tests/unit/features/alchemy/test_quality_calculator.gd
+
+# パターンマッチ（テスト名でフィルタ）
+godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -ginclude_subdirs -gunit_test_name="calculate_quality"
 ```
+
+具体的なCLIオプションは実装着手時に確定する（[`docs/design/atelier-alchemy-core/architecture.md`](../../docs/design/atelier-alchemy-core/architecture.md)「テスト運用規約」🟡参照）。
 
 ---
 
@@ -234,15 +179,17 @@ pnpm test:e2e e2e/specs/quest-flow.spec.ts  # 特定ファイル
 | 領域 | 目標 |
 |------|------|
 | 全体 | 80%+ |
-| Functional Core (services) | 90%+ |
-| 共通ユーティリティ | 90%+ |
-| UIコンポーネント | 60%+ |
+| Functional Core（`logic/`） | 90%+ |
+| 共通ユーティリティ（`shared/`） | 90%+ |
+| UIコンポーネント（`ui/`） | 60%+ |
 
 ### 除外対象
 
-- 型定義ファイル（`.d.ts`）
-- 設定ファイル
-- モック・フィクスチャ
+- マスターデータ型定義（`resources/*.gd`）
+- 設定ファイル（`project.godot`）
+- モック・フィクスチャ（`tests/mocks/`）
+
+GDScript/GUTには標準のカバレッジ計測機構がない点は[`tdd-implementation.md`](./tdd-implementation.md)「カバレッジ目標」参照。
 
 ---
 
@@ -250,56 +197,53 @@ pnpm test:e2e e2e/specs/quest-flow.spec.ts  # 特定ファイル
 
 ### Arrange-Act-Assert
 
-```typescript
-it('ゴールドが加算される', () => {
-  // Arrange
-  const initialGold = 100;
-  const state = createState({ gold: initialGold });
+```gdscript
+func test_ゴールドが加算される() -> void:
+	# Arrange
+	var initial_gold := 100
+	var state := _create_state({"gold": initial_gold})
 
-  // Act
-  const result = addGold(state, 50);
+	# Act
+	var result := GoldLogic.add_gold(state, 50)
 
-  // Assert
-  expect(result.gold).toBe(150);
-});
+	# Assert
+	assert_eq(result.gold, 150)
 ```
 
-### 境界値テスト
+### 境界値テスト（`use_parameters`）
 
-```typescript
-describe('validateQuantity', () => {
-  it.each([
-    [0, 1],      // 最小値以下
-    [1, 1],      // 最小値
-    [50, 50],    // 中間値
-    [99, 99],    // 最大値
-    [100, 99],   // 最大値超過
-  ])('入力%iは%iになる', (input, expected) => {
-    expect(validateQuantity(input)).toBe(expected);
-  });
-});
+```gdscript
+func test_数量が範囲内に丸められる(params = use_parameters([
+	[0, 1],      # 最小値以下
+	[1, 1],      # 最小値
+	[50, 50],    # 中間値
+	[99, 99],    # 最大値
+	[100, 99],   # 最大値超過
+])) -> void:
+	assert_eq(QuantityValidator.validate(params[0]), params[1])
 ```
 
-### 非同期テスト
+### 非同期処理のテスト
 
-```typescript
-it('データ読み込み後に表示更新される', async () => {
-  const component = new DataComponent(scene);
-  component.create();
+```gdscript
+func test_データ読み込み後に表示更新される() -> void:
+	var component := DataComponent.new()
+	add_child_autofree(component)
 
-  await component.loadData();
+	await component.load_data()
 
-  expect(component.getText()).toBe('Loaded');
-});
+	assert_eq(component.get_text(), "Loaded")
 ```
+
+GUTは`await`を使ったコルーチンテストをネイティブにサポートする。
 
 ---
 
 ## 禁止事項
 
-- `it.skip` / `describe.skip` を放置しない
-- テスト内で `console.log` を残さない
-- CI環境で `.only()` を使用しない
-- テスト間に依存関係を作らない
-- 実装詳細（private メソッド）を直接テストしない
-- `src/` 内にテストファイルを配置しない
+- `pending()`（GUTのスキップ相当）を放置しない
+- テスト内で`print()`を残さない
+- CI環境で`-gselect`（単一テストのみ実行）を使ったまま放置しない
+- テスト間に依存関係を作らない（各`before_each`で状態を作り直す）
+- 実装詳細（`_`prefixのprivateメソッド）を直接テストしない
+- `features/`内にテストファイルを配置しない

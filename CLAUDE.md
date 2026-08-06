@@ -72,6 +72,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | `docs/design/atelier-alchemy-core/architecture.md` | 技術アーキテクチャ設計 | 最新（2026-08-04新規作成） |
 | `docs/design/atelier-alchemy-core/core-systems.md` | コアシステム設計（庭/調合/ギルド納品/工房強化/ランク進行） | 最新（2026-08-04新規作成） |
 | `docs/design/atelier-alchemy-core/dataflow.md` | データフロー図 | 最新（2026-08-04新規作成） |
+| `docs/design/atelier-alchemy-core/c4-model.md` | C4モデル（Context/Container/Component、Codeは既存クラス図参照） | 最新（2026-08-06新規作成） |
+| `docs/design/atelier-alchemy-core/decision-log.md` | 意思決定ログ（ADR相当。各設計文書の🔵🔴を集約） | 最新（2026-08-06新規作成） |
 | `docs/design/atelier-alchemy-core/game-mechanics.md` | ゲームメカニクス設計 | 最新（2026-08-04新規作成） |
 | `docs/design/atelier-alchemy-core/balance-design.md` | バランス設計方針（数値本体は大半🟡TBD） | 最新（2026-08-04新規作成） |
 | `docs/design/atelier-alchemy-core/ui-design/` | UI設計（overview + 5画面 + input-system） | 最新（2026-08-04新規作成） |

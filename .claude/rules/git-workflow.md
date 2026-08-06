@@ -177,9 +177,9 @@ git merge origin/main
 git add <解消したファイル>
 
 # 6. 検証チェックリスト実行
-pnpm test -- --run
-pnpm typecheck
-pnpm lint
+godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/
+gdlint features/ shared/ autoload/
+gdformat --check features/ shared/ autoload/
 
 # 7. 全てパスしたらマージコミットを作成
 git commit
@@ -198,10 +198,10 @@ git push
 ### 解消後の検証チェックリスト
 
 - [ ] 全てのコンフリクトマーカー（`<<<<<<<`, `=======`, `>>>>>>>`）が除去されていること
-- [ ] `pnpm test -- --run` がパスすること
-- [ ] `pnpm typecheck` がパスすること
-- [ ] `pnpm lint` がパスすること
-- [ ] アプリケーションが正常に起動すること（`pnpm dev`で確認）
+- [ ] GUTテストがパスすること（`godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/`）
+- [ ] `gdlint`の警告がないこと
+- [ ] `gdformat --check`のフォーマット崩れがないこと
+- [ ] アプリケーションが正常に起動すること（Godotエディタでの再生確認）
 
 ### 禁止事項
 
