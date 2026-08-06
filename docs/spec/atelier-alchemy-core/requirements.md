@@ -1,7 +1,7 @@
 # アトリエ錬金術ゲーム 要件定義書
 
 作成日: 2026-08-03
-最終更新日: 2026-08-05（PRレビュー〔7観点〕で指摘されたCritical/Warningのうち、要件レベルの決定が必要な項目をヒアリングの上で反映）
+最終更新日: 2026-08-06（設計文書・コンセプト・技術設計を横断して整理した「§8 ユビキタス言語一覧」を新設。既存の参考文書節は§9へ繰り下げ）
 準拠コンセプト: [`../../concept/atelier-concept.md`](../../concept/atelier-concept.md)（v7.0・調合主軸モデル）
 
 > 本書は `atelier-concept.md` の内容を実装可能な要件に落とし込んだものである。数値の多くは仮置き（TBD）であり、バランス調整フェーズで確定する。構造的な決定（勝敗条件・昇格試験の性質、レシピの扱い、触媒の発現ルール等）はコンセプト文書に明記がなかったため、本書作成時および2026-08-04の技術設計レビュー時にヒアリングの上で確定した。
@@ -242,7 +242,120 @@
 
 ---
 
-## 8. 参考文書
+## 8. ユビキタス言語一覧
+
+本ゲームの設計文書（[`atelier-concept.md`](../../concept/atelier-concept.md)・本要件定義書・[`architecture.md`](../../design/atelier-alchemy-core/architecture.md)・[`core-systems.md`](../../design/atelier-alchemy-core/core-systems.md)・[`data-schema.md`](../../design/atelier-alchemy-core/data-schema.md)）およびコードで共通して用いる語彙を一覧化する。**設計・実装・テストで同じ言葉を同じ意味で使う**ことを目的とし、日本語のドメイン用語とコード上の識別子（クラス名・フィールド名・ID）を対応づける。新しい語を導入する際は本節に追記し、既存語と衝突しないことを確認する。
+
+> 表記凡例: コード識別子はGDScript実装時の名称（`architecture.md` のディレクトリ構造案・`core-systems.md` のクラス図・`data-schema.md` のスキーマに準拠）。🟡は数値・具体内容がTBDの語。
+
+### 8.1 プレイの構造・進行
+
+| 用語（日本語） | コード識別子 | 定義 |
+|---|---|---|
+| アトリエ | Atelier | 本プロジェクトのゲームタイトル。錬金術をテーマにしたギルドランク制デッキ・リソース管理RPG |
+| 三段構成 | - | 庭（仕込み層・戦略）→ 調合（主戦場・戦術）→ ギルド納品（決算・自動）の3フェーズからなるメインループ構造 |
+| ターン | turn / `elapsed_turn` | ゲーム内時間の最小単位。「日替わり」等の時間表現もすべてターンに統一する（§4「日替わり指定調合物」参照） |
+| ターンループ | - | 状況提示 → 選択（庭・調合） → 結果反映 → フィードバック → 次ターン、の1ターン単位の繰り返し（§1） |
+| ランクループ | - | 制限ターン到達時にノルマ0なら昇格試験、0でなければ降格、という1ランク単位のループ（§1） |
+| ゲーム全体ループ | - | G→F→E→D→C→B→A→Sを順に攻略し、Sの昇格試験クリアでゲームクリアとなる最外周ループ（§1） |
+
+### 8.2 プレイヤーとリソース
+
+| 用語（日本語） | コード識別子 | 定義 |
+|---|---|---|
+| 錬金術師（プレイヤー） | `player` | 操作主体。ゴールド・現在ランク・降格回数・恒久投資状況を状態として持つ（§4） |
+| ゴールド | `player.gold` | 報酬として得られる通貨。工房強化・ショップでの投資に使う。時間（ターン）は買えない |
+| 貢献度 | `contribution` | 調合物の納品でランクノルマを削る価値。`基礎貢献度 × 品質倍率 × 貢献度系特性ボーナス × 指定合致ボーナス`（§4「調合物」） |
+| 報酬 | `reward` | 調合物の納品で得るゴールドの価値。`基礎報酬 × 品質倍率 × 報酬系特性ボーナス × 指定合致ボーナス`（§4「調合物」） |
+| 現在ランク | `player.current_rank_id` | プレイヤーが現在挑んでいるギルドランク（G〜S） |
+| 降格回数 | `player.demotion_count` | 同一ランクでの連続再挑戦回数のカウンタ。昇格成功時に0へリセット。規定回数到達でゲームオーバー（§2） |
+| 恒久投資状況 | `player.permanent_upgrades` | 投入枠数・庭スロット数・解禁レシピ一覧。ランクをまたいで永続する |
+
+### 8.3 庭（仕込み層）— GardenSystem
+
+| 用語（日本語） | コード識別子 | 定義 |
+|---|---|---|
+| 庭 | GardenSystem / `garden` | 品質・特性を持つ素材を仕込む供給層（戦略層）。マス配置はなくスロット数のみで制限 |
+| 庭スロット | `garden_slot_count` | 同時に仕込める素材の枠数（🟡仮5）。恒久投資「庭拡張」で増加 |
+| 種 | SeedMaster / `seed_id` | 庭に植える素材の元。成熟ターン数・枯死猶予・基準品質・特性候補（`trait_pool`）を持つ |
+| 植える | `Planting.plant` | 空きスロットに種を植える操作 |
+| 生育 | `grown_turns` / `Harvest.advance_growth` | ターン経過で進む素材の成長。毎ターン終了時に進行する |
+| 成熟 | `maturity_turns` / `Harvest.is_matured` | 収穫可能になった状態。以降は放置で品質が確率的に上昇（🟡） |
+| 収穫 | `Harvest.harvest` | 成熟した株を抜いて素材インスタンスを得る操作。収穫時に特性が1つ乱数付与される |
+| 枯死 | `death_grace_turns` / `Harvest.is_dead` / `Harvest.resolve_withering` | 成熟後、枯死猶予ターンを超えて放置した株が全損すること |
+| 素材 | Material / MaterialMaster / MaterialInstance | 調合の投入対象。品質スコアと特性タグ（0〜1個）を持つ個体（インスタンス）と、その定義（マスター） |
+| 品質スコア | `quality_score` | 素材・調合物の品質。1〜5（D〜S）の整数 |
+| 特性タグ | `trait_tags` / `TraitRoll.roll_trait` | 素材個体が持つ特性の識別子（例: `holy`）。庭産は収穫時に1個乱数付与、ショップ品は購入時に1個固定 |
+
+### 8.4 調合（主戦場）— AlchemySystem ★ゲームの核心
+
+| 用語（日本語） | コード識別子 | 定義 |
+|---|---|---|
+| 調合 | AlchemySystem / `alchemy` | 投入枠に素材を組み合わせて調合物を作る主戦場。品質を盛るか特性を宿すかのトレードオフが核心 |
+| 調合台／投入枠 | SlotState / `alchemy_slot_count` | 素材を投入する枠（初期4、恒久投資で+1）。最低1個以上・枠数以下でのみ実行可能（`can_execute`） |
+| レシピ | RecipeMaster / `selected_recipe_id` | 調合物の設計図。基礎貢献度・基礎報酬を持つ。実行前に解禁済みから1つ選ぶ（事前選択方式） |
+| 事前選択方式 | - | 調合実行前に解禁済みレシピを1つ選択し、その基礎値を価値計算に用いる方式（確定仕様） |
+| 調合物（完成品／成果物） | Product / ProductInstance | 調合で生成される品。品質（投入素材の平均・四捨五入）と発現した特性を持つ |
+| 品質倍率 | `QualityCalculator.quality_multiplier` | 品質スコア（1〜5）に対する単調非減少の乗数（🟡数値TBD、形は確定） |
+| 特性発現 | `TraitActivation.resolve_traits` | 同一特性タグを2個以上投入したとき、その特性が成果物に宿ること（1個では不発） |
+| 発現閾値 | - | 特性が発現するのに必要な同一タグの最低投入数（固定=2個）。3個目以降は据え置き（加算なし） |
+| 特性系統 | - | 特性の分類。貢献度系（聖・浄・癒）／報酬系（金・華・稀）／補助系（触媒）の3系統 |
+| 貢献度系特性 | - | 貢献度にボーナスを与える特性（聖・浄・癒）。複数発現時は乗算合成 |
+| 報酬系特性 | - | 報酬にボーナスを与える特性（金・華・稀）。複数発現時は乗算合成。系統をまたぐ乗算はしない |
+| 触媒 | catalyst（`trait_tags`）/ `material_catalyst` | 補助系特性。投入1個で成果物の最終品質を+1段（上限5クランプ）。発現閾値2個ルールの対象外 |
+| 基礎貢献度／基礎報酬 | `base_contribution` / `base_reward` | 選択レシピが持つ、価値計算の基準値（🟡数値TBD） |
+
+### 8.5 ギルド納品・ランク進行 — GuildSystem / RankSystem
+
+| 用語（日本語） | コード識別子 | 定義 |
+|---|---|---|
+| ギルド納品 | GuildSystem / `guild` | 完成した調合物を自動決算するフェーズ。プレイヤー操作なし |
+| 納品（自動決算） | `DeliveryResolver.resolve` / DeliveryResult | 調合物の貢献度・報酬を確定し、指定合致ボーナスを適用する処理 |
+| ギルドランク（審査基準） | RankSystem / RankMaster | ギルドが各ランクに課す認定基準。ノルマを納品でこなす（旧称「ランクHP／敵」を世界観整合で改称） |
+| ランクノルマ | `quota` / `quota_max` | 当該ランクをクリアするために削り切る必要のある残量。貢献度で減少し0でクランプ |
+| 制限ターン | `limit_turn` / `elapsed_turn` / TurnLimitResolver | 各ランクに与えられる残りターン数。到達時点でノルマ0なら昇格試験、0でなければ降格（🟡数値TBD） |
+| 昇格 | `RankOutcome.PROMOTION_ELIGIBLE` | 制限ターン到達時にノルマ0で、昇格試験に進む資格を得た状態 |
+| 降格 | `RankOutcome.DEMOTION` / `RankQuotaResolver.reset_for_retry` | ランク文字は下げず同一ランクに留まって再挑戦すること。ノルマ・残りターンをリセットし在庫等は引き継ぐ |
+| 日替わり指定調合物（疑似依頼） | DailyOrderMaster / `daily_order` | ギルドが求める調合物の条件（品目 or 特性傾向）。毎ターン終了時に再抽選。合致でボーナス |
+| 指定合致ボーナス | `match_bonus_multiplier` | 日替わり指定に合致した納品に付く貢献度・報酬の倍率（🟡仮1.2〜1.5倍） |
+
+### 8.6 昇格試験（Exam）— PromotionExamResolver
+
+| 用語（日本語） | コード識別子 | 定義 |
+|---|---|---|
+| 昇格試験 | Exam / PromotionExamResolver / PromotionExamScene | ランク到達時の一発勝負の特殊局面。庭なし・専用ノルマ・超短期ターンで通常の調合/納品を流用 |
+| 試験ノルマ | `exam_quota` / `exam_quota_max` | 昇格試験専用のノルマ。`(quota_max ÷ limit_turn) × exam_turn_limit × 難度係数`で算出 |
+| 難度係数 | `exam_difficulty_coefficient` | 試験ノルマ算出の係数。当該ランクの1手あたり期待貢献度に掛ける（🟡仮1.0〜1.5） |
+| 試験制限ターン | `exam_turn_limit` | 昇格試験の制限ターン数（🟡超短期・仮1〜2ターン） |
+| 試験結果 | `ExamOutcome`（SUCCESS/FAILURE/CONTINUE） | 試験ノルマ0で成功（昇格）、制限ターン到達でノルマ残存なら失敗（降格）、それ以外は続行 |
+
+### 8.7 工房強化・ショップ — WorkshopSystem
+
+| 用語（日本語） | コード識別子 | 定義 |
+|---|---|---|
+| 工房強化・ショップ | WorkshopSystem / `workshop` / WorkshopScreen | 恒久投資・消耗投資を購入する画面・システム |
+| 恒久投資 | `is_permanent: true` | ランクをまたいで残る投資。投入枠+1／庭拡張／レシピ解禁。ランク間の工房強化画面でのみ購入可（購入は任意） |
+| 消耗投資 | `is_permanent: false` | その場で消費される投資。触媒／種の指名買い。ターン中いつでも購入可 |
+| アップグレード | UpgradeMaster / `effect_type` | 投資項目の定義。効果種別（`alchemy_slot_increase`/`garden_slot_increase`/`recipe_unlock`/`catalyst_stock`/`seed_name_purchase`）を持つ |
+| 購入可否判定 | `PurchaseValidator.can_purchase` | `所持ゴールド ≥ 価格 かつ 購入済み回数 < 最大購入回数`を判定する純粋関数 |
+| 最大購入回数 | `max_purchase_count` | 各投資を購入できる上限回数。恒久投資は基本1回、消耗投資は実質無制限 |
+| 価格序列 | - | `投入枠+1 ≫ 庭拡張 ≒ レシピ解禁 ＞ 触媒 ＞ 種の指名買い`（§4） |
+
+### 8.8 アーキテクチャ・実装用語
+
+| 用語（日本語） | コード識別子 | 定義 |
+|---|---|---|
+| GameState | `GameState`（Autoload） | Application層。ゲーム状態を一元管理し、Domain層の純粋関数を順に呼び出す（StateManager相当） |
+| RngService | `RngService`（Autoload） | 乱数を一元管理するAutoload。Domain層へは乱数値を引数で渡す（期待値を動かさない仕込みの担保点） |
+| Domain層 | `features/{feature}/logic/*.gd` | 副作用のない純粋関数（`static func`）群。品質計算・特性発現・価値算出等（Functional Core） |
+| Presentation層 | `features/{feature}/ui/*` / `*Screen` / RankHud | 各画面のControlノード。signal発行とGameState参照（読み取りのみ）を行う（Imperative Shell） |
+| Infrastructure層 | `res://data/**/*.tres` | マスターデータ（`.tres`）定義。起動時にID相互参照の解決可否を検証 |
+| マスターデータ | `*Master`（Resource） | 素材・種・レシピ・ランク・投資・日替わり指定の定義。カスタム`Resource`（`.tres`） |
+| インスタンスデータ | MaterialInstance / ProductInstance | 素材個体・調合物個体。使い捨てる`RefCounted`継承クラス |
+
+---
+
+## 9. 参考文書
 
 - コンセプト設計: [`../../concept/atelier-concept.md`](../../concept/atelier-concept.md)
 - 体験コア（v4.0のまま、参照時はatelier-concept.mdを優先）: [`../../concept/experience-core.md`](../../concept/experience-core.md)
