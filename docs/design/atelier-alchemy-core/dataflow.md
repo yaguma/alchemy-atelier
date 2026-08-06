@@ -28,10 +28,10 @@ flowchart TD
 
     UpdateOrder --> CheckRank{制限ターン到達?}
     CheckRank -->|No| TurnStart
-    CheckRank -->|Yes| CheckHp{ランクノルマ0?}
+    CheckRank -->|Yes| CheckQuota{ランクノルマ0?}
 
-    CheckHp -->|Yes| PromotionExam[昇格試験へ<br/>庭なし・専用試験ノルマ・超短期ターンで<br/>通常の調合/納品ループを流用]
-    CheckHp -->|No| Demotion[降格<br/>同ランクに留まり再挑戦]
+    CheckQuota -->|Yes| PromotionExam[昇格試験へ<br/>庭なし・専用試験ノルマ・超短期ターンで<br/>通常の調合/納品ループを流用]
+    CheckQuota -->|No| Demotion[降格<br/>同ランクに留まり再挑戦]
 
     Demotion --> ResetRankRetry[ランクノルマ/残りターンをリセット<br/>庭・在庫・ゴールド・恒久投資は維持<br/>RankQuotaResolver.reset_for_retry]
     ResetRankRetry --> CheckDemotionCount{規定回数連続降格?}
