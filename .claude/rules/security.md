@@ -12,7 +12,7 @@
 
 ## セーブデータの検証（🟡将来のセーブ/ロード機能追加時に適用。現行スコープ外）
 
-セーブ/ロード機能は現時点で設計スコープ外（`CLAUDE.md`参照）だが、将来追加する場合は以下の方針を踏襲する。Godotでは`user://`ディレクトリへの`FileAccess`書き込みがブラウザの`localStorage`に相当する。
+セーブ/ロード機能は現時点で設計スコープ外（`CLAUDE.md`参照）だが、将来追加する場合は以下の方針を踏襲する。Godotでは`user://`ディレクトリへの`FileAccess`書き込みがブラウザの`localStorage`に相当する。保存ファイルは改ざん検出用チェックサムを含めた`{"data": {...}, "checksum": "..."}`形式で書き込み、読み込み時はチェックサム照合と型検証の両方を行う（チェックサム計算自体は後述「セーブデータの改ざん検出」の`calculate_checksum()`を参照）。
 
 ```gdscript
 # セーブデータ読み込み時は必ず検証する
@@ -21,27 +21,42 @@ func load_save_data() -> Dictionary:
 		return {}
 
 	var file := FileAccess.open("user://save_data.json", FileAccess.READ)
+	if file == null:
+		push_warning("Failed to open save data: %s" % error_string(FileAccess.get_open_error()))
+		return {}
+
 	var raw := file.get_as_text()
 	var json := JSON.new()
 	if json.parse(raw) != OK:
 		push_warning("Failed to parse save data")
 		return {}
 
-	var data: Variant = json.data
-	if not _is_valid_save_data(data):
+	var parsed: Variant = json.data
+	if not (parsed is Dictionary):
 		push_warning("Invalid save data format")
 		return {}
-	return data
+	var wrapper: Dictionary = parsed
+	var payload: Variant = wrapper.get("data")
 
-# 型ガードで検証する
+	if not _is_valid_save_data(payload):
+		push_warning("Invalid save data format")
+		return {}
+	if calculate_checksum(payload) != wrapper.get("checksum"):
+		push_warning("Save data may be corrupted")
+		return {}
+	return payload
+
+# 型ガードで検証する（GodotのJSONパーサは数値を常にfloatとして返すため、int/floatの両方を許容する）
 func _is_valid_save_data(data: Variant) -> bool:
 	if not (data is Dictionary):
 		return false
 	var d: Dictionary = data
+	var version: Variant = d.get("version")
+	var gold: Variant = d.get("gold")
 	return (
-		d.get("version") is int
-		and d.get("gold") is int
-		and d.gold >= 0
+		(version is int or version is float)
+		and (gold is int or gold is float)
+		and float(gold) >= 0
 		and d.get("inventory") is Array
 	)
 ```
@@ -60,8 +75,8 @@ func validate_player_name(name: String) -> String:
 		return ""
 
 	# 危険な文字を除去（GDScriptではDOM挿入がないためXSS目的の除去は不要だが、
-	# 保存データの破損防止・表示崩れ防止のため制御文字は除去する）
-	var sanitized := name.strip_edges()
+	# 保存データの破損防止・表示崩れ防止のため前後の空白と制御文字を除去する）
+	var sanitized := name.strip_edges().strip_escapes()
 
 	if sanitized.is_empty():
 		return ""
@@ -133,8 +148,10 @@ func validate_game_state(state: Dictionary) -> bool:
 
 ### セーブデータの改ざん検出（🟡将来のセーブ/ロード機能追加時に適用）
 
+チェックサムの計算と、それを使った照合はすでに前述「セーブデータの検証」の`load_save_data()`に組み込み済み。ここでは保存時の対となる処理のみを示す。
+
 ```gdscript
-# 簡易チェックサム
+# 簡易チェックサム（load_save_data()の照合と対になる）
 func calculate_checksum(data: Dictionary) -> String:
 	var json_string := JSON.stringify(data)
 	return json_string.sha256_text()
@@ -143,17 +160,10 @@ func calculate_checksum(data: Dictionary) -> String:
 func save(data: Dictionary) -> void:
 	var checksum := calculate_checksum(data)
 	var file := FileAccess.open("user://save_data.json", FileAccess.WRITE)
+	if file == null:
+		push_error("Failed to open save data for writing: %s" % error_string(FileAccess.get_open_error()))
+		return
 	file.store_string(JSON.stringify({"data": data, "checksum": checksum}))
-
-# 読み込み時
-func load_and_verify() -> Dictionary:
-	var loaded := load_save_data()
-	if loaded.is_empty():
-		return {}
-	if calculate_checksum(loaded.data) != loaded.checksum:
-		push_warning("Save data may be corrupted")
-		return {}
-	return loaded.data
 ```
 
 ---

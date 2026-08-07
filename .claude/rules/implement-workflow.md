@@ -99,13 +99,13 @@
 
 ```bash
 # 1. 全テスト
-godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/
+godot --headless --path atelier-alchemy -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -ginclude_subdirs -gexit
 
 # 2. 静的解析
-gdlint features/ shared/ autoload/
+gdlint atelier-alchemy/features/ atelier-alchemy/shared/ atelier-alchemy/autoload/
 
 # 3. フォーマットチェック
-gdformat --check features/ shared/ autoload/
+gdformat --check atelier-alchemy/features/ atelier-alchemy/shared/ atelier-alchemy/autoload/
 ```
 
 いずれかが失敗している場合はコミットしない。
@@ -131,6 +131,7 @@ pre-commitフックが設定されていれば同様に自動チェックされ�
 
 ### リント違反時
 
-1. `gdformat features/ shared/ autoload/` で自動フォーマットを試行
-2. `gdlint`が指摘する手動修正が必要な項目を対応
-3. 再実行して確認
+1. 変更ファイルに限定して差分を確認: `gdformat --diff <変更ファイル...>`
+2. 差分が意図通りであれば、変更ファイルのみに`gdformat`を適用（ディレクトリ一括実行は無関係な既存ファイルまで書き換えるため避ける）
+3. `gdlint`が指摘する手動修正が必要な項目を対応
+4. 再実行して確認

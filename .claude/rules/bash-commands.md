@@ -18,17 +18,17 @@ Bashツールの作業ディレクトリは呼び出し間で永続化される�
 
 ```bash
 # NG: 毎回cdを繰り返す
-cd atelier-alchemy && godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/
+cd atelier-alchemy && godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -ginclude_subdirs -gexit
 cd atelier-alchemy && gdlint features/
 cd atelier-alchemy && godot --headless --export-release "Windows Desktop" build/atelier.exe
 
 # OK: --pathを活用
-godot --headless --path atelier-alchemy -s addons/gut/gut_cmdln.gd -gdir=res://tests/
+godot --headless --path atelier-alchemy -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -ginclude_subdirs -gexit
 
 # OK: 最初の1回だけcd（以降は不要）
 cd atelier-alchemy
 # 次のBash呼び出しではcdなしで実行可能
-godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/
+godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -ginclude_subdirs -gexit
 ```
 
 ---
@@ -83,12 +83,12 @@ cmd1 && cmd2 && cmd3 && cmd4 && cmd5 && cmd6 && cmd7 && cmd8 && cmd9 && cmd10
 
 ```bash
 # NG: 全並列呼び出しで同じcdを繰り返す
-# 呼び出し1: cd atelier-alchemy && godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/
+# 呼び出し1: cd atelier-alchemy && godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -ginclude_subdirs -gexit
 # 呼び出し2: cd atelier-alchemy && gdlint features/
 # 呼び出し3: cd atelier-alchemy && gdformat --check features/
 
 # OK: cdなしで直接実行（作業ディレクトリが既に正しい場合）
-# 呼び出し1: godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/
+# 呼び出し1: godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -ginclude_subdirs -gexit
 # 呼び出し2: gdlint features/
 # 呼び出し3: gdformat --check features/
 ```
@@ -124,12 +124,12 @@ gh issue create ... && gh issue create ... && gh issue create ... && ...
 
 ```bash
 # OK: --pathでプロジェクトディレクトリを明示（cd不要）
-godot --headless --path atelier-alchemy -s addons/gut/gut_cmdln.gd -gdir=res://tests/
+godot --headless --path atelier-alchemy -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -ginclude_subdirs -gexit
 
 # OK: 最初の1回だけcd（以降は不要）
 cd atelier-alchemy
 # 次のBash呼び出しではcdなしで実行可能
-godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/
+godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -ginclude_subdirs -gexit
 ```
 
 ### 利用可能な主要コマンド
@@ -137,8 +137,8 @@ godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/
 | コマンド | 内容 |
 |---------|------|
 | `godot --path atelier-alchemy` | エディタをGUIで起動（対話操作、調査用。[`godot-debug-tools.md`](./godot-debug-tools.md)参照） |
-| `godot --headless --path atelier-alchemy -s addons/gut/gut_cmdln.gd -gdir=res://tests/` | 全GUTテストをヘッドレス実行 |
-| `godot --headless --path atelier-alchemy -s addons/gut/gut_cmdln.gd -gtest=res://tests/unit/features/{feature}/test_{file}.gd` | 特定テストファイルのみ実行 |
+| `godot --headless --path atelier-alchemy -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -ginclude_subdirs -gexit` | 全GUTテストをヘッドレス実行 |
+| `godot --headless --path atelier-alchemy -s addons/gut/gut_cmdln.gd -gtest=res://tests/unit/features/{feature}/test_{file}.gd -gexit` | 特定テストファイルのみ実行 |
 | `gdlint atelier-alchemy/features/ atelier-alchemy/shared/ atelier-alchemy/autoload/` | 静的解析（gdtoolkit） |
 | `gdformat atelier-alchemy/features/ atelier-alchemy/shared/ atelier-alchemy/autoload/` | 自動フォーマット |
 | `godot --headless --path atelier-alchemy --export-release "<preset>" <output>` | エクスポートビルド（プリセット名は実装着手時に確定） |
@@ -171,7 +171,7 @@ godot --path atelier-alchemy
 
 | コマンド | 推奨タイムアウト |
 |---------|---------------|
-| `godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/` | 120000ms（2分） |
+| `godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -ginclude_subdirs -gexit` | 120000ms（2分） |
 | `godot --headless --export-release ...` | 300000ms（5分、初回エクスポートは特に時間がかかる） |
 
 ---
@@ -220,13 +220,13 @@ cd /c/Users/syagu/My Documents
 
 ```bash
 # 特定ディレクトリ
-godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/unit/features/garden/
+godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/unit/features/garden/ -ginclude_subdirs -gexit
 
 # 特定ファイル
-godot --headless -s addons/gut/gut_cmdln.gd -gtest=res://tests/unit/features/alchemy/test_quality_calculator.gd
+godot --headless -s addons/gut/gut_cmdln.gd -gtest=res://tests/unit/features/alchemy/test_quality_calculator.gd -gexit
 
 # 全テスト実行（CIまたは最終確認）
-godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/
+godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -ginclude_subdirs -gexit
 ```
 
 ### ヘッドレス実行の徹底
@@ -235,10 +235,10 @@ godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/
 
 ```bash
 # OK: ヘッドレス実行
-godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/
+godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -ginclude_subdirs -gexit
 
 # NG: --headless忘れ（GUIウィンドウが起動し終了しない）
-godot -s addons/gut/gut_cmdln.gd -gdir=res://tests/
+godot -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -ginclude_subdirs -gexit
 ```
 
 ### 出力が長い場合
@@ -247,7 +247,7 @@ godot -s addons/gut/gut_cmdln.gd -gdir=res://tests/
 
 ```bash
 # 末尾30行のみ表示
-godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/ 2>&1 | tail -30
+godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -ginclude_subdirs -gexit 2>&1 | tail -30
 ```
 
 ---
@@ -289,13 +289,13 @@ rmdir target_directory/
 
 ```bash
 # 1. テスト実行
-godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/
+godot --headless --path atelier-alchemy -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -ginclude_subdirs -gexit
 
 # 2. 静的解析（gdlint）
-gdlint features/ shared/ autoload/
+gdlint atelier-alchemy/features/ atelier-alchemy/shared/ atelier-alchemy/autoload/
 
 # 3. フォーマットチェック
-gdformat --check features/ shared/ autoload/
+gdformat --check atelier-alchemy/features/ atelier-alchemy/shared/ atelier-alchemy/autoload/
 ```
 
 全てパスしてからコミットすること。pre-commitフックが設定されていれば同様に検証されるが、事前に確認することで修正の手戻りを減らせる。

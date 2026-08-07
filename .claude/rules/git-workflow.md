@@ -177,9 +177,9 @@ git merge origin/main
 git add <解消したファイル>
 
 # 6. 検証チェックリスト実行
-godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/
-gdlint features/ shared/ autoload/
-gdformat --check features/ shared/ autoload/
+godot --headless --path atelier-alchemy -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -ginclude_subdirs -gexit
+gdlint atelier-alchemy/features/ atelier-alchemy/shared/ atelier-alchemy/autoload/
+gdformat --check atelier-alchemy/features/ atelier-alchemy/shared/ atelier-alchemy/autoload/
 
 # 7. 全てパスしたらマージコミットを作成
 git commit
@@ -198,7 +198,7 @@ git push
 ### 解消後の検証チェックリスト
 
 - [ ] 全てのコンフリクトマーカー（`<<<<<<<`, `=======`, `>>>>>>>`）が除去されていること
-- [ ] GUTテストがパスすること（`godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/`）
+- [ ] GUTテストがパスすること（`godot --headless --path atelier-alchemy -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -ginclude_subdirs -gexit`）
 - [ ] `gdlint`の警告がないこと
 - [ ] `gdformat --check`のフォーマット崩れがないこと
 - [ ] アプリケーションが正常に起動すること（Godotエディタでの再生確認）

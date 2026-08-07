@@ -56,13 +56,14 @@
 
 ### 雛形1: セーブデータリセット相当（初期状態からの起動）
 
-セーブ/ロード機能は現行スコープ外（`CLAUDE.md`参照）のため、「リセット」は単に新しい`GameState`インスタンスを生成することに等しい。
+セーブ/ロード機能は現行スコープ外（`CLAUDE.md`参照）のため、「リセット」は`GameState`（Autoload、プロセス内で単一）の内部状態を初期値に戻すことを指す。`GameState`はAutoloadのため、雛形2〜4のようにテストコードが直接参照する対象と同じインスタンスでなければ意味がない。ローカルに新規インスタンスを`.new()`しても、Autoload本体にもUIにも反映されず「リセットしたつもり」になるだけなので行わない。
 
 ```gdscript
 func before_each() -> void:
-	var game_state: GameStateType = GameStateType.new()
-	add_child_autofree(game_state)
+	GameState.reset_for_test()
 ```
+
+> 🔵 `GameState`（`autoload/game_state.gd`）に`reset_for_test()`（内部状態を初期値へ戻すメソッド）を実装しておくことが前提。テスト分離のためだけに使うメソッドであることが分かるよう命名し、本番コードパスからは呼び出さない。
 
 ### 雛形2: 特定フェーズへジャンプ
 
@@ -76,9 +77,12 @@ func _jump_to_phase(phase: StringName) -> void:
 ### 雛形3: 在庫へアイテム追加
 
 ```gdscript
+var _test_id_counter := 0
+
 func _add_material_to_inventory(material_id: StringName, quality: int) -> MaterialInstance:
 	var master: MaterialMaster = MasterDataLoader.get_material(material_id)
-	var instance := MaterialInstance.new("test_%d" % Time.get_ticks_msec(), master, quality, [])
+	_test_id_counter += 1
+	var instance := MaterialInstance.new("test_%d" % _test_id_counter, master, quality, [])
 	GameState.add_item(instance)
 	return instance
 ```
@@ -87,10 +91,14 @@ func _add_material_to_inventory(material_id: StringName, quality: int) -> Materi
 
 ```gdscript
 func test_調合を実行して納品まで到達する() -> void:
+	GameState.reset_for_test()
+	var main: Node = load("res://scenes/main.tscn").instantiate()
+	add_child_autofree(main)
+
 	_jump_to_phase(&"alchemy")
 	var material := _add_material_to_inventory(&"herb_common", 3)
 
-	var alchemy_screen: AlchemyScreen = _main.get_node("%AlchemyScreen")
+	var alchemy_screen: AlchemyScreen = main.get_node("%AlchemyScreen")
 	alchemy_screen.select_recipe(&"healing_potion")
 	alchemy_screen.insert_material(material)
 	alchemy_screen.execute()
@@ -117,36 +125,37 @@ func test_調合を実行して納品まで到達する() -> void:
 
 自動テスト中にスクリーンショットを撮りたい場合は`Viewport.get_texture().get_image().save_png()`を使う。
 
+> 🔴 `res://`はエクスポート後にPCKへ固められ読み取り専用になるため、書き込み先には必ず`user://`を使う。`save_png()`はエラー時に`Error`（非OK）を返すだけで例外を投げないため、戻り値を必ず確認する。また撮影直前に描画完了を待たないとキャプチャが空・前フレームの内容になることがあるため`await RenderingServer.frame_post_draw`を挟む。
+
 ```gdscript
 func _save_debug_screenshot(topic: String) -> void:
+	await RenderingServer.frame_post_draw
 	var img := get_viewport().get_texture().get_image()
-	var dir := "res://.godot-debug-screenshots/%s" % Time.get_date_string_from_system()
+	var date_str := Time.get_date_string_from_system().replace("-", "")
+	var dir := "user://debug-screenshots/%s" % date_str
 	DirAccess.make_dir_recursive_absolute(dir)
-	img.save_png("%s/%s.png" % [dir, topic])
+	var err := img.save_png("%s/%s.png" % [dir, topic])
+	if err != OK:
+		push_warning("スクリーンショット保存に失敗しました: %s (error=%d)" % [topic, err])
 ```
 
 ### 保存先・命名規則
 
 ```
-.godot-debug-screenshots/<YYYYMMDD>/<scene>-<state>-<seq>.png
+user://debug-screenshots/<YYYYMMDD>/<scene>-<state>-<seq>.png
 
 例:
-.godot-debug-screenshots/20260806/delivery-empty-01.png
-.godot-debug-screenshots/20260806/delivery-item-selected-02.png
+user://debug-screenshots/20260806/delivery-empty-01.png
+user://debug-screenshots/20260806/delivery-item-selected-02.png
 ```
+
+`user://`の実パスはOS依存（Windowsは`%APPDATA%/Godot/app_userdata/<project>/`相当）。エディタの「プロジェクト > ユーザーデータフォルダを開く」から確認できる。
 
 ### 禁止
 
 - リポジトリルート直下に`debug-*.png`を撒く
-- 調査用PNGのコミット（`.gitignore`対象に追加すること）
+- 調査用PNGのコミット（バージョン管理対象外の`user://`に保存されるため通常は混入しないが、手動でリポジトリへコピーしない）
 - 長期保持（セッション終了時 or 翌日に手動クリーンアップ）
-
-### `.gitignore`で除外するパターン
-
-```
-.godot-debug-screenshots/
-debug-*.png
-```
 
 ### 共有したい1枚
 
@@ -196,7 +205,7 @@ func _execute_command(command: String) -> void:
 
 - 本番配布ビルドでのデバッグコンソール有効化（`OS.is_debug_build()`ガード必須）
 - リモートシーンツリーでの値書き換えを「検証済みの動作」として扱う（あくまで調査用の一時操作）
-- `debug-*.png`や`.godot-debug-screenshots/`配下のコミット
+- `debug-*.png`や`user://debug-screenshots/`から手動コピーした調査用画像のコミット
 - CIでのGodotエディタGUI操作（CIはGUT CLIのみ）
 
 ### PRレビュー観点
@@ -214,7 +223,7 @@ func _execute_command(command: String) -> void:
 | リモートシーンツリーにAutoloadが出てこない | `project.godot`のAutoload登録漏れ | `Project > Project Settings > Autoload`を確認 |
 | GUTテストが`Node not found`で失敗 | `add_child_autofree()`忘れ、またはシーンツリー未接続でのノード参照 | テスト対象を`add_child_autofree()`してから操作する |
 | シグナル購読が二重に呼ばれる | `_ready()`が複数回呼ばれるノード構成（シーン再インスタンス化等） | `is_connected()`チェックを徹底する（[`state-management.md`](./state-management.md)参照） |
-| `use_parameters()`が反映されない | パラメータ引数名が`params`以外、またはデフォルト値の書き方誤り | GUT公式ドキュメントの`use_parameters`構文を確認 |
+| `use_parameters()`のケースが想定通り実行されない | パラメータ配列の要素の型・順序が関数内の参照順と不一致、またはデフォルト引数の構文誤り | GUT公式ドキュメントの`use_parameters`構文と照合し、`params[i]`のインデックス対応を確認 |
 
 ---
 

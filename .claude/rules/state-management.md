@@ -64,7 +64,7 @@ if GameState.can_transition_to(&"alchemy"):
 
 - **疎結合通信**: 発行側は購読側を知らない（Godotの`signal`はPub/Subパターンをネイティブサポートする）
 - **専用EventBusクラスは作らない**: `signal`は発行元のクラス（主に`GameState`）が宣言し、購読側が`connect()`する
-- **購読解除必須**: `connect()`したハンドラーは、購読側ノードが`_exit_tree()`される際に必ず`disconnect()`する（Godotは同一ノードが破棄されれば自動的に接続を解除するが、明示的な`disconnect()`を推奨する）
+- **購読解除必須（寿命の異なる発行元のみ）**: `GameState`等Autoload（寿命が購読側ノードと異なる発行元）のsignalに`connect()`した場合は、購読側ノードの`_exit_tree()`で必ず`disconnect()`する。同一シーンツリー内の親子ノード間（自ノード自身のsignalや子ノードのsignalへの接続）はノード破棄時にGodotが自動的に切断するため、明示的な`disconnect()`は不要（詳細は[`ui-components.md`](./ui-components.md)「`_exit_tree()`での実装」参照）
 
 ### シグナル宣言と発行
 
@@ -140,10 +140,10 @@ get_tree().change_scene_to_file("res://scenes/result.tscn")
 
 ```gdscript
 # 保存
-GameState.set_selected_quest_id(quest_id)
+GameState.set_selected_recipe_id(recipe_id)
 
 # 別シーン/画面で取得
-var quest_id := GameState.get_state().selected_quest_id
+var recipe_id := GameState.get_state().selected_recipe_id
 ```
 
 ### 方法3: signal経由
@@ -152,11 +152,11 @@ var quest_id := GameState.get_state().selected_quest_id
 
 ```gdscript
 # 発行側
-GameState.quest_selected.emit(quest_id)
+GameState.recipe_selected.emit(recipe_id)
 
 # 購読側
-GameState.quest_selected.connect(func(quest_id: StringName) -> void:
-	_show_quest_detail(quest_id)
+GameState.recipe_selected.connect(func(recipe_id: StringName) -> void:
+	_show_recipe_detail(recipe_id)
 )
 ```
 

@@ -107,7 +107,7 @@ res://features/alchemy/ui/alchemy_screen.tscn
 
 ### オブジェクトプーリング
 
-頻繁に生成・破棄するUI要素（カード等）はプーリングを検討する。GodotはPhaserの`Group`のような組み込みプーリング機構を持たないため、配列とノードの`visible`/`process_mode`切り替えで自作する。
+頻繁に生成・破棄するUI要素（カード等）はプーリングを検討する。GodotはPhaserの`Group`のような組み込みプーリング機構を持たないため、配列とノードの`visible`/`process_mode`切り替えで自作する。非表示ノードでも`_process()`定義があれば呼ばれ続けるため、`visible`だけでなく`process_mode`も止める。また再利用時に前回表示が残らないよう、貸し出し・返却の両方で内部状態をリセットする。
 
 ```gdscript
 var _card_pool: Array[PlantCard] = []
@@ -116,6 +116,7 @@ func _get_or_create_card() -> PlantCard:
 	for card in _card_pool:
 		if not card.visible:
 			card.visible = true
+			card.process_mode = Node.PROCESS_MODE_INHERIT
 			return card
 	var card: PlantCard = PlantCardScene.instantiate()
 	add_child(card)
@@ -123,7 +124,9 @@ func _get_or_create_card() -> PlantCard:
 	return card
 
 func _release_card(card: PlantCard) -> void:
+	card.reset_state()  # 表示内容（品質・特性タグ等）をクリアし、前回表示の残留を防ぐ
 	card.visible = false
+	card.process_mode = Node.PROCESS_MODE_DISABLED
 ```
 
 ### プーリング対象の目安
@@ -174,12 +177,14 @@ func _exit_tree() -> void:
 ### ノードの破棄
 
 ```gdscript
-# 個別破棄（子ノードも再帰的に解放される）
+# 個別破棄（子ノードも再帰的に解放される。現フレームの処理完了後に解放されるため安全）
 node.queue_free()
 
 # 即座に破棄が必要な場合（通常はqueue_free()を使う）
 node.free()
 ```
+
+> 🔴 `free()`はその場で即座にメモリを解放するため、signalのコールバック中や`_process()`/`_physics_process()`の実行中に、そのノード自身やまだ処理中のノードに対して呼ぶとクラッシュしうる。呼び出しタイミングに確信が持てない場合は必ず`queue_free()`を使う。
 
 ---
 
@@ -213,7 +218,7 @@ if GameState.phase_changed.is_connected(_on_phase_changed):
 
 ## 日本語テキスト描画の注意
 
-Godot 4.xの`Label`/`RichTextLabel`は、プロジェクトにCJK対応フォント（`FontFile`）を明示的に設定しないと日本語がデフォルトフォント（Noto Sans相当、部分的なグリフ欠落の可能性あり）で描画される。
+> 🔴 Godot 4.xのデフォルトフォントは日本語グリフを一切含まないため、CJK対応フォント（`FontFile`）を設定しない場合、日本語テキストは「部分的な欠落」ではなく**全く描画されない（豆腐文字/矩形のみ表示）**。本ゲームは全UIが日本語表示前提のため、これは「注意点」ではなく**Phase 1（プロジェクト基盤構築）で最初に対応すべき必須セットアップ**である。
 
 ### 対策: プロジェクト共通フォントの設定
 

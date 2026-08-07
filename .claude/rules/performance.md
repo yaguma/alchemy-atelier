@@ -70,10 +70,10 @@ func _ready() -> void:
 
 ```gdscript
 # 個別画像の読み込み（非推奨、大量にある場合）
-var icon_gold := preload("res://assets/icons/gold.png")
+var icon_texture := preload("res://assets/icons/gold.png")
 
 # AtlasTextureで一括管理（推奨）
-var icon_gold: AtlasTexture = preload("res://assets/icons_atlas_gold.tres")
+var icon_texture: AtlasTexture = preload("res://assets/icons_atlas_gold.tres")
 ```
 
 ### 画像サイズ
@@ -176,10 +176,21 @@ for item in items:
 
 ### FPS表示（開発時のみ）
 
+`_process()`での毎フレーム`print()`は「重い処理」「本番へのprint()残存」の両方を自ら破る。デバッグビルド限定で`Timer`により間引いて`Label`に表示する。
+
 ```gdscript
-func _process(_delta: float) -> void:
-	if OS.is_debug_build():
-		print("FPS: ", Engine.get_frames_per_second())
+# デバッグビルドの_ready()でのみセットアップする（本番ビルドでは呼ばない）
+func _setup_fps_display() -> void:
+	if not OS.is_debug_build():
+		return
+	var timer := Timer.new()
+	timer.wait_time = 0.5
+	timer.timeout.connect(_on_fps_timer_timeout)
+	add_child(timer)
+	timer.start()
+
+func _on_fps_timer_timeout() -> void:
+	_fps_label.text = "FPS: %d" % Engine.get_frames_per_second()
 ```
 
 ---

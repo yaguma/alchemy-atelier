@@ -64,7 +64,7 @@ class TestErrorCases:
 #### 失敗確認コマンド
 
 ```bash
-godot --headless -s addons/gut/gut_cmdln.gd -gtest=res://tests/unit/features/{feature}/test_{ファイル}.gd
+godot --headless -s addons/gut/gut_cmdln.gd -gtest=res://tests/unit/features/{feature}/test_{ファイル}.gd -gexit
 ```
 
 テストが**失敗する**ことを必ず確認する。テストが成功してしまう場合はテスト設計を見直す。
@@ -112,7 +112,7 @@ static func calculate_reward_bad(difficulty: StringName) -> int:
 #### 成功確認コマンド
 
 ```bash
-godot --headless -s addons/gut/gut_cmdln.gd -gtest=res://tests/unit/features/{feature}/test_{ファイル}.gd
+godot --headless -s addons/gut/gut_cmdln.gd -gtest=res://tests/unit/features/{feature}/test_{ファイル}.gd -gexit
 ```
 
 テストが**成功する**ことを確認する。
@@ -126,7 +126,7 @@ godot --headless -s addons/gut/gut_cmdln.gd -gtest=res://tests/unit/features/{fe
 リファクタリング中は頻繁にテストを実行し、グリーン状態を維持する。
 
 ```bash
-godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/unit/features/{feature}/
+godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/unit/features/{feature}/ -ginclude_subdirs -gexit
 ```
 
 #### リファクタリング対象
@@ -191,15 +191,17 @@ func test_品質からグレードを判定する(params = use_parameters([
 ### テストダブル（モック）使用
 
 ```gdscript
-func before_each() -> void:
-	gut.p("setup")
+const RngServiceScript = preload("res://autoload/rng_service.gd")
 
-# ダブル生成（GUTのdouble()でスクリプトの疑似オブジェクトを生成）
-var doubled_rng = double(RngService).new()
+var _doubled_rng
+
+func before_each() -> void:
+	# RngServiceはAutoload（インスタンス）のため、double()にはスクリプト自体を渡す
+	_doubled_rng = double(RngServiceScript).new()
+	stub(_doubled_rng, "roll_quality").to_return(0.9)
 
 func test_乱数結果を差し替えて検証する() -> void:
-	stub(doubled_rng, "roll_quality").to_return(0.9)
-	var result := Harvest.harvest(_plant_state(), doubled_rng.roll_quality(), 0.5)
+	var result := Harvest.harvest(_plant_state(), _doubled_rng.roll_quality(), 0.5)
 	assert_true(result.success)
 ```
 
@@ -217,10 +219,10 @@ GDScriptには`index.ts`のような明示的な公開APIファイルはない�
 
 ```bash
 # 全テスト
-godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/
+godot --headless --path atelier-alchemy -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -ginclude_subdirs -gexit
 
 # gdlint（静的解析。型の欠落やスタイル違反を検出）
-gdlint features/ shared/ autoload/
+gdlint atelier-alchemy/features/ atelier-alchemy/shared/ atelier-alchemy/autoload/
 ```
 
 ---

@@ -29,11 +29,9 @@ func _ready() -> void:
 func _on_gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed:
 		selected.emit(self)
-
-func _exit_tree() -> void:
-	if gui_input.is_connected(_on_gui_input):
-		gui_input.disconnect(_on_gui_input)
 ```
+
+> 自ノード自身が発行するsignal（`gui_input`等）への接続は、ノード破棄時にGodotが自動的に切断するため`_exit_tree()`での`disconnect()`は不要（詳細は後述「`_exit_tree()`での実装」参照）。
 
 ### ライフサイクルの対応
 
@@ -97,8 +95,7 @@ func _exit_tree() -> void:
 色やサイズは`UiTheme`定数、またはGodotの`Theme`リソースを使用し、ハードコーディングを避ける。
 
 ```gdscript
-const UiTheme = preload("res://shared/theme/theme.gd")
-
+# UiThemeはclass_name経由のグローバル参照（preload+constで再宣言するとclass_nameを隠しコンパイルエラーになるため行わない）
 func _apply_theme() -> void:
 	_bg.self_modulate = UiTheme.COLOR_BACKGROUND_PRIMARY
 	_title_label.add_theme_font_size_override("font_size", UiTheme.FONT_SIZE_MEDIUM)
@@ -120,7 +117,13 @@ func update_gold(amount: int) -> void:
 	_gold_label.text = "%s G" % _format_number(amount)
 
 func _format_number(n: int) -> String:
-	return String.num_int64(n)
+	var digits := String.num_int64(n)
+	var grouped := ""
+	for i in range(digits.length()):
+		if i > 0 and (digits.length() - i) % 3 == 0:
+			grouped += ","
+		grouped += digits[i]
+	return grouped
 ```
 
 ### 状態監視するコンポーネント
@@ -212,15 +215,9 @@ func _ready() -> void:
 func _on_gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed:
 		_handle_click()
-
-func _exit_tree() -> void:
-	if gui_input.is_connected(_on_gui_input):
-		gui_input.disconnect(_on_gui_input)
-	if mouse_entered.is_connected(_on_mouse_entered):
-		mouse_entered.disconnect(_on_mouse_entered)
-	if mouse_exited.is_connected(_on_mouse_exited):
-		mouse_exited.disconnect(_on_mouse_exited)
 ```
+
+自ノード自身のsignal（`gui_input`/`mouse_entered`/`mouse_exited`）への接続はノード破棄時に自動切断されるため、`_exit_tree()`での`disconnect()`は不要（Autoloadへの購読のみ明示的な解除が必須。「破棄チェックリスト」参照）。
 
 ### ホバーエフェクト
 

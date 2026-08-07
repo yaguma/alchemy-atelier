@@ -53,34 +53,42 @@ extends GutTest
 class TestNormalCases:
 	extends GutTest
 
-	func test_指定された難易度の依頼を生成する() -> void:
-		var quest := QuestGenerator.generate(&"D", _mock_client())
+	func test_投入素材の平均品質を算出する() -> void:
+		var materials: Array[MaterialInstance] = [_make_material(4), _make_material(2)]
 
-		assert_eq(quest.difficulty, &"D")
-		assert_eq(quest.client, _mock_client())
+		var result := QualityCalculator.calculate_quality(materials)
 
-	func test_報酬がゴールド基準に従う() -> void:
-		var quest := QuestGenerator.generate(&"C", _mock_client())
+		assert_eq(result, 3) # (4+2)/2
 
-		assert_true(quest.reward.gold >= 100)
-		assert_true(quest.reward.gold <= 200)
+	func test_触媒タグ保有時に品質へボーナスが加算される() -> void:
+		var materials: Array[MaterialInstance] = [_make_material(3, [&"catalyst"]), _make_material(3)]
+
+		var result := QualityCalculator.calculate_quality(materials)
+
+		assert_eq(result, 4)
 
 class TestErrorCases:
 	extends GutTest
 
-	func test_無効な難易度でエラーを返す() -> void:
-		var result := QuestGenerator.generate(&"X", _mock_client())
-		assert_true(result.is_error)
+	func test_品質上限を超えないようクランプされる() -> void:
+		var materials: Array[MaterialInstance] = [_make_material(5, [&"catalyst"]), _make_material(5)]
+
+		var result := QualityCalculator.calculate_quality(materials)
+
+		assert_eq(result, 5)
 ```
 
 ### テストダブル
 
 ```gdscript
-# ダブル生成
-var doubled_rng = double(RngService).new()
+const RngServiceScript = preload("res://autoload/rng_service.gd")
+
+var _doubled_rng
 
 func before_each() -> void:
-	stub(doubled_rng, "roll_quality").to_return(0.5)
+	# RngServiceはAutoload（インスタンス）のため、double()にはスクリプト自体を渡す
+	_doubled_rng = double(RngServiceScript).new()
+	stub(_doubled_rng, "roll_quality").to_return(0.5)
 
 func after_each() -> void:
 	pass  # GUTはbefore_each/after_eachごとにダブルを再生成するのが基本
@@ -99,21 +107,21 @@ func after_each() -> void:
 ```gdscript
 extends GutTest
 
-var _game_state: GameStateType
-
 func before_each() -> void:
-	_game_state = GameStateType.new()
-	add_child_autofree(_game_state)
+	# GameStateはAutoload（プロセス内で単一）のため、テストごとにreset_for_test()で初期化する
+	GameState.reset_for_test()
 
 func test_フェーズ変更時にシグナルが発行される() -> void:
-	watch_signals(_game_state)
+	watch_signals(GameState)
 
-	_game_state.set_phase(&"alchemy")
+	GameState.set_phase(&"alchemy")
 
 	assert_signal_emitted_with_parameters(
-		_game_state, "phase_changed", [&"garden", &"alchemy"]
+		GameState, "phase_changed", [&"garden", &"alchemy"]
 	)
 ```
+
+> 🔵 `GameState`はAutoload（シングルトン）であるため、テストごとに新規インスタンスを生成して差し替えることはできない。テスト分離のため`GameState`自身に`reset_for_test()`（内部状態を初期値へ戻すメソッド）を実装することを前提とする。ローカルインスタンスを生成する`GameStateType.new()`のようなパターンは、Autoload本体にもUIにも反映されないため使用しない。
 
 GUTの`watch_signals()` / `assert_signal_emitted_with_parameters()`を使うと、Vitestの`vi.fn()`によるイベント検証に相当する検証ができる。
 
@@ -158,17 +166,19 @@ Godotエディタでの実行、またはエクスポートしたデバッグビ
 
 ```bash
 # ユニット/統合テスト（全体）
-godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/
+godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -ginclude_subdirs -gexit
 
 # 特定ディレクトリ
-godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/unit/features/garden/
+godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/unit/features/garden/ -ginclude_subdirs -gexit
 
 # 特定ファイル
-godot --headless -s addons/gut/gut_cmdln.gd -gtest=res://tests/unit/features/alchemy/test_quality_calculator.gd
+godot --headless -s addons/gut/gut_cmdln.gd -gtest=res://tests/unit/features/alchemy/test_quality_calculator.gd -gexit
 
 # パターンマッチ（テスト名でフィルタ）
-godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -ginclude_subdirs -gunit_test_name="calculate_quality"
+godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -ginclude_subdirs -gunit_test_name="calculate_quality" -gexit
 ```
+
+`-gexit`を付けないとテスト完了後もGUTがメインループを保持し続けプロセスが終了しない。`-gdir`は指定ディレクトリ直下のみ走査するため、`tests/unit/features/{feature}/`のようなネストした配置規約では`-ginclude_subdirs`を必ず付ける（付け忘れると「0 tests, 0 failures」のまま成功終了する偽グリーンになる）。
 
 具体的なCLIオプションは実装着手時に確定する（[`docs/design/atelier-alchemy-core/architecture.md`](../../docs/design/atelier-alchemy-core/architecture.md)「テスト運用規約」🟡参照）。
 

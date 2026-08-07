@@ -95,5 +95,21 @@
 | `design-guide.md` | カラー参照のコード例をTypeScript importからGDScriptの`UiTheme`参照構文に更新 |
 | `security.md` | Web前提（localStorage/XSS/.env）の記述をGodotオフライン単体アプリの文脈に調整 |
 | `code-review.md` | 「Warning の基準」のTypeScript固有項目（any型等）をGDScript向け（`Variant`型等）に調整 |
+| `git-workflow.md` | コンフリクト解消手順の検証コマンド例（pnpm test/typecheck/lint）をGUT/gdlint/gdformatに更新 |
 
 **判断の根拠**: `.claude/rules/`はClaude Codeが実装エージェントとして参照する運用ルールであり、内容が実際の技術スタックと乖離していると、実装フェーズで誤ったルール（存在しないpnpm/Vitestコマンドの実行、Phaser APIの誤用等）に従うリスクが高い。設計文書（`docs/design/`）とは異なり実装作業に直接影響するため、実装着手前の対応が必要と判断した。
+
+### 6.1 スコープ外として残っている箇所（未移行、要フォローアップ）🔴
+
+本対応のスコープは`.claude/rules/`配下に限定した。以下は同じくpnpm/Vitest/Phaser/v6.0「依頼（Quest）」前提のまま**未移行**であり、実行すると壊れるか、存在しないディレクトリ・存在しない語彙を対象にする。
+
+| 場所 | 問題 |
+|---|---|
+| `.claude/commands/self-healing-pipeline.md` | 品質ゲートとして`pnpm test`等を実行し、pnpmが見つからない場合は終了する仕様のため、このコマンドは起動直後に終了する |
+| `.claude/commands/codebase-health-scanner.md` | 存在しない`atelier-guild-rank/src`を走査対象にしている |
+| `.claude/commands/batch-issue-processor.md` | pnpm前提のコマンド例が残存 |
+| `.claude/skills/balance-tuning-cycle/`（SKILL.md・references配下） | pnpm/シミュレーション実行コマンドが旧スタック前提 |
+| `.claude/skills/content-gen-pipeline/`（SKILL.md・references配下） | pnpm前提のコマンド例、およびv6.0「依頼（Quest）」語彙のエージェントプロンプトが残存 |
+| `.claude/settings.json` | `pnpm --filter atelier-guild-rank`・`mcp__playwright`の許可設定が残存 |
+
+**判断の根拠**: 上記はいずれも実装着手（`atelier-alchemy/`スキャフォールディング）より前には実行される見込みが低く、`.claude/rules/`ほど緊急性が高くないと判断してスコープ外とした。ただし`self-healing-pipeline.md`のように今すぐ実行すれば即座に壊れるコマンドを含むため、**移行完了と誤解しないこと**。[Issue #5](https://github.com/yaguma/alchemy-atelier/issues/5)で追跡し、実装着手前までに対応する。

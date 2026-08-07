@@ -35,12 +35,12 @@ var item: Item = array[0] if array.size() > 0 else null
 
 | 対象 | 規則 | 例 |
 |------|------|-----|
-| 変数・関数 | snake_case | `quest_list`, `calculate_reward` |
-| クラス（`class_name`） | PascalCase | `QuestCard`, `GoldDisplay` |
+| 変数・関数 | snake_case | `material_list`, `calculate_reward` |
+| クラス（`class_name`） | PascalCase | `MaterialCard`, `GoldDisplay` |
 | シグナル | snake_case（過去形推奨） | `phase_changed`, `gold_changed` |
 | 定数 | UPPER_SNAKE_CASE | `MAX_DECK_SIZE`, `GAME_BALANCE` |
-| ファイル | snake_case | `quest_card.gd`, `quest_generator.gd` |
-| ディレクトリ | snake_case | `quest_accept/`, `state_management/` |
+| ファイル | snake_case | `material_card.gd`, `quality_calculator.gd` |
+| ディレクトリ | snake_case | `garden/`, `state_management/` |
 | private（モジュール内限定）メンバ | 先頭に`_` | `_internal_state`, `_calculate_bonus()` |
 
 ### インターフェース命名
@@ -52,8 +52,8 @@ GDScriptには`interface`に相当する言語機能がなく、本プロジェ�
 GDScriptは`import`文を持たない。`class_name`によるグローバル解決、または`preload`/`const`で依存を明示する。ファイル内は以下の順序で記述する。
 
 ```gdscript
-extends Node                                # 1. extends宣言
-class_name GardenScreen                     # 2. class_name宣言（UIやDomainクラス）
+class_name GardenScreen                     # 1. class_name宣言（UIやDomainクラス）
+extends Control                             # 2. extends宣言
 
 const SeedMaster = preload("res://features/garden/resources/seed_master.gd")  # 3. 依存の明示
 
@@ -111,11 +111,9 @@ func _ready() -> void:
 
 func _on_plant_pressed() -> void:
 	pass
-
-func _exit_tree() -> void:
-	if _plant_button.pressed.is_connected(_on_plant_pressed):
-		_plant_button.pressed.disconnect(_on_plant_pressed)
 ```
+
+同一シーンツリー内の子ノード（`_plant_button`）が発行するsignalへの接続は、ノード破棄時にGodotが自動的に切断するため`_exit_tree()`での明示的な`disconnect()`は不要（[`ui-components.md`](./ui-components.md)「`_exit_tree()`での実装」参照。明示的な解除が必須なのはAutoloadなど寿命がノードと異なる発行元への接続のみ）。
 
 ---
 
@@ -195,7 +193,7 @@ features/garden/
 
 ## 定数管理: GameBalance vs UiTheme
 
-ゲーム内の定数は用途に応じて2つのファイルに分離して管理する（`docs/design/atelier-alchemy-core/coding-style.md`相当の方針をGodot向けに翻訳）。
+ゲーム内の定数は用途に応じて2つのファイルに分離して管理する（[`docs/design/atelier-alchemy-core/architecture.md`](../../docs/design/atelier-alchemy-core/architecture.md)の設計方針をGodot向けに翻訳）。
 
 ### GameBalance (`shared/constants/game_balance.gd`)
 
