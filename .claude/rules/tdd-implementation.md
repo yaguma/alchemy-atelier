@@ -64,7 +64,7 @@ class TestErrorCases:
 #### 失敗確認コマンド
 
 ```bash
-godot --headless -s addons/gut/gut_cmdln.gd -gtest=res://tests/unit/features/{feature}/test_{ファイル}.gd -gexit
+godot --headless --path atelier-alchemy -s addons/gut/gut_cmdln.gd -gtest=res://tests/unit/features/{feature}/test_{ファイル}.gd -gexit
 ```
 
 テストが**失敗する**ことを必ず確認する。テストが成功してしまう場合はテスト設計を見直す。
@@ -112,7 +112,7 @@ static func calculate_reward_bad(difficulty: StringName) -> int:
 #### 成功確認コマンド
 
 ```bash
-godot --headless -s addons/gut/gut_cmdln.gd -gtest=res://tests/unit/features/{feature}/test_{ファイル}.gd -gexit
+godot --headless --path atelier-alchemy -s addons/gut/gut_cmdln.gd -gtest=res://tests/unit/features/{feature}/test_{ファイル}.gd -gexit
 ```
 
 テストが**成功する**ことを確認する。
@@ -126,7 +126,7 @@ godot --headless -s addons/gut/gut_cmdln.gd -gtest=res://tests/unit/features/{fe
 リファクタリング中は頻繁にテストを実行し、グリーン状態を維持する。
 
 ```bash
-godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/unit/features/{feature}/ -ginclude_subdirs -gexit
+godot --headless --path atelier-alchemy -s addons/gut/gut_cmdln.gd -gdir=res://tests/unit/features/{feature}/ -ginclude_subdirs -gexit
 ```
 
 #### リファクタリング対象
@@ -229,12 +229,7 @@ gdlint atelier-alchemy/features/ atelier-alchemy/shared/ atelier-alchemy/autoloa
 
 ## カバレッジ目標
 
-| 領域 | 目標 |
-|------|------|
-| Functional Core（`logic/`） | 90%+ |
-| 全体 | 80%+ |
-
-GDScript/GUTには標準のカバレッジ計測機構がない。計測プラグインを別途導入するか、「`logic/*.gd`の全public `static func`に正常系・異常系・境界値のテストを最低1本ずつ持つ」という数え上げ可能な基準で代替する（[`docs/design/atelier-alchemy-core/architecture.md`](../../docs/design/atelier-alchemy-core/architecture.md)「テスト運用規約」参照。個人開発規模では後者を採用する）。
+GDScript/GUTには標準のカバレッジ計測機構がないため、%ベースの数値目標は採用しない。「`logic/*.gd`の全public `static func`に正常系・異常系・境界値のテストを最低1本ずつ持つ」という数え上げ可能な基準に一本化する（個人開発規模での運用を踏まえた決定。[`docs/design/atelier-alchemy-core/decision-log.md`](../../docs/design/atelier-alchemy-core/decision-log.md)に記録）。
 
 ### 除外対象
 

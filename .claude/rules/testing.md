@@ -138,6 +138,9 @@ Godotには Playwright CLI のようなブラウザ操作ベースのE2Eフレ�
 ```gdscript
 extends GutTest
 
+func before_each() -> void:
+	GameState.reset_for_test()
+
 func test_調合を実行して納品まで到達する() -> void:
 	var main: Node = load("res://scenes/main.tscn").instantiate()
 	add_child_autofree(main)
@@ -166,16 +169,16 @@ Godotエディタでの実行、またはエクスポートしたデバッグビ
 
 ```bash
 # ユニット/統合テスト（全体）
-godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -ginclude_subdirs -gexit
+godot --headless --path atelier-alchemy -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -ginclude_subdirs -gexit
 
 # 特定ディレクトリ
-godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/unit/features/garden/ -ginclude_subdirs -gexit
+godot --headless --path atelier-alchemy -s addons/gut/gut_cmdln.gd -gdir=res://tests/unit/features/garden/ -ginclude_subdirs -gexit
 
 # 特定ファイル
-godot --headless -s addons/gut/gut_cmdln.gd -gtest=res://tests/unit/features/alchemy/test_quality_calculator.gd -gexit
+godot --headless --path atelier-alchemy -s addons/gut/gut_cmdln.gd -gtest=res://tests/unit/features/alchemy/test_quality_calculator.gd -gexit
 
 # パターンマッチ（テスト名でフィルタ）
-godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -ginclude_subdirs -gunit_test_name="calculate_quality" -gexit
+godot --headless --path atelier-alchemy -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -ginclude_subdirs -gunit_test_name="calculate_quality" -gexit
 ```
 
 `-gexit`を付けないとテスト完了後もGUTがメインループを保持し続けプロセスが終了しない。`-gdir`は指定ディレクトリ直下のみ走査するため、`tests/unit/features/{feature}/`のようなネストした配置規約では`-ginclude_subdirs`を必ず付ける（付け忘れると「0 tests, 0 failures」のまま成功終了する偽グリーンになる）。
@@ -186,12 +189,13 @@ godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -ginclude_subdirs
 
 ## カバレッジ目標
 
-| 領域 | 目標 |
+GDScript/GUTには標準のカバレッジ計測機構がないため、%ベースの数値目標は採用しない。代わりに「`logic/*.gd`の全public `static func`に正常系・異常系・境界値のテストを最低1本ずつ持つ」という数え上げ可能な基準を採用する（[`tdd-implementation.md`](./tdd-implementation.md)「カバレッジ目標」参照。この決定は[`docs/design/atelier-alchemy-core/decision-log.md`](../../docs/design/atelier-alchemy-core/decision-log.md)に記録）。
+
+| 領域 | 基準 |
 |------|------|
-| 全体 | 80%+ |
-| Functional Core（`logic/`） | 90%+ |
-| 共通ユーティリティ（`shared/`） | 90%+ |
-| UIコンポーネント（`ui/`） | 60%+ |
+| Functional Core（`logic/`） | 全public `static func`に正常系・異常系・境界値のテストを最低1本ずつ |
+| 共通ユーティリティ（`shared/`） | 同上 |
+| UIコンポーネント（`ui/`） | 主要なsignal連携・ユーザー操作パスをGUTシーンテストでカバー（数値目標なし） |
 
 ### 除外対象
 

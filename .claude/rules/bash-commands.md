@@ -145,6 +145,8 @@ godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -ginclude_subdirs
 
 具体的なCLIオプション・GUTアドオンのインストール手順は実装着手時に確定する（🟡TBD、[`docs/design/atelier-alchemy-core/architecture.md`](../../docs/design/atelier-alchemy-core/architecture.md)「テスト運用規約」参照）。
 
+クリーンチェックアウト直後（CI・新規clone）は`.godot/`インポートキャッシュが存在しないため、初回のみ`godot --headless --path atelier-alchemy --import`でインポートを完了させてからGUTを実行する。インポートと同時にテストを走らせると不安定になることがある。
+
 ### サブディレクトリでの直接実行が許される場合
 
 - デバッグ目的で一時的に`atelier-alchemy/`に`cd`して実行する場合
@@ -249,6 +251,8 @@ godot -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -ginclude_subdirs -gexit
 # 末尾30行のみ表示
 godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -ginclude_subdirs -gexit 2>&1 | tail -30
 ```
+
+> `| tail -30`を挟むとパイプの終了コードが`tail`のもの（常に0）になり、`$?`によるテスト失敗の機械判定ができなくなる。終了コードを見る場合は`tail`を通さないか、`set -o pipefail`と併用する。
 
 ---
 
@@ -388,8 +392,8 @@ Grep: pattern="shared/utils/calc", glob="*.gd"
 型名・インターフェース名を変更した場合、旧型名が残っていないことを確認する。
 
 ```
-# 例: QuestData → Quest にリネームした場合
-Grep: pattern="QuestData", glob="*.gd"
+# 例: MaterialData → MaterialMaster にリネームした場合
+Grep: pattern="MaterialData", glob="*.gd"
 ```
 
 ### 検証の実施タイミング

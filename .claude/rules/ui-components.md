@@ -117,13 +117,14 @@ func update_gold(amount: int) -> void:
 	_gold_label.text = "%s G" % _format_number(amount)
 
 func _format_number(n: int) -> String:
-	var digits := String.num_int64(n)
+	var sign_str := "-" if n < 0 else ""
+	var digits := String.num_int64(absi(n))
 	var grouped := ""
 	for i in range(digits.length()):
 		if i > 0 and (digits.length() - i) % 3 == 0:
 			grouped += ","
 		grouped += digits[i]
-	return grouped
+	return sign_str + grouped
 ```
 
 ### 状態監視するコンポーネント

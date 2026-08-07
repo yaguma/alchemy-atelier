@@ -93,8 +93,9 @@ GDScriptには`import`文や`index.ts`に相当する明示的なモジュール
 # 推奨: class_name経由のグローバル参照（プロジェクト全体で統一）
 var quality := QualityCalculator.calculate_quality(materials)
 
-# class_nameを使わない場合はpreloadで明示的に参照する
-const QualityCalculator = preload("res://features/alchemy/logic/quality_calculator.gd")
+# class_nameを持たないファイル（tests/mocks/等の補助スクリプト）に限り、
+# preloadで明示的に参照する（class_name宣言済みのクラスをconstで再宣言するとコンパイルエラーになるため行わない）
+const TestFixtures = preload("res://tests/mocks/fixtures.gd")
 ```
 
 ---
@@ -180,10 +181,10 @@ func execute_alchemy(recipe_id: StringName, material_ids: Array[String]) -> void
 
 ### テスト戦略
 
-| 部分 | テスト方法 | カバレッジ目標 |
+| 部分 | テスト方法 | カバレッジ基準 |
 |------|-----------|--------------|
-| Functional Core | GUTユニットテスト（モック不要） | 90%+ |
-| Imperative Shell | GUT統合テスト・手動プレイテスト | 60%+ |
+| Functional Core | GUTユニットテスト（モック不要） | 全public `static func`に正常系・異常系・境界値のテストを最低1本ずつ（%計測機構がGDScript/GUTに無いため、[`testing.md`](./testing.md)の数え上げ基準に統一） |
+| Imperative Shell | GUT統合テスト・手動プレイテスト | 主要なsignal連携・ユーザー操作パスをカバー（数値目標なし） |
 
 ```gdscript
 # tests/unit/features/alchemy/test_quality_calculator.gd

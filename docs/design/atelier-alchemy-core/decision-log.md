@@ -110,6 +110,14 @@
 | `.claude/commands/batch-issue-processor.md` | pnpm前提のコマンド例が残存 |
 | `.claude/skills/balance-tuning-cycle/`（SKILL.md・references配下） | pnpm/シミュレーション実行コマンドが旧スタック前提 |
 | `.claude/skills/content-gen-pipeline/`（SKILL.md・references配下） | pnpm前提のコマンド例、およびv6.0「依頼（Quest）」語彙のエージェントプロンプトが残存 |
-| `.claude/settings.json` | `pnpm --filter atelier-guild-rank`・`mcp__playwright`の許可設定が残存 |
+| `.claude/settings.json` | `pnpm --filter atelier-guild-rank`・`mcp__playwright`の許可設定に加え、`Write`/`Edit`のたびに自動実行される`PostToolUse`フックが`atelier-guild-rank`への`cd`とbiome実行を試みる（存在しないディレクトリのため`2>/dev/null \|\| true`で握り潰され現状無害だが、他の許可設定と異なり**現在も毎回自動実行されている**点で緊急性の性質が異なる） |
 
-**判断の根拠**: 上記はいずれも実装着手（`atelier-alchemy/`スキャフォールディング）より前には実行される見込みが低く、`.claude/rules/`ほど緊急性が高くないと判断してスコープ外とした。ただし`self-healing-pipeline.md`のように今すぐ実行すれば即座に壊れるコマンドを含むため、**移行完了と誤解しないこと**。[Issue #5](https://github.com/yaguma/alchemy-atelier/issues/5)で追跡し、実装着手前までに対応する。
+**判断の根拠**: 上記はいずれも実装着手（`atelier-alchemy/`スキャフォールディング）より前には実行される見込みが低く、`.claude/rules/`ほど緊急性が高くないと判断してスコープ外とした。ただし`self-healing-pipeline.md`のように今すぐ実行すれば即座に壊れるコマンドや、`settings.json`のPostToolUseフックのように**現在も毎回自動実行されている**設定を含むため、**移行完了と誤解しないこと**。[Issue #5](https://github.com/yaguma/alchemy-atelier/issues/5)で追跡し、実装着手前までに対応する。
+
+### 6.2 再レビューで確定した設計判断（2026-08-07追記）🔵
+
+PR #4への再レビューで指摘を受け、以下を確定した。
+
+- **カバレッジ目標は数え上げ基準に一本化**: `testing.md`・`tdd-implementation.md`・`architecture.md`の3ファイルがそれぞれ異なるカバレッジ基準（%目標 / 数え上げ基準 / 未言及）を掲げていた。GDScript/GUTには標準のカバレッジ計測機構がなく%目標は達成判定不能なため、「`logic/*.gd`の全public `static func`に正常系・異常系・境界値のテストを最低1本ずつ持つ」という数え上げ基準に3ファイルとも統一した。
+- **`GameState.get_state()`は`duplicate(true)`で防御的コピーを返す**: GodotのDictionary/Arrayは参照型であり、TypeScript版の`Readonly<T>`のような静的な書き換え禁止保証がGDScriptには存在しない。`get_state()`実装は内部状態をそのまま返さず、必ず`duplicate(true)`したコピーを返す規約とした（[`state-management.md`](../../.claude/rules/state-management.md)参照）。高頻度呼び出し箇所ではコストを踏まえ個別ゲッターへの置き換えも許容する。
+- **セーブデータのチェックサムは「破損検出」であり「改ざん検出」ではない**: 秘密鍵を持たない素のSHA-256はローカル保存では改ざん防止にならない（`data`と`checksum`を一緒に書き換えれば通過する）。誤解を招く見出し・文言を修正し、ローカル単体ゲームである以上この制約を受け入れる方針を明記した（[`security.md`](../../.claude/rules/security.md)参照）。

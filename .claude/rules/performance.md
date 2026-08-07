@@ -147,6 +147,8 @@ GameState.add_gold(reward)
 
 画面外・非表示のノードは`visible = false`にする。`CanvasItem.visible = false`のノードはGodotが描画・入力処理をスキップする。
 
+> 🔴 プーリングされたノード（[`godot-best-practices.md`](./godot-best-practices.md)「オブジェクトプーリング」参照）に対してこのカリングを行う場合、`visible`をプールの貸出中フラグと兼用しないこと。兼用すると画面外にスクロールしただけの使用中ノードが「空き」と誤判定され、二重貸出のバグになる。
+
 ```gdscript
 # スクロールパネル外のカードを非表示
 for i in cards.size():
@@ -179,6 +181,8 @@ for item in items:
 `_process()`での毎フレーム`print()`は「重い処理」「本番へのprint()残存」の両方を自ら破る。デバッグビルド限定で`Timer`により間引いて`Label`に表示する。
 
 ```gdscript
+@onready var _fps_label: Label = %FpsLabel
+
 # デバッグビルドの_ready()でのみセットアップする（本番ビルドでは呼ばない）
 func _setup_fps_display() -> void:
 	if not OS.is_debug_build():

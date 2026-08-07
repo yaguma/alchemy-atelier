@@ -107,23 +107,29 @@ res://features/alchemy/ui/alchemy_screen.tscn
 
 ### オブジェクトプーリング
 
-頻繁に生成・破棄するUI要素（カード等）はプーリングを検討する。GodotはPhaserの`Group`のような組み込みプーリング機構を持たないため、配列とノードの`visible`/`process_mode`切り替えで自作する。非表示ノードでも`_process()`定義があれば呼ばれ続けるため、`visible`だけでなく`process_mode`も止める。また再利用時に前回表示が残らないよう、貸し出し・返却の両方で内部状態をリセットする。
+頻繁に生成・破棄するUI要素（カード等）はプーリングを検討する。GodotはPhaserの`Group`のような組み込みプーリング機構を持たないため、配列とノードの管理で自作する。非表示ノードでも`_process()`定義があれば呼ばれ続けるため`process_mode`も止める。また再利用時に前回表示が残らないよう、貸し出し・返却の両方で内部状態をリセットする。
+
+> 🔴 貸出中フラグには`visible`を流用しない。一覧のスクロール表示等で画面外カードを`visible = false`にするカリング処理（[`performance.md`](./performance.md)「可視性管理」参照）と併用すると、画面外にスクロールしただけの使用中カードが「空き」と誤判定され二重貸出される。貸出中管理は専用の`_in_use: bool`で行い、`visible`は表示制御専用として分離する。
 
 ```gdscript
 var _card_pool: Array[PlantCard] = []
 
 func _get_or_create_card() -> PlantCard:
 	for card in _card_pool:
-		if not card.visible:
+		if not card.is_in_use():
 			card.visible = true
 			card.process_mode = Node.PROCESS_MODE_INHERIT
+			card.mark_in_use()
+			card.reset_state()  # 前回の貸出時の表示が残らないよう、貸出時にもリセットする
 			return card
 	var card: PlantCard = PlantCardScene.instantiate()
 	add_child(card)
+	card.mark_in_use()
 	_card_pool.append(card)
 	return card
 
 func _release_card(card: PlantCard) -> void:
+	card.mark_released()  # _in_useをfalseに戻す（visibleとは独立して管理する）
 	card.reset_state()  # 表示内容（品質・特性タグ等）をクリアし、前回表示の残留を防ぐ
 	card.visible = false
 	card.process_mode = Node.PROCESS_MODE_DISABLED

@@ -63,7 +63,7 @@ func before_each() -> void:
 	GameState.reset_for_test()
 ```
 
-> 🔵 `GameState`（`autoload/game_state.gd`）に`reset_for_test()`（内部状態を初期値へ戻すメソッド）を実装しておくことが前提。テスト分離のためだけに使うメソッドであることが分かるよう命名し、本番コードパスからは呼び出さない。
+> 🔵 `GameState`（`autoload/game_state.gd`）に`reset_for_test()`（内部状態を初期値へ戻すメソッド）を実装しておくことが前提（実装例は[`state-management.md`](./state-management.md)「テスト用API」参照）。テスト分離のためだけに使うメソッドであることが分かるよう命名し、`assert(OS.is_debug_build(), ...)`等で本番コードパスから誤って呼び出されないようガードする。
 
 ### 雛形2: 特定フェーズへジャンプ
 
@@ -115,7 +115,7 @@ func test_調合を実行して納品まで到達する() -> void:
 3. 雛形3（在庫構築）※必要な場合のみ
 4. 対象操作の実行
 5. `assert_*`で結果検証
-6. 必要ならスクリーンショット（下記「目視確認用スクリーンショット」）で状態を記録
+6. 必要ならスクリーンショット（下記「目視確認用スクリーンショット」）で状態を記録。`_save_debug_screenshot()`は`await`を含むコルーチンのため、呼び出し側も`await _save_debug_screenshot(...)`とすること
 
 各ステップ後にアサーションを挟み、失敗したら中断して原因調査する。
 
@@ -126,14 +126,21 @@ func test_調合を実行して納品まで到達する() -> void:
 自動テスト中にスクリーンショットを撮りたい場合は`Viewport.get_texture().get_image().save_png()`を使う。
 
 > 🔴 `res://`はエクスポート後にPCKへ固められ読み取り専用になるため、書き込み先には必ず`user://`を使う。`save_png()`はエラー時に`Error`（非OK）を返すだけで例外を投げないため、戻り値を必ず確認する。また撮影直前に描画完了を待たないとキャプチャが空・前フレームの内容になることがあるため`await RenderingServer.frame_post_draw`を挟む。
+>
+> 🔴 **`--headless`実行では使用不可**: CIで実行するGUT CLI（[`bash-commands.md`](./bash-commands.md)参照）は常に`--headless`のため、ダミーレンダラで`get_viewport().get_texture().get_image()`が`null`を返し、`img.save_png()`がクラッシュする。この関数はGodotエディタでの手動プレイまたは非headlessのデバッグビルドでの調査専用であり、GUTの自動テスト（`tests/`配下、CI実行対象）からは呼び出さない。
 
 ```gdscript
 func _save_debug_screenshot(topic: String) -> void:
 	await RenderingServer.frame_post_draw
 	var img := get_viewport().get_texture().get_image()
+	if img == null:
+		push_warning("スクリーンショット撮影に失敗しました（--headless実行下では使用できません）: %s" % topic)
+		return
 	var date_str := Time.get_date_string_from_system().replace("-", "")
 	var dir := "user://debug-screenshots/%s" % date_str
-	DirAccess.make_dir_recursive_absolute(dir)
+	if DirAccess.make_dir_recursive_absolute(dir) != OK:
+		push_warning("スクリーンショット保存ディレクトリの作成に失敗しました: %s" % dir)
+		return
 	var err := img.save_png("%s/%s.png" % [dir, topic])
 	if err != OK:
 		push_warning("スクリーンショット保存に失敗しました: %s (error=%d)" % [topic, err])

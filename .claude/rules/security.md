@@ -12,7 +12,7 @@
 
 ## セーブデータの検証（🟡将来のセーブ/ロード機能追加時に適用。現行スコープ外）
 
-セーブ/ロード機能は現時点で設計スコープ外（`CLAUDE.md`参照）だが、将来追加する場合は以下の方針を踏襲する。Godotでは`user://`ディレクトリへの`FileAccess`書き込みがブラウザの`localStorage`に相当する。保存ファイルは改ざん検出用チェックサムを含めた`{"data": {...}, "checksum": "..."}`形式で書き込み、読み込み時はチェックサム照合と型検証の両方を行う（チェックサム計算自体は後述「セーブデータの改ざん検出」の`calculate_checksum()`を参照）。
+セーブ/ロード機能は現時点で設計スコープ外（`CLAUDE.md`参照）だが、将来追加する場合は以下の方針を踏襲する。Godotでは`user://`ディレクトリへの`FileAccess`書き込みがブラウザの`localStorage`に相当する。保存ファイルは破損検出用チェックサムを含めた`{"data": {...}, "checksum": "..."}`形式で書き込み、読み込み時はチェックサム照合と型検証の両方を行う（チェックサム計算自体は後述「セーブデータの破損検出」の`calculate_checksum()`を参照）。
 
 ```gdscript
 # セーブデータ読み込み時は必ず検証する
@@ -70,15 +70,13 @@ func _is_valid_save_data(data: Variant) -> bool:
 ```gdscript
 # 名前入力の例
 func validate_player_name(name: String) -> String:
-	# 長さチェック
-	if name.length() < 1 or name.length() > 20:
-		return ""
-
 	# 危険な文字を除去（GDScriptではDOM挿入がないためXSS目的の除去は不要だが、
 	# 保存データの破損防止・表示崩れ防止のため前後の空白と制御文字を除去する）
+	# 長さチェックより先に行う（末尾の空白・制御文字だけで拒否されるのを防ぐため）
 	var sanitized := name.strip_edges().strip_escapes()
 
-	if sanitized.is_empty():
+	# 長さチェック（サニタイズ後の実効文字数で判定）
+	if sanitized.length() < 1 or sanitized.length() > 20:
 		return ""
 
 	return sanitized
@@ -130,23 +128,23 @@ print("Login attempt for user: ", username)
 # 重要な計算はGameState/Domain層の一貫した経路のみで行う
 # （UIから直接値を書き換えられる経路を作らない。state-management.md参照）
 
+# 壊れた/改ざんされた状態を検証する関数自身が、壊れた入力でクラッシュしないよう
+# キーアクセスは必ずget()＋型ガードを経由する（_is_valid_save_data()と同じ形に揃える）
 func validate_game_state(state: Dictionary) -> bool:
-	# ゴールドが負になっていないか
-	if state.gold < 0:
+	var gold: Variant = state.get("gold")
+	if not (gold is int or gold is float) or float(gold) < 0:
 		return false
 
-	# 所持アイテム数が上限を超えていないか
-	if state.inventory.size() > GameBalance.MAX_INVENTORY_SIZE:
+	var inventory: Variant = state.get("inventory")
+	if not (inventory is Array) or (inventory as Array).size() > GameBalance.MAX_INVENTORY_SIZE:
 		return false
 
-	# ランクが正しい範囲か
-	if not GameBalance.VALID_RANKS.has(state.current_rank):
-		return false
-
-	return true
+	return GameBalance.VALID_RANKS.has(state.get("current_rank"))
 ```
 
-### セーブデータの改ざん検出（🟡将来のセーブ/ロード機能追加時に適用）
+### セーブデータの破損検出（🟡将来のセーブ/ロード機能追加時に適用）
+
+> 🔴 ここで言う「検出」は**偶発的な破損**（ディスクエラー・書き込み中断等）のみを対象とする。`calculate_checksum()`は秘密鍵を持たない素のSHA-256で、チェックサム自体もファイル内に平文で同梱されるため、セーブファイルを書き換えたい者が`data`を編集して`checksum`を再計算するだけで通過してしまい、**意図的な改ざんは一切検出できない**。ローカル単体ゲームである以上これは許容する（改ざん防止には`HMAC`+ビルド埋め込み鍵が必要だが、鍵ごと逆アセンブルされうるため本プロジェクトでは採用しない）。
 
 チェックサムの計算と、それを使った照合はすでに前述「セーブデータの検証」の`load_save_data()`に組み込み済み。ここでは保存時の対となる処理のみを示す。
 

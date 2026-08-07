@@ -23,9 +23,7 @@
 ### 必須: UiTheme 経由で参照
 
 ```gdscript
-# OK
-const UiTheme = preload("res://shared/theme/theme.gd")
-
+# OK: UiThemeはclass_name経由のグローバル参照（preload+constで再宣言するとclass_nameを隠しコンパイルエラーになるため行わない）
 var bg := UiTheme.COLOR_BACKGROUND_PRIMARY
 var radius := UiTheme.RADIUS_MD
 
@@ -74,10 +72,10 @@ var border := Color("#ffd54f")
 
 | フェーズ | アクセント | 使用箇所 |
 |---------|----------|---------|
-| 依頼受注 | ラベンダー (#B8A9D4) | フェーズタイトル、セクション見出しの左バー |
-| 採取 | リーフグリーン (#8CC084) | 同上 |
+| 庭 | リーフグリーン (#8CC084) | フェーズタイトル、セクション見出しの左バー |
 | 調合 | アンバー (#D4A76A) | 同上 |
-| 納品 | コーラル (#E8A87C) | 同上 |
+| ギルド納品 | コーラル (#E8A87C) | 同上 |
+| 工房強化 | ラベンダー (#B8A9D4) | 同上 |
 
 カード枠・ボタン・背景にフェーズ色を使うのは禁止。
 

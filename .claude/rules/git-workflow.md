@@ -166,7 +166,7 @@ git fetch origin
 git merge origin/main
 
 # 3. コンフリクトが表示される
-# CONFLICT (content): Merge conflict in src/features/quest/services/quest-generator.ts
+# CONFLICT (content): Merge conflict in features/alchemy/logic/quality_calculator.gd
 
 # 4. コンフリクトを手動で解消
 #    - 各ファイルの <<<<<<< / ======= / >>>>>>> マーカーを確認
