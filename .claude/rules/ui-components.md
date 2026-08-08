@@ -1,324 +1,241 @@
 # UIコンポーネント設計ルール
 
+> 🔴 2026-08-06改訂: 技術スタックがGodot 4.x + GDScriptに確定済み（`CLAUDE.md`参照）のため、本ファイルはPhaser `BaseComponent`前提からGodot `Control`継承コンポーネントパターンに全面書き換えした。
+
 ## 概要
 
-UIコンポーネントは`BaseComponent`を継承し、一貫したライフサイクルとAPI設計に従う。
+UIコンポーネントは原則`Control`を継承した独立シーン（`.tscn` + `.gd`）として実装し、一貫したライフサイクルとAPI設計に従う。GodotにはPhaserの`BaseComponent`のような共通基底クラスを明示的に用意する必要はない（`Node`のライフサイクル自体が`_ready()`/`_exit_tree()`という共通の初期化/破棄フックを提供するため）。
 
-## BaseComponent継承
+## コンポーネントの基本形
 
-すべてのカスタムUIコンポーネントは`BaseComponent`を継承する。
+```gdscript
+# features/garden/ui/plant_card.gd
+class_name PlantCard
+extends Control
 
-```typescript
-import { BaseComponent } from '@presentation/ui/components/BaseComponent';
+signal selected(card: PlantCard)
 
-export class MyComponent extends BaseComponent {
-  constructor(scene: Phaser.Scene, x: number, y: number) {
-    super(scene, x, y);
-  }
+var _plant: PlantState
+@onready var _bg: Panel = %Background
+@onready var _title_label: Label = %TitleLabel
 
-  create(): void {
-    // UIの初期化処理
-  }
+func setup(plant: PlantState) -> void:
+	_plant = plant
+	_title_label.text = plant.display_name
 
-  destroy(): void {
-    // リソース解放処理
-  }
-}
+func _ready() -> void:
+	gui_input.connect(_on_gui_input)
+
+func _on_gui_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.pressed:
+		selected.emit(self)
 ```
 
-### BaseComponentが提供する機能
+> 自ノード自身が発行するsignal（`gui_input`等）への接続は、ノード破棄時にGodotが自動的に切断するため`_exit_tree()`での`disconnect()`は不要（詳細は後述「`_exit_tree()`での実装」参照）。
 
-| プロパティ/メソッド | 説明 |
-|-------------------|------|
-| `this.scene` | Phaserシーンへの参照 |
-| `this.container` | UIを格納するコンテナ |
-| `this.rexUI` | rexUIプラグインへの参照 |
-| `setVisible(visible)` | 可視性設定（メソッドチェーン対応） |
-| `setPosition(x, y)` | 位置設定（メソッドチェーン対応） |
-| `getContainer()` | コンテナ取得 |
+### ライフサイクルの対応
 
-### コンストラクタオプション
+| Phaser `BaseComponent` | Godot `Control` |
+|---|---|
+| コンストラクタ + `create()` | シーンインスタンス化 + `_ready()` |
+| `destroy()` | `_exit_tree()`（`queue_free()`によって呼ばれる） |
+| `this.container` | ノード自身（`Control`は既にコンテナ） |
+| `setVisible(visible)` | `visible = true/false`（組み込みプロパティ） |
+| `setPosition(x, y)` | `position = Vector2(x, y)`（組み込みプロパティ） |
 
-```typescript
-// シーンに直接追加（デフォルト）
-new MyComponent(scene, x, y);
+Phaserと異なり`this.rexUI`のような外部UIプラグイン参照は不要。Godot標準の`Control`ノード群（`Panel`, `Button`, `Label`, `VBoxContainer`等）とテーマリソースで完結させる。
 
-// 親コンテナに追加する場合（シーンに直接追加しない）
-new MyComponent(scene, x, y, { addToScene: false });
-parentContainer.add(component.getContainer());
+## `_ready()`での実装
+
+`_ready()`ではUIの初期化処理・シグナル接続を行う。子ノードへの参照は`@onready`または`%UniqueName`（シーン内のユニーク名）で取得する。
+
+```gdscript
+func _ready() -> void:
+	# 子ノードへの参照は@onreadyで取得済み（シーンツリーで事前配置）
+	_apply_theme()
+	_setup_events()
+
+func _apply_theme() -> void:
+	_bg.self_modulate = UiTheme.COLOR_BACKGROUND_CARD
+
+func _setup_events() -> void:
+	_confirm_button.pressed.connect(_on_confirm_pressed)
 ```
 
-## create()メソッドの実装
+## `_exit_tree()`での実装
 
-`create()`ではUIの初期化処理を行う。
+`_exit_tree()`ではすべての外部リソース参照・シグナル接続を確実に解放する。Godotは子ノードの`queue_free()`を自動的に伝播するため、Phaserの`container.destroy(true)`に相当する処理を手書きする必要はない。
 
-```typescript
-create(): void {
-  // 背景
-  const bg = this.scene.add.rectangle(0, 0, 200, 100, 0x333333);
-  this.container.add(bg);
+```gdscript
+func _exit_tree() -> void:
+	# GameState等Autoloadのシグナル購読は必ず解除する（Autoload側は自動破棄されないため）
+	if GameState.gold_changed.is_connected(_on_gold_changed):
+		GameState.gold_changed.disconnect(_on_gold_changed)
 
-  // テキスト
-  this.titleText = this.scene.add.text(0, -30, 'Title', {
-    fontSize: '24px',
-    color: '#ffffff',
-  });
-  this.titleText.setOrigin(0.5);
-  this.container.add(this.titleText);
+	# Tween停止
+	if _active_tween and _active_tween.is_valid():
+		_active_tween.kill()
 
-  // rexUIコンポーネント
-  if (this.rexUI) {
-    this.button = this.rexUI.add.label({
-      width: 100,
-      height: 40,
-      background: this.rexUI.add.roundRectangle(0, 0, 0, 0, 8, 0x4a90d9),
-      text: this.scene.add.text(0, 0, 'OK'),
-      space: { left: 10, right: 10 },
-    });
-    this.container.add(this.button);
-  }
-
-  // イベント登録
-  this.setupEvents();
-}
-```
-
-## destroy()メソッドの実装
-
-`destroy()`ではすべてのリソースを確実に解放する。
-
-```typescript
-destroy(): void {
-  // イベントリスナー解除
-  this.unsubscribeEvents?.();
-
-  // Tweenキャンセル
-  if (this.activeTween) {
-    this.activeTween.stop();
-  }
-
-  // タイマー停止
-  if (this.timer) {
-    this.timer.remove();
-  }
-
-  // コンテナ破棄（子も含む）
-  this.container.destroy(true);
-}
+	# タイマー停止
+	if _timer:
+		_timer.stop()
 ```
 
 ### 破棄チェックリスト
 
-- [ ] EventBusの購読解除
-- [ ] Phaserイベントリスナー解除
-- [ ] Tweenの停止
-- [ ] タイマーの削除
-- [ ] コンテナの破棄
+- [ ] `GameState`等Autoloadへのシグナル購読解除（Autoloadは破棄されないため明示的な`disconnect()`が必要）
+- [ ] `Tween`の停止（`kill()`）
+- [ ] `Timer`ノードの停止
+- [ ] 子ノードは`queue_free()`の自動伝播に任せる（手動`destroy()`呼び出しは不要）
 
-## テーマ（THEME）の活用
+> 同一シーンツリー内の子`Control`ノードへの接続（`self`が発行元・子が購読側等）はノード破棄時にGodotが自動的に切断する。**明示的な`disconnect()`が必須なのはAutoload（`GameState`）など、寿命がノードと異なる発行元への接続のみ**。
 
-色やサイズは`THEME`定数を使用し、ハードコーディングを避ける。
+## テーマ（UiTheme）の活用
 
-```typescript
-import { THEME } from '@presentation/ui/theme';
+色やサイズは`UiTheme`定数、またはGodotの`Theme`リソースを使用し、ハードコーディングを避ける。
 
-// 色
-const bgColor = THEME.colors.background;
-const primaryColor = THEME.colors.primary;
-const textColor = THEME.colors.text;
-
-// フォント
-const fontSize = THEME.font.size.medium;
-const fontFamily = THEME.font.family;
-
-// スペーシング
-const padding = THEME.spacing.medium;
-const margin = THEME.spacing.large;
+```gdscript
+# UiThemeはclass_name経由のグローバル参照（preload+constで再宣言するとclass_nameを隠しコンパイルエラーになるため行わない）
+func _apply_theme() -> void:
+	_bg.self_modulate = UiTheme.COLOR_BACKGROUND_PRIMARY
+	_title_label.add_theme_font_size_override("font_size", UiTheme.FONT_SIZE_MEDIUM)
 ```
+
+Godot標準の`Theme`リソース（`.tres`）を併用する場合も、色・フォントサイズの実値は`UiTheme`定数から取得し、`Theme`リソース側にハードコードしない。
 
 ## コンポーネントの構成パターン
 
 ### 単純なコンポーネント
 
-```typescript
-export class GoldDisplay extends BaseComponent {
-  private goldText!: Phaser.GameObjects.Text;
+```gdscript
+class_name GoldDisplay
+extends Control
 
-  create(): void {
-    this.goldText = this.scene.add.text(0, 0, '0 G');
-    this.container.add(this.goldText);
-  }
+@onready var _gold_label: Label = %GoldLabel
 
-  updateGold(amount: number): void {
-    this.goldText.setText(`${amount.toLocaleString()} G`);
-  }
+func update_gold(amount: int) -> void:
+	_gold_label.text = "%s G" % _format_number(amount)
 
-  destroy(): void {
-    this.container.destroy(true);
-  }
-}
+func _format_number(n: int) -> String:
+	var sign_str := "-" if n < 0 else ""
+	var digits := String.num_int64(absi(n))
+	var grouped := ""
+	for i in range(digits.length()):
+		if i > 0 and (digits.length() - i) % 3 == 0:
+			grouped += ","
+		grouped += digits[i]
+	return sign_str + grouped
 ```
 
 ### 状態監視するコンポーネント
 
-```typescript
-export class PhaseIndicator extends BaseComponent {
-  private unsubscribe?: () => void;
-  private phaseText!: Phaser.GameObjects.Text;
+```gdscript
+class_name PhaseIndicator
+extends Control
 
-  constructor(
-    scene: Phaser.Scene,
-    x: number,
-    y: number,
-    private eventBus: IEventBus,
-    private stateManager: IStateManager,
-  ) {
-    super(scene, x, y);
-  }
+@onready var _phase_label: Label = %PhaseLabel
 
-  create(): void {
-    this.phaseText = this.scene.add.text(0, 0, '');
-    this.container.add(this.phaseText);
+func _ready() -> void:
+	_update_phase(GameState.get_state().current_phase)
+	GameState.phase_changed.connect(_on_phase_changed)
 
-    // 初期表示
-    this.updatePhase(this.stateManager.getState().currentPhase);
+func _on_phase_changed(_previous: StringName, next: StringName) -> void:
+	_update_phase(next)
 
-    // 変更監視
-    this.unsubscribe = this.eventBus.on(GameEventType.PHASE_CHANGED, (e) => {
-      this.updatePhase(e.payload.newPhase);
-    });
-  }
+func _update_phase(phase: StringName) -> void:
+	_phase_label.text = String(phase)
 
-  private updatePhase(phase: GamePhase): void {
-    this.phaseText.setText(phase);
-  }
-
-  destroy(): void {
-    this.unsubscribe?.();
-    this.container.destroy(true);
-  }
-}
+func _exit_tree() -> void:
+	if GameState.phase_changed.is_connected(_on_phase_changed):
+		GameState.phase_changed.disconnect(_on_phase_changed)
 ```
 
 ### 子コンポーネントを持つコンポーネント
 
-```typescript
-export class CardList extends BaseComponent {
-  private cards: CardUI[] = [];
+```gdscript
+class_name CardList
+extends Control
 
-  create(): void {
-    // 子コンポーネントはaddToScene: falseで作成
-    for (let i = 0; i < 5; i++) {
-      const card = new CardUI(this.scene, i * 120, 0, { addToScene: false });
-      card.create();
-      this.container.add(card.getContainer());
-      this.cards.push(card);
-    }
-  }
+const PlantCardScene = preload("res://features/garden/ui/plant_card.tscn")
 
-  destroy(): void {
-    // 子コンポーネントも明示的に破棄
-    for (const card of this.cards) {
-      card.destroy();
-    }
-    this.cards = [];
-    this.container.destroy(true);
-  }
-}
+var _cards: Array[PlantCard] = []
+
+func setup(plants: Array[PlantState]) -> void:
+	for card in _cards:
+		card.queue_free()
+	_cards.clear()
+
+	for plant in plants:
+		var card: PlantCard = PlantCardScene.instantiate()
+		card.setup(plant)
+		add_child(card)
+		_cards.append(card)
+
+# 子ノードはqueue_free()の自動伝播で解放されるため、
+# 明示的なdestroy()の呼び出しや_exit_tree()での個別破棄は不要
 ```
 
 ## アニメーション
 
-### Tweenの使用
+### `Tween`の使用
 
-```typescript
-// フェードイン
-this.scene.tweens.add({
-  targets: this.container,
-  alpha: { from: 0, to: 1 },
-  duration: 300,
-  ease: 'Power2',
-});
+```gdscript
+func fade_in() -> void:
+	modulate.a = 0.0
+	var tween := create_tween()
+	tween.tween_property(self, "modulate:a", 1.0, 0.3).set_ease(Tween.EASE_OUT)
 
-// スケールアニメーション
-this.activeTween = this.scene.tweens.add({
-  targets: this.container,
-  scaleX: 1.1,
-  scaleY: 1.1,
-  duration: 200,
-  yoyo: true,
-});
+func pulse() -> void:
+	var tween := create_tween()
+	tween.tween_property(self, "scale", Vector2(1.1, 1.1), 0.2)
+	tween.tween_property(self, "scale", Vector2(1.0, 1.0), 0.2)
 ```
+
+`create_tween()`で生成した`Tween`はノードにアタッチされ、ノード破棄時に自動的に停止する（Phaserのように`shutdown()`で`tweens.killAll()`を手書きする必要はない）。ノードを跨いで使い回す`Tween`インスタンスのみ、`_exit_tree()`で明示的に`kill()`する。
 
 ### アニメーション完了待ち
 
-```typescript
-async show(): Promise<void> {
-  return new Promise((resolve) => {
-    this.scene.tweens.add({
-      targets: this.container,
-      alpha: 1,
-      duration: 300,
-      onComplete: () => resolve(),
-    });
-  });
-}
+```gdscript
+func show_async() -> void:
+	modulate.a = 0.0
+	var tween := create_tween()
+	tween.tween_property(self, "modulate:a", 1.0, 0.3)
+	await tween.finished
 ```
 
 ## インタラクション
 
 ### クリックイベント
 
-```typescript
-// GameObjectに直接
-this.button.setInteractive();
-this.button.on('pointerdown', () => this.handleClick());
-this.button.on('pointerover', () => this.handleHover());
-this.button.on('pointerout', () => this.handleOut());
+```gdscript
+func _ready() -> void:
+	gui_input.connect(_on_gui_input)
+	mouse_entered.connect(_on_mouse_entered)
+	mouse_exited.connect(_on_mouse_exited)
 
-// 破棄時に解除
-destroy(): void {
-  this.button.off('pointerdown');
-  this.button.off('pointerover');
-  this.button.off('pointerout');
-  this.container.destroy(true);
-}
+func _on_gui_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.pressed:
+		_handle_click()
 ```
+
+自ノード自身のsignal（`gui_input`/`mouse_entered`/`mouse_exited`）への接続はノード破棄時に自動切断されるため、`_exit_tree()`での`disconnect()`は不要（Autoloadへの購読のみ明示的な解除が必須。「破棄チェックリスト」参照）。
 
 ### ホバーエフェクト
 
-```typescript
-private setupHover(): void {
-  this.container.setInteractive(
-    new Phaser.Geom.Rectangle(0, 0, width, height),
-    Phaser.Geom.Rectangle.Contains,
-  );
+```gdscript
+func _on_mouse_entered() -> void:
+	var tween := create_tween()
+	tween.tween_property(self, "scale", Vector2(1.05, 1.05), 0.1)
 
-  this.container.on('pointerover', () => {
-    this.scene.tweens.add({
-      targets: this.container,
-      scaleX: 1.05,
-      scaleY: 1.05,
-      duration: 100,
-    });
-  });
-
-  this.container.on('pointerout', () => {
-    this.scene.tweens.add({
-      targets: this.container,
-      scaleX: 1,
-      scaleY: 1,
-      duration: 100,
-    });
-  });
-}
+func _on_mouse_exited() -> void:
+	var tween := create_tween()
+	tween.tween_property(self, "scale", Vector2(1.0, 1.0), 0.1)
 ```
 
 ## 禁止事項
 
-- `create()`を呼ばずにコンポーネントを使用
-- `destroy()`でリソースを解放しない
-- THEMEを使わずに色をハードコーディング
-- 子コンポーネントの破棄忘れ
-- イベントリスナーの解除忘れ
-- コンテナ外でGameObjectを作成して管理しない
+- `setup()`（初期化メソッド）を呼ばずにコンポーネントを使用する
+- Autoloadへのシグナル購読を`_exit_tree()`で解除しない
+- `UiTheme`を使わずに色をハードコーディングする
+- `Tween`/`Timer`の停止漏れ（ノード跨ぎで使い回す場合のみ該当）
+- シーン外で`Control`ノードを`new()`して管理する（Godotでは`.tscn`の`instantiate()`を使う）

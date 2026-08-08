@@ -192,7 +192,7 @@ stateDiagram-v2
 ## ディレクトリ構造（案）
 
 ```
-atelier-godot/
+atelier-alchemy/
 ├── project.godot
 ├── autoload/
 │   ├── game_state.gd            # GameState Autoload（class_name不要、Autoload名で参照）

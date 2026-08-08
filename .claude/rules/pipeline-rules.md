@@ -17,9 +17,9 @@ PR作成からマージまでの標準パイプラインフローを定義する
 PR作成前に以下を全てパスさせること。
 
 ```bash
-pnpm test -- --run    # ユニットテスト
-pnpm typecheck        # 型チェック
-pnpm lint             # リントチェック
+godot --headless --path atelier-alchemy -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -ginclude_subdirs -gexit   # ユニット/統合テスト（GUT）
+gdlint atelier-alchemy/features/ atelier-alchemy/shared/ atelier-alchemy/autoload/                                 # 静的解析
+gdformat --check atelier-alchemy/features/ atelier-alchemy/shared/ atelier-alchemy/autoload/                       # フォーマットチェック
 ```
 
 全てパスしない場合、PR作成に進まない。
@@ -72,10 +72,10 @@ pnpm lint             # リントチェック
 
 レビュー依頼前に、以下のセルフチェックを実施する。
 
-- [ ] 全テストがパスしているか
-- [ ] 型エラーがないか
-- [ ] リントエラーがないか
-- [ ] 不要な`console.log`が残っていないか
+- [ ] 全テスト（GUT）がパスしているか
+- [ ] gdlintの警告がないか
+- [ ] gdformatのフォーマット崩れがないか
+- [ ] 不要な`print()`が残っていないか
 - [ ] コミットメッセージがConventional Commits形式か
 
 ---

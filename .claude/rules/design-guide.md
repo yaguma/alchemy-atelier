@@ -1,9 +1,11 @@
 # デザインガイドルール
 
+> 🔴 2026-08-06改訂: 技術スタックがGodot 4.x + GDScriptに確定済み（`CLAUDE.md`参照）のため、コード例をTypeScript importからGDScriptの`UiTheme`参照構文に更新した。デザイン原則・カラー体系自体は変更なし。
+
 ## 概要
 
 本プロジェクトは「水彩ファンタジースタイル」を採用する。
-詳細は `docs/design/atelier-guild-rank/ui-design/design-guide.md` を参照。
+詳細は `docs/design/atelier-alchemy-core/ui-design/` を参照。
 
 ---
 
@@ -18,23 +20,22 @@
 
 ## カラー参照ルール
 
-### 必須: DesignTokens / Colors 経由で参照
+### 必須: UiTheme 経由で参照
 
-```typescript
-// OK
-import { Colors, DesignTokens } from '@shared/theme';
-const bg = Colors.background.primary;
-const radius = DesignTokens.radius.md;
+```gdscript
+# OK: UiThemeはclass_name経由のグローバル参照（preload+constで再宣言するとclass_nameを隠しコンパイルエラーになるため行わない）
+var bg := UiTheme.COLOR_BACKGROUND_PRIMARY
+var radius := UiTheme.RADIUS_MD
 
-// NG: 色のハードコード
-const bg = 0x333333;
-const border = 0xffd54f;
+# NG: 色のハードコード
+var bg := Color("#333333")
+var border := Color("#ffd54f")
 ```
 
 ### 新しい色が必要な場合
 
 1. まず `design-guide.md` のパレットに該当するトークンがないか確認
-2. なければ `theme.ts` または `design-tokens.ts` にトークンを追加してから使用
+2. なければ `shared/theme/theme.gd`（`UiTheme`）にトークンを追加してから使用
 3. 直接ハードコードは禁止
 
 ---
@@ -45,12 +46,12 @@ const border = 0xffd54f;
 
 | 属性 | 値 | トークン |
 |------|-----|---------|
-| 背景 | 白 | `Colors.background.card` |
-| 枠線 | 2px | `Border.regular` + `Colors.border.default` |
-| 角丸 | 12px | `Radius.md` |
-| 影 | 小 | `Shadow.sm` |
-| ホバー | 影拡大 + 枠線強調 | `Shadow.md` + `Colors.border.strong` |
-| 選択 | フォーカスリング | `Border.thick` + `Colors.border.focus` + `Shadow.glowFocus` |
+| 背景 | 白 | `UiTheme.COLOR_BACKGROUND_CARD` |
+| 枠線 | 2px | `UiTheme.BORDER_REGULAR` + `UiTheme.COLOR_BORDER_DEFAULT` |
+| 角丸 | 12px | `UiTheme.RADIUS_MD` |
+| 影 | 小 | `UiTheme.SHADOW_SM` |
+| ホバー | 影拡大 + 枠線強調 | `UiTheme.SHADOW_MD` + `UiTheme.COLOR_BORDER_STRONG` |
+| 選択 | フォーカスリング | `UiTheme.BORDER_THICK` + `UiTheme.COLOR_BORDER_FOCUS` + `UiTheme.SHADOW_GLOW_FOCUS` |
 
 **フェーズ独自のカード枠色・背景色をハードコードしない。**
 
@@ -71,10 +72,10 @@ const border = 0xffd54f;
 
 | フェーズ | アクセント | 使用箇所 |
 |---------|----------|---------|
-| 依頼受注 | ラベンダー (#B8A9D4) | フェーズタイトル、セクション見出しの左バー |
-| 採取 | リーフグリーン (#8CC084) | 同上 |
+| 庭 | リーフグリーン (#8CC084) | フェーズタイトル、セクション見出しの左バー |
 | 調合 | アンバー (#D4A76A) | 同上 |
-| 納品 | コーラル (#E8A87C) | 同上 |
+| ギルド納品 | コーラル (#E8A87C) | 同上 |
+| 工房強化 | ラベンダー (#B8A9D4) | 同上 |
 
 カード枠・ボタン・背景にフェーズ色を使うのは禁止。
 
@@ -84,10 +85,10 @@ const border = 0xffd54f;
 
 | 用途 | 値 | トークン |
 |------|-----|---------|
-| バッジ・タグ | 6px | `Radius.sm` |
-| カード・パネル | 12px | `Radius.md` |
-| ボタン | 18px | `Radius.lg` |
-| モーダル・トースト | 24px | `Radius.xl` |
+| バッジ・タグ | 6px | `UiTheme.RADIUS_SM` |
+| カード・パネル | 12px | `UiTheme.RADIUS_MD` |
+| ボタン | 18px | `UiTheme.RADIUS_LG` |
+| モーダル・トースト | 24px | `UiTheme.RADIUS_XL` |
 
 角丸なし（0px）は原則使用しない。
 
@@ -95,8 +96,8 @@ const border = 0xffd54f;
 
 ## 禁止事項
 
-- 色のハードコード（`0x333333` や `'#FF0000'` を直接書く）
+- 色のハードコード（`Color("#333333")` 等を直接書く）
 - フェーズ独自のカードスタイル（枠色・背景色・角丸を独自定義）
 - 定義されていないボタンバリアントの追加
 - ダーク背景の使用（サイドバー・ヘッダー・フッターを含む）
-- 青紫（`0x6366f1`）などテーマと無関係な色の使用
+- 青紫（`#6366f1`）などテーマと無関係な色の使用
