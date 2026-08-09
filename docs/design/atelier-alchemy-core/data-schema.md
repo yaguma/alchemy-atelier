@@ -37,6 +37,12 @@
       }
     ]
   },
+  "seed_inventory": [
+    {
+      "seed_id": "seed_herb",
+      "count": 2
+    }
+  ],
   "inventory": [
     {
       "instance_id": "mat_0001",
@@ -72,12 +78,13 @@
 | player.current_rank_id | String | 現在ランク（G〜S） | "G" | リセットされない |
 | player.demotion_count | int | 現ランクでの降格回数（要件定義書§2「勝敗条件」） | 0 | **昇格成功時に0へリセット**（🔵2026-08-05追加、PRレビューCritical#3対応） |
 | player.permanent_upgrades.alchemy_slot_count | int | 調合投入枠数 | 4 | リセットされない（恒久投資） |
-| player.permanent_upgrades.garden_slot_count | int | 庭スロット数 | 🟡TBD（仮5） | リセットされない（恒久投資） |
+| player.permanent_upgrades.garden_slot_count | int | 庭スロット数。**実行時の権威は常にこのフィールド**（🔵2026-08-10追加、実装レディネス監査#5対応。`GameBalance.GARDEN_SLOT_COUNT`はゲーム開始時にこのフィールドを初期化するための定数としてのみ使用し、以降の判定〔`Planting.plant`/`can_plant`の`slot_limit`引数〕は必ずこのフィールドを参照する。[`core-systems.md`](./core-systems.md) GardenSystem節参照） | 🟡TBD（仮5） | リセットされない（恒久投資） |
 | player.permanent_upgrades.unlocked_recipe_ids | Array[String] | 解禁済みレシピID一覧。**最低1件を保証する**（🔵2026-08-05確定、要件定義書§4「レシピ（Recipe）」参照。0件だと調合が永久に実行不可能になるため） | 🟡TBD（初期解禁レシピの具体的な内容は未定だが、1件以上という制約は確定） | リセットされない（恒久投資） |
 | rank_state.quota | float | 現在のランクノルマ残量 | ランクマスターの`quota_max`で初期化 | **降格時に`quota_max`へリセット**（`RankQuotaResolver.reset_for_retry`） |
 | rank_state.elapsed_turn | int | 現ランクでの経過ターン数（🔴2026-08-06修正、実装レディネス監査対応。旧版は`player.elapsed_turn`として定義していたが、`core-systems.md`の`RankQuotaResolver.reset_for_retry`が返す`RankState`のフィールドとして扱われており定義箇所が二重化していたため、`rank_state`側に一本化した） | 0 | **降格時に0へリセット**（`RankQuotaResolver.reset_for_retry`。要件定義書§2「降格時のリセット規定」参照） |
 | rank_state.limit_turn | int | 現ランクの制限ターン数 | 🟡TBD、ランクマスター参照 | 降格時は`elapsed_turn`が0に戻ることで実質的にリセットされる（`limit_turn`自体は不変） |
 | garden_state.plants | Array | 庭スロットごとの生育状況 | 空配列 | リセットされない（降格時も維持） |
+| seed_inventory | Array<{seed_id: String, count: int}> | 未収穫（庭に植える前）の「手持ちの種」を`SeedMaster.id`ごとの個数で管理する | 空配列。上限なし（🔵2026-08-10追加、実装レディネス監査#1対応。旧版は収穫後の`inventory`のみが定義されており、要件定義書§3「種を植える（手持ちの種から選ぶ）」・§4「種の指名買い」・§7「初期所持種」が前提とする「手持ちの種」の状態が欠落していた） | リセットされない（降格時も維持） |
 | inventory | Array | 収穫済み・未使用の素材インスタンス一覧 | 空配列。**上限なし（無制限）**（🔵2026-08-04ヒアリングで確定、要件定義書§4「素材（Material）」参照） | リセットされない（降格時も維持） |
 | daily_order | Object | 本日の指定調合物の条件 | **毎ターン終了時に再抽選**（🔵2026-08-05確定、要件定義書§4「日替わり指定調合物」参照） | 降格時も再抽選される |
 | alchemy_slot_state.selected_recipe_id | String | 調合実行前に選択中のレシピID（🔵事前選択方式、2026-08-04ヒアリングで確定） | 空文字列（未選択） | 調合実行後に空へ戻す |
@@ -138,7 +145,7 @@
 | shop_purchasable | bool | ショップで購入できる素材か（触媒等）。庭でのみ入手できる素材は`false` | ○ |
 | shop_base_quality | int | ショップ購入時点の基準品質スコア（1〜5）。`shop_purchasable == true`の場合のみ使用（🟡TBD、仮3=B相当） | shop_purchasable依存 |
 
-🔵 **2026-08-05修正（PRレビューCritical#6対応）**: 旧版は`is_catalyst: bool`フィールドで「触媒か」を判定していたが、これは`MaterialInstance.trait_tags`（インスタンス側で持つ特性タグ配列）と情報源が二重化しており、`QualityCalculator.calculate_quality(materials: Array[MaterialInstance])`が`MaterialInstance`しか受け取らないため`MaterialMaster.is_catalyst`を参照するにはDomain層がI/Oを行う必要が生じ純粋性に反していた。触媒か否かの判定は他の特性タグと同様に**`MaterialInstance.trait_tags.has(&"catalyst")`に一本化**し、`is_catalyst`フィールドは廃止した。触媒インスタンスは購入時に`trait_tags = ["catalyst"]`、`quality_score = shop_base_quality`で生成される（[`core-systems.md`](./core-systems.md) AlchemySystem節「特性ボーナスの算出」参照）。
+🔵 **2026-08-05修正（PRレビューCritical#6対応）**: 旧版は`is_catalyst: bool`フィールドで「触媒か」を判定していたが、これは`MaterialInstance.trait_tags`（インスタンス側で持つ特性タグ配列）と情報源が二重化しており、`QualityCalculator.calculate_quality(materials: Array[MaterialInstance])`が`MaterialInstance`しか受け取らないため`MaterialMaster.is_catalyst`を参照するにはDomain層がI/Oを行う必要が生じ純粋性に反していた。触媒か否かの判定は他の特性タグと同様に**`MaterialInstance.trait_tags.has(&"catalyst")`に一本化**し、`is_catalyst`フィールドは廃止した。触媒インスタンスは購入時に`trait_tags = ["catalyst"]`、`quality_score = shop_base_quality`で生成される（[`core-systems.md`](./core-systems.md) WorkshopSystem節「購入適用ロジック」参照。🔵2026-08-10修正、実装レディネス監査#3対応。旧版はAlchemySystem節「特性ボーナスの算出」を参照先としていたが該当記述が存在しないリンク切れだったため、実際に購入処理を担うWorkshopSystem節に新設した「購入適用ロジック」に参照先を修正した）。
 
 ### RecipeMaster（`res://data/recipes/*.tres`）
 
@@ -229,7 +236,7 @@
 | is_permanent | bool | 恒久投資か消耗投資か（要件定義書§4「ショップ／工房強化」の「価格序列」参照） | ○ |
 | price | int | 価格（🟡TBD、価格序列: 投入枠+1 ≫ 庭拡張≒レシピ解禁 ＞ 触媒 ＞ 種の指名買い） | ○ |
 | effect_type | String | 効果種別（`alchemy_slot_increase`/`garden_slot_increase`/`recipe_unlock`/`catalyst_stock`/`seed_name_purchase`） | ○ |
-| effect_value | Variant | 効果の量またはID | ○ |
+| effect_value | Variant | 効果の量またはID。`alchemy_slot_increase`/`garden_slot_increase`は増加量（int）、`recipe_unlock`は対象`RecipeMaster.id`（String）、`catalyst_stock`は対象`MaterialMaster.id`（String、通常`material_catalyst`固定）、`seed_name_purchase`は対象`SeedMaster.id`（String）を表す（🔵2026-08-10追加、実装レディネス監査#1・#3対応。具体的な適用ロジックは[`core-systems.md`](./core-systems.md) WorkshopSystem節「購入適用ロジック」参照） | ○ |
 | max_purchase_count | int | このアップグレードを購入できる最大回数（🔵2026-08-05追加、PRレビューWarning対応。旧版は購入回数の上限がなく、「投入枠+1」を無制限に購入できてしまう不備があった。恒久投資は基本1回、消耗投資〔触媒・種の指名買い〕は実質無制限として大きな値を設定する） | ○ |
 
 ## データフロー
