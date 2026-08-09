@@ -80,14 +80,14 @@ sequenceDiagram
     GameState->>AlchemyLogic: SlotState.can_execute()
     AlchemyLogic-->>GameState: true（レシピ選択済み・1個以上投入済み）
 
-    GameState->>AlchemyLogic: QualityCalculator.calculate_quality(materials)
+    GameState->>AlchemyLogic: QualityCalculator.calculate_quality(materials, traits_unlocked)
     AlchemyLogic-->>GameState: quality_score
 
-    GameState->>AlchemyLogic: TraitActivation.resolve_traits(materials)
+    GameState->>AlchemyLogic: TraitActivation.resolve_traits(materials, traits_unlocked)
     AlchemyLogic-->>GameState: activated_traits
 
     GameState->>AlchemyLogic: ProductValueCalculator.calculate_contribution/reward(...)
-    AlchemyLogic-->>GameState: ProductInstance(quality, traits, contribution, reward)
+    AlchemyLogic-->>GameState: ProductInstance(recipe_id, quality, traits, contribution, reward)
 
     GameState->>GuildLogic: DeliveryResolver.resolve(product, daily_order)
     GuildLogic-->>GameState: DeliveryResult(final_contribution, final_reward, order_matched)
@@ -101,7 +101,7 @@ sequenceDiagram
     AlchemyUI-->>Player: ④フィードバック表示（貢献度反映演出・報酬獲得・指定合致ボーナス・ノルマバー変化）
 ```
 
-🔵 要件定義書§1「③結果反映」の内容をシーケンス図化。呼び出し順序（品質計算→特性発現→価値算出→納品判定→ノルマ反映）は本文書での設計判断（🟡）だが、各ステップの計算式自体は要件定義書§4「調合物（Product）」に明記された式に忠実。指定合致ボーナスは`ProductValueCalculator`ではなく`DeliveryResolver.resolve`が一手に適用する（🔵2026-08-05修正、PRレビューCritical#4対応。[`core-systems.md`](./core-systems.md) AlchemySystem節参照）。
+🔵 要件定義書§1「③結果反映」の内容をシーケンス図化。呼び出し順序（品質計算→特性発現→価値算出→納品判定→ノルマ反映）は本文書での設計判断（🟡）だが、各ステップの計算式自体は要件定義書§4「調合物（Product）」に明記された式に忠実。指定合致ボーナスは`ProductValueCalculator`ではなく`DeliveryResolver.resolve`が一手に適用する（🔵2026-08-05修正、PRレビューCritical#4対応。[`core-systems.md`](./core-systems.md) AlchemySystem節参照）。`traits_unlocked`は現在ランクの`RankMaster.traits_unlocked`から、`ProductInstance.recipe_id`は`SlotState.selected_recipe_id`からそれぞれ`GameState`が取得・設定する（🔵2026-08-10追加、実装レディネス監査#2・#4対応。[`core-systems.md`](./core-systems.md) AlchemySystem節参照）。
 
 ## 庭（栽培）のデータフロー
 
@@ -115,9 +115,12 @@ sequenceDiagram
 
     Player->>GardenUI: 種を選んで植える
     GardenUI->>GameState: plant_seed(seed_id)
+    GameState->>GameState: seed_inventory[seed_id].count を確認（1以上か）
     GameState->>GardenLogic: Planting.can_plant(garden_state, slot_limit)
+    Note right of GameState: slot_limit = player.permanent_upgrades.garden_slot_count<br/>（🔵2026-08-10追加、実装レディネス監査#5対応。GameBalance.GARDEN_SLOT_COUNTは初期値のみに使用）
     GardenLogic-->>GameState: true/false
-    GameState-->>GardenUI: 成功/失敗（スロット満杯時は失敗）
+    GameState-->>GardenUI: 成功/失敗（スロット満杯 or 種の手持ちなしの場合は失敗）
+    GameState->>GameState: 成功時のみ seed_inventory[seed_id].count を1減算<br/>（🔵2026-08-10追加、実装レディネス監査#1対応。[`core-systems.md`](./core-systems.md) GardenSystem節「種の消費」参照）
 
     Note over GameState,GardenLogic: ターン終了時に毎回実行（調合の有無に関わらず）
     GameState->>GardenLogic: Harvest.advance_growth(plant_state, 1)
@@ -165,7 +168,7 @@ sequenceDiagram
             AlchemyUI->>GameState: execute_alchemy(selected_recipe_id, slot_materials)
 
             GameState->>AlchemyLogic: QualityCalculator / TraitActivation / ProductValueCalculator
-            AlchemyLogic-->>GameState: ProductInstance(quality, traits, contribution, reward)
+            AlchemyLogic-->>GameState: ProductInstance(recipe_id, quality, traits, contribution, reward)
 
             GameState->>GuildLogic: DeliveryResolver.resolve(product, null)
             Note right of GuildLogic: daily_orderにnullを渡す→matches_orderは常にfalse<br/>（指定合致ボーナスは不適用。報酬系特性のボーナス自体は通常どおり計算される）

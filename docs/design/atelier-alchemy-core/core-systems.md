@@ -60,7 +60,7 @@ classDiagram
 
 | メソッド名 | 引数 | 戻り値 | 説明 |
 |-----------|------|--------|------|
-| `Planting.plant` | `garden_state: GardenState, seed_id: StringName, master: SeedMaster` | `Result`（成功/失敗） | 空きスロットがあれば種を植える。スロット数上限は `GameBalance.GARDEN_SLOT_COUNT`（🟡TBD、要件定義書§7） |
+| `Planting.plant` | `garden_state: GardenState, seed_id: StringName, master: SeedMaster, slot_limit: int` | `Result`（成功/失敗） | 空きスロットがあれば種を植える。`slot_limit`は呼び出し元（`GameState`）が`player.permanent_upgrades.garden_slot_count`を渡す（🔵2026-08-10修正、実装レディネス監査#5対応。旧版は`GameBalance.GARDEN_SLOT_COUNT`〔グローバル定数〕を権威としていたが、恒久投資「庭拡張」でプレイヤーごとに増加する値〔[`data-schema.md`](./data-schema.md) `player.permanent_upgrades.garden_slot_count`〕と権威が二重化していた。`GameBalance.GARDEN_SLOT_COUNT`は`garden_slot_count`のゲーム開始時初期値としてのみ使用し、実行時の権威は常に`player.permanent_upgrades.garden_slot_count`に一本化する） |
 | `Harvest.advance_growth` | `plant_state: PlantState, turns: int` | `PlantState` | ターン経過分だけ生育を進める（新オブジェクトを返す、副作用なし） |
 | `Harvest.resolve_withering` | `garden_state: GardenState, masters: Dictionary[StringName, SeedMaster]` | `GardenState` | `is_dead`が真の株を`garden_state.plants`から除去してスロットを解放した新しい`GardenState`を返す（🔵2026-08-05追加、PRレビューCritical#11対応。ターン終了処理で`advance_growth`の直後に必ず呼ぶ） |
 | `Harvest.is_matured` | `plant_state, master: SeedMaster` | `bool` | `plant_state.grown_turns >= master.maturity_turns` を判定。`maturity_turns` は種別ごとに異なる（🟡TBD、要件定義書§7「素材種別ごとの成熟ターン数」） |
@@ -83,6 +83,16 @@ classDiagram
 
 `TraitRoll.roll_trait` および品質上昇判定はいずれも `RngService` Autoloadが払い出す乱数値を引数として受け取る（Domain層は`RandomNumberGenerator`を直接保持しない。[`architecture.md`](./architecture.md) のレイヤー依存ルールに従う）。
 
+### 種の消費（🔵2026-08-10追加、実装レディネス監査#1対応）
+
+`Planting.plant`はGardenState内の生育状態のみを扱う純粋関数であり、「手持ちの種」（[`data-schema.md`](./data-schema.md) `seed_inventory`参照）の消費には関与しない。`GameState.plant_seed(seed_id: StringName)`（Application層）が以下を担う。
+
+1. `seed_inventory`から対象`seed_id`のエントリを検索し、`count`が1以上であることを確認する（0または未所持なら失敗を返し、以降の処理を行わない）
+2. `Planting.plant`を呼び出し`GardenState`を更新する
+3. 1・2がともに成功した場合のみ、`seed_inventory`の該当`count`を1減算し、状態を確定する
+
+要件定義書§3「庭（仕込み層）」の「種を植える（手持ちの種から選ぶ）」に対応する。
+
 ---
 
 ## AlchemySystem（調合）詳細設計 ★ゲームの核心
@@ -97,12 +107,12 @@ classDiagram
 classDiagram
     class QualityCalculator {
         <<static>>
-        +calculate_quality(materials: Array[MaterialInstance]) int
+        +calculate_quality(materials: Array[MaterialInstance], traits_unlocked: bool) int
         +quality_multiplier(quality_score: int) float
     }
     class TraitActivation {
         <<static>>
-        +resolve_traits(materials: Array[MaterialInstance]) Array[StringName]
+        +resolve_traits(materials: Array[MaterialInstance], traits_unlocked: bool) Array[StringName]
         +count_trait_occurrences(materials, trait_tag) int
     }
     class ProductValueCalculator {
@@ -117,6 +127,7 @@ classDiagram
         +can_execute() bool
     }
     class ProductInstance {
+        +recipe_id: StringName
         +quality_score: int
         +activated_traits: Array[StringName]
         +contribution: float
@@ -132,10 +143,10 @@ classDiagram
 
 | メソッド名 | 引数 | 戻り値 | 説明 |
 |-----------|------|--------|------|
-| `QualityCalculator.calculate_quality` | `materials: Array[MaterialInstance]` | `int`（1〜5、D〜S） | 投入素材の品質スコアの平均を四捨五入する（🔵要件定義書§4「調合物（Product）」に確定済み）。**投入素材中に「触媒」タグを持つ素材が1つでもあれば、四捨五入後の値に+1し、上限5でクランプする**（🔵2026-08-05修正、PRレビューCritical#6対応。触媒の効果適用位置を「素材自身の品質」から「平均・四捨五入後の最終品質」に変更した。旧仕様は平均計算で効果がほぼ相殺され消えてしまう欠陥があった。要件定義書§4「特性タグ（Trait）」参照） |
+| `QualityCalculator.calculate_quality` | `materials: Array[MaterialInstance], traits_unlocked: bool` | `int`（1〜5、D〜S） | 投入素材の品質スコアの平均を四捨五入する（🔵要件定義書§4「調合物（Product）」に確定済み）。**`traits_unlocked`が真、かつ投入素材中に「触媒」タグを持つ素材が1つでもあれば、四捨五入後の値に+1し、上限5でクランプする**（🔵2026-08-05修正、PRレビューCritical#6対応。触媒の効果適用位置を「素材自身の品質」から「平均・四捨五入後の最終品質」に変更した。旧仕様は平均計算で効果がほぼ相殺され消えてしまう欠陥があった。要件定義書§4「特性タグ（Trait）」参照）。`traits_unlocked`が偽の場合（Gランクの特性封印中）は触媒タグを持っていてもボーナスを適用しない（🔵2026-08-10追加、実装レディネス監査#4対応。触媒〔補助系特性〕も要件定義書§4「特性タグ（Trait）」上は特性タグの一種であり、§6「Gランク・1ターン目（特性は封印）」の対象に含まれる） |
 | `QualityCalculator.quality_multiplier` | `quality_score: int` | `float` | 品質スコア（1〜5）に対する単調非減少の乗数を返す。数値テーブルは🟡TBD（要件定義書§5「数値設計」参照） |
 | `TraitActivation.count_trait_occurrences` | `materials, trait_tag: StringName` | `int` | 投入素材中の特定特性タグの出現数を数える（触媒タグはこの関数の対象外。`QualityCalculator`側で個別処理する） |
-| `TraitActivation.resolve_traits` | `materials: Array[MaterialInstance]` | `Array[StringName]` | 出現数2個以上の特性タグのみ発現済みとして返す（🔵要件定義書§4「特性タグ（Trait）」の「同一特性タグの素材を2個以上投入すると発現、1個のみでは不発」「3個目以降を追加投入してもボーナスは据え置き」＝2個以上は全てブール発現、加算されない） |
+| `TraitActivation.resolve_traits` | `materials: Array[MaterialInstance], traits_unlocked: bool` | `Array[StringName]` | `traits_unlocked`が偽の場合は常に空配列を返す（Gランクの特性封印。🔵2026-08-10追加、実装レディネス監査#4対応。`RankMaster.traits_unlocked`〔[`data-schema.md`](./data-schema.md) RankMaster節参照〕が唯一の参照元であり、`GameState.execute_alchemy`が現在ランクのマスターデータから読み取ってこの引数に渡す。要件定義書§6「Gランク・1ターン目（特性は封印）」参照）。真の場合は出現数2個以上の特性タグのみ発現済みとして返す（🔵要件定義書§4「特性タグ（Trait）」の「同一特性タグの素材を2個以上投入すると発現、1個のみでは不発」「3個目以降を追加投入してもボーナスは据え置き」＝2個以上は全てブール発現、加算されない） |
 | `SlotState.can_execute` | なし | `bool` | `selected_recipe_id != &"" and 1 <= materials.size() and materials.size() <= max_slots` を返す（🔵2026-08-05修正、PRレビューWarning#7対応。旧版は下限1個のみを見ており上限`max_slots`の検証が抜けていた。要件定義書§3/§4「0個投入では実行不可」「枠数を超えて同時投入できない」の両方に対応） |
 | `ProductValueCalculator.calculate_contribution` | `base_contribution, quality_mult, trait_bonus` | `float` | `基礎貢献度 × 品質倍率 × 貢献度系特性ボーナス`（指定合致ボーナスを含まない、後述）。`base_contribution`は`SlotState.selected_recipe_id`が指す`RecipeMaster`から取得する（🔵2026-08-04ヒアリングで事前選択方式に確定、[`data-schema.md`](./data-schema.md) RecipeMaster節参照） |
 | `ProductValueCalculator.calculate_reward` | `base_reward, quality_mult, trait_bonus` | `float` | `基礎報酬 × 品質倍率 × 報酬系特性ボーナス`（指定合致ボーナスを含まない、後述）。`base_reward`も同レシピから取得する |
@@ -145,6 +156,8 @@ classDiagram
 ### レシピ選択（🔵2026-08-04ヒアリングで確定）
 
 調合実行前に、プレイヤーは解禁済みレシピ（`GameState.player.permanent_upgrades.unlocked_recipe_ids`。**最低1件以上が保証される**、要件定義書§4「レシピ（Recipe）」参照）から1つを選び`SlotState.selected_recipe_id`にセットする（**事前選択方式**）。`selected_recipe_id`が未設定の場合は`SlotState.can_execute()`を偽とする（🟡本文書での追加提案。要件定義書に「レシピ未選択時に実行不可」の明記はないが、`base_contribution`/`base_reward`の参照先がないと計算が成立しないため必須とした）。
+
+調合実行時に生成される`ProductInstance.recipe_id`には、この時点の`SlotState.selected_recipe_id`がそのままコピーされる（🔵2026-08-10追加、実装レディネス監査#2対応。旧版は`ProductInstance`にレシピ由来情報がなく、`DeliveryResolver.matches_order`が日替わり指定調合物の`condition_type == "item"`〔品目指定〕を判定する手段が存在しなかった。GuildSystem節「主要メソッド」参照）。
 
 ### 投入検証（🔵2026-08-05追加、PRレビューWarning#8対応）
 
@@ -197,7 +210,7 @@ classDiagram
 
 | メソッド名 | 引数 | 戻り値 | 説明 |
 |-----------|------|--------|------|
-| `DeliveryResolver.matches_order` | `product: ProductInstance, daily_order: DailyOrderMaster` | `bool` | 完成品が本日の指定条件（品目 or 特性傾向）に合致するか判定する。**`daily_order`が`null`の場合は必ず`false`を返す**（🔵2026-08-05修正、PRレビューCritical#9対応。昇格試験からは`daily_order`に`null`を渡す設計〔RankSystem節参照〕のため、nullガードをこのメソッドの契約として明記した） |
+| `DeliveryResolver.matches_order` | `product: ProductInstance, daily_order: DailyOrderMaster` | `bool` | 完成品が本日の指定条件（品目 or 特性傾向）に合致するか判定する。**`daily_order`が`null`の場合は必ず`false`を返す**（🔵2026-08-05修正、PRレビューCritical#9対応。昇格試験からは`daily_order`に`null`を渡す設計〔RankSystem節参照〕のため、nullガードをこのメソッドの契約として明記した）。判定ロジックは`daily_order.condition_type`で分岐する: `"item"`の場合は`product.recipe_id == daily_order.target_recipe_id`、`"trait"`の場合は`product.activated_traits.has(daily_order.target_trait)`（🔵2026-08-10追加、実装レディネス監査#2対応。旧版は品目判定に必要な`product.recipe_id`が`ProductInstance`に存在せず、判定ロジック自体が実装不能だった。AlchemySystem節「レシピ選択」の`ProductInstance.recipe_id`追加とあわせて解消） |
 | `DeliveryResolver.resolve` | `product: ProductInstance, daily_order: DailyOrderMaster` | `DeliveryResult` | `matches_order`の結果に応じて指定合致ボーナス（🟡TBD倍率、要件定義書§5では仮1.2〜1.5倍）を適用し、最終貢献度/報酬を算出する。**指定合致ボーナスの適用はこの関数が一手に担う**（🔵2026-08-05修正、PRレビューCritical#4対応。`final_contribution = product.contribution × (order_matched ? bonus : 1.0)`、`final_reward`も同様。`ProductValueCalculator`側では合致ボーナスを掛けない） |
 
 納品自体はプレイヤー操作なしで自動実行される（要件定義書§3「ギルド納品」）ため、`GuildSystem`にUI操作用のpublicメソッドは存在しない。`AlchemySystem`の調合実行と同一トランザクション内で呼び出される想定。
@@ -240,6 +253,20 @@ classDiagram
 | `PurchaseValidator.is_permanent_upgrade` | `upgrade: UpgradeMaster` | `bool` | 恒久投資（投入枠+1／庭拡張／レシピ解禁）か消耗投資（触媒／種の指名買い）かを判別する。恒久投資はランク間の工房強化画面でのみ購入可能という制約は、UI側での抑止に加えて`GameState`側の購入適用メソッドでも再検証する（🔵要件定義書§3「工房強化・ショップ」、[`architecture.md`](./architecture.md)「検証責務のレイヤー配置原則」参照） |
 
 購入適用（`GameState`のゴールド減算・恒久フラグ更新）は`GameState`側のメソッド（Application層）が、UIの判定結果を信頼せず`PurchaseValidator.can_purchase`を**再評価してから**実行する（🔵2026-08-05追加、PRレビューWarning#対応）。
+
+### 購入適用ロジック（`effect_type`別の状態反映、🔵2026-08-10追加、実装レディネス監査#3対応）
+
+`GameState.apply_upgrade(upgrade: UpgradeMaster)`（Application層）は`PurchaseValidator.can_purchase`の再評価に成功した後、`upgrade.effect_type`に応じて以下のように状態へ反映する（旧版は`effect_type`の列挙値〔[`data-schema.md`](./data-schema.md) UpgradeMaster節参照〕のみが定義されており、各値が実際にどう状態へ反映されるかの記述が欠落していた）。
+
+| `effect_type` | `effect_value`の意味 | 反映先 |
+|---|---|---|
+| `alchemy_slot_increase` | 増加量（int） | `player.permanent_upgrades.alchemy_slot_count += effect_value` |
+| `garden_slot_increase` | 増加量（int） | `player.permanent_upgrades.garden_slot_count += effect_value`（GardenSystem節「主要メソッド」`Planting.plant`参照。庭スロット上限の権威はこのフィールドに一本化済み） |
+| `recipe_unlock` | 対象`RecipeMaster.id`（String） | `player.permanent_upgrades.unlocked_recipe_ids.append(effect_value)` |
+| `catalyst_stock` | 対象`MaterialMaster.id`（String、通常`material_catalyst`固定） | `inventory`へ新規`MaterialInstance`（`trait_tags = ["catalyst"]`、`quality_score = MaterialMaster.shop_base_quality`）を1個追加する |
+| `seed_name_purchase` | 対象`SeedMaster.id`（String） | `seed_inventory`内の該当`seed_id`エントリの`count`を+1（存在しなければ`count: 1`で新規追加）。[`data-schema.md`](./data-schema.md) `seed_inventory`節参照 |
+
+触媒（`catalyst_stock`）のインスタンス生成ロジックはこの表が正の情報源であり、[`data-schema.md`](./data-schema.md) MaterialMaster節の記述はここを参照する。
 
 ---
 
