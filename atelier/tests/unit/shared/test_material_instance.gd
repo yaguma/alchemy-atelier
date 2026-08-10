@@ -44,3 +44,12 @@ func test_空のtrait_tagsでもインスタンス生成とcloneができる() -
 
 	assert_int(instance.trait_tags.size()).is_equal(0)
 	assert_int(cloned.trait_tags.size()).is_equal(0)
+
+
+func test_コンストラクタに渡した配列を後から変更してもインスタンスは影響を受けない() -> void:
+	var trait_tags: Array[StringName] = [&"holy"]
+	var instance := MaterialInstance.new("mat_0001", &"material_herb", 3, trait_tags)
+
+	trait_tags.append(&"catalyst")
+
+	assert_int(instance.trait_tags.size()).is_equal(1)

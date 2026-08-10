@@ -40,3 +40,13 @@ func test_空のplantsを持つGardenStateでもcloneが正常に動作する() 
 	var cloned := garden.clone()
 
 	assert_int(cloned.plants.size()).is_equal(0)
+
+
+func test_plantsに設定した配列を後から変更してもGardenStateは影響を受けない() -> void:
+	var plants: Array[PlantState] = [PlantState.new(0, &"seed_herb")]
+	var garden := GardenState.new()
+	garden.plants = plants
+
+	plants.append(PlantState.new(1, &"seed_flower"))
+
+	assert_int(garden.plants.size()).is_equal(1)

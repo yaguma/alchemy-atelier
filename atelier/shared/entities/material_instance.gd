@@ -20,7 +20,7 @@ func _init(
 	instance_id = p_instance_id
 	material_id = p_material_id
 	quality_score = p_quality_score
-	trait_tags = p_trait_tags
+	trait_tags = p_trait_tags.duplicate()
 
 
 ## 🔴 GameState.get_state()の防御的コピー要件（FR-403/AC-014）を満たすための新規補完。

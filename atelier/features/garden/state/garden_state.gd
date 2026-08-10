@@ -3,7 +3,10 @@
 class_name GardenState
 extends RefCounted
 
-var plants: Array[PlantState] = []
+## 🔴 代入時のエイリアシング防止のためsetterで防御的コピーする（PR#11レビュー指摘対応）
+var plants: Array[PlantState] = []:
+	set(value):
+		plants = value.duplicate()
 
 
 ## 🔴 GameState.get_state()の防御的コピー要件（FR-403）を満たすための新規補完。
