@@ -1,7 +1,7 @@
 ---
 id: "003"
 title: "GameBalanceに庭関連の定数を追加する"
-status: pending
+status: done
 priority: 1
 dependencies: []
 estimated_complexity: low
