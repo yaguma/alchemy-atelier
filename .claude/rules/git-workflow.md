@@ -1,5 +1,7 @@
 # Git運用ルール
 
+> 🔴 2026-08-10改訂: `GODOT_BIN`をシステム環境変数として永続設定する運用に変更したため（設定手順は[`README.md`](../../README.md)「開発環境セットアップ」参照）、コマンド例の`GODOT_BIN="/c/Godot/godot.exe"`インライン指定を削除した。
+
 ## ブランチ命名規則
 
 - **形式**: `<type>/<TASK-ID or issue-no>-<description>`
@@ -176,9 +178,9 @@ git merge origin/main
 # 5. 解消したファイルをステージング
 git add <解消したファイル>
 
-# 6. 検証チェックリスト実行（GdUnit4は--path相当なしのためcd必須）
+# 6. 検証チェックリスト実行（GdUnit4は--path相当なしのためcd必須。GODOT_BINは事前にシステム環境変数として設定済み前提）
 cd atelier
-GODOT_BIN="/c/Godot/godot.exe" ./addons/gdUnit4/runtest.sh -a res://tests/
+./addons/gdUnit4/runtest.sh -a res://tests/
 cd ..
 gdlint atelier/features/ atelier/shared/ atelier/autoload/
 gdformat --check atelier/features/ atelier/shared/ atelier/autoload/
@@ -200,7 +202,7 @@ git push
 ### 解消後の検証チェックリスト
 
 - [ ] 全てのコンフリクトマーカー（`<<<<<<<`, `=======`, `>>>>>>>`）が除去されていること
-- [ ] GdUnit4テストがパスすること（`cd atelier && GODOT_BIN="/c/Godot/godot.exe" ./addons/gdUnit4/runtest.sh -a res://tests/`）
+- [ ] GdUnit4テストがパスすること（`cd atelier && ./addons/gdUnit4/runtest.sh -a res://tests/`。`GODOT_BIN`は事前にシステム環境変数として設定済み前提）
 - [ ] `gdlint`の警告がないこと
 - [ ] `gdformat --check`のフォーマット崩れがないこと
 - [ ] アプリケーションが正常に起動すること（Godotエディタでの再生確認）
