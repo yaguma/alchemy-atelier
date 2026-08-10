@@ -5,13 +5,15 @@
 
 ## ⚠️ プロジェクト現況（最重要）
 
-**本リポジトリには実装コードが一切存在しない（2026-08-10時点）。** 存在するのは以下のみ:
-- `docs/concept/` — コンセプト設計（v7.0）
-- `docs/spec/atelier-alchemy-core/requirements.md` — 要件定義書
-- `docs/design/atelier-alchemy-core/` — 技術設計文書一式（architecture / core-systems / dataflow / data-schema / c4-model / decision-log / game-mechanics / balance-design / ui-design/）
-- `.claude/rules/*.md` — Godot/GDScript前提の実装運用ルール群（詳細版）
+**Godotプロジェクト（`atelier/`）のPhase 1基盤構築が完了している（2026-08-10時点）。** 実装済み:
+- `atelier/autoload/game_state.gd`, `rng_service.gd` — GameState/RngService Autoload
+- `atelier/shared/theme/` — UiTheme・日本語フォント（Noto Sans JP）設定
+- `atelier/shared/loaders/master_data_loader.gd` — MasterDataLoaderスタブ
+- `atelier/scenes/boot.tscn`, `main.tscn` — BootScene/MainScene
+- `atelier/tests/integration/` — GdUnit4統合テスト（9件パス）
+- `atelier/addons/gdUnit4/` — テストフレームワーク導入済み
 
-Godotプロジェクト本体（`atelier/`）は**まだスキャフォールディングされていない**。以下の Tech Stack / Test Framework / Build & Run は全て「設計文書上で決定済みだが未実装」の情報であり、🔴（実コードなし、規約文書からの転記）として扱う。dev-plan で「基盤構築（スキャフォールディング）」タスクを最初に置く必要がある。
+`features/`配下の各機能モジュール（garden/alchemy/guild/workshop/rank）は**まだ実装されていない**。以下の Tech Stack / Test Framework は実導入・動作確認済みの情報（🔵）。Project Structureの`features/`以下は依然として設計文書上の計画（🔴）。dev-planでPhase 2（機能実装）のタスク分割を行う必要がある。
 
 ## Tech Stack
 
@@ -34,13 +36,13 @@ Godotプロジェクト本体（`atelier/`）は**まだスキャフォールデ
 
 初回実行前（クリーンチェックアウト直後）は `godot --headless --path atelier --import` でインポートを完了させる必要がある（🔵）。
 
-## Project Structure（設計文書上の計画。未作成）
+## Project Structure
 
 ```
-atelier/                 # 🔴 未スキャフォールディング
+atelier/                 # 🔵 Phase 1で作成済み
 ├── project.godot
-├── autoload/                    # Application層（GameState, RngService）
-├── features/                    # 機能単位モジュール
+├── autoload/                    # 🔵 Application層（game_state.gd, rng_service.gd 実装済み）
+├── features/                    # 🔴 機能単位モジュール（未実装、Phase 2以降）
 │   ├── garden/                  # 庭（仕込み層）
 │   │   ├── logic/               # 純粋関数（Functional Core）
 │   │   ├── state/                # ランタイム状態型
@@ -50,14 +52,17 @@ atelier/                 # 🔴 未スキャフォールディング
 │   ├── guild/                    # ギルド納品
 │   ├── workshop/                 # 工房強化・ショップ
 │   └── rank/                     # ランク進行・昇格試験
-├── shared/
-│   ├── constants/game_balance.gd # GameBalance（ゲームバランス定数）
-│   ├── theme/theme.gd            # UiTheme（見た目定数）
-│   └── entities/                 # 複数Feature共有のインスタンス型
-├── data/                         # マスターデータ実データ（.tres）
-├── scenes/                       # boot.tscn, main.tscn, result.tscn
+├── shared/                       # 🔵 Phase 1で作成済み
+│   ├── constants/game_balance.gd # 🔴 GameBalance（ゲームバランス定数、未作成）
+│   ├── theme/theme.gd            # 🔵 UiTheme（見た目定数、日本語フォント設定込みで実装済み）
+│   ├── loaders/master_data_loader.gd # 🔵 MasterDataLoaderスタブ実装済み
+│   └── entities/                 # 🔴 複数Feature共有のインスタンス型（未作成）
+├── data/                         # 🔴 マスターデータ実データ（.tres、未作成）
+├── scenes/                       # 🔵 boot.tscn, main.tscn 実装済み（result.tscnは未作成）
+├── addons/gdUnit4/                # 🔵 テストフレームワーク導入済み
 └── tests/
-    └── unit/features/{feature}/, integration/
+    ├── integration/               # 🔵 test_game_state.gd, test_rng_service.gd（9件パス）
+    └── unit/features/{feature}/   # 🔴 機能実装に伴い今後追加
 ```
 
 対応表（設計概念 → Godot実装）: StateManager→`GameState` Autoload / EventBus→ネイティブ`signal` / 純粋関数→`logic/*.gd`の`static func` / UI→`ui/*.tscn`+`*.gd`。詳細: `docs/design/atelier-alchemy-core/architecture.md`。
@@ -96,10 +101,13 @@ atelier/                 # 🔴 未スキャフォールディング
 
 - 「なぜ」を説明する場合のみ記述。「何を」の説明・自明なコメント・コメントアウトされたコードは禁止
 
-## Key Entry Points（現状はドキュメントのみ。コード未作成）
+## Key Entry Points
 
 | Module | File | Purpose |
 |--------|------|---------|
+| GameState Autoload | `atelier/autoload/game_state.gd` | 状態の一元管理（🔵実装済み） |
+| RngService Autoload | `atelier/autoload/rng_service.gd` | 乱数の一元管理（🔵実装済み） |
+| BootScene | `atelier/scenes/boot.gd` | 起動時のマスターデータ検証・MainSceneへの遷移（🔵実装済み） |
 | プロジェクト概要 | `CLAUDE.md` | 状態・技術スタック・ドキュメントマップ |
 | コンセプト | `docs/concept/atelier-concept.md` | ゲームコンセプト（v7.0、最新） |
 | 要件定義 | `docs/spec/atelier-alchemy-core/requirements.md` | 機能・非機能要件 |
@@ -116,7 +124,7 @@ atelier/                 # 🔴 未スキャフォールディング
 | Bashコマンド運用 | `.claude/rules/bash-commands.md` | Godot/GdUnit4実行コマンド集 |
 | デバッグ運用 | `.claude/rules/godot-debug-tools.md` | エディタ調査・リモートシーンツリー活用法 |
 
-## Build & Run（設計文書上の計画コマンド。プロジェクト未作成のため現状実行不可）
+## Build & Run（実行確認済み）
 
 | Command | Description |
 |---------|------------|
@@ -135,8 +143,8 @@ atelier/                 # 🔴 未スキャフォールディング
 
 ## Additional Notes
 
-- **実装着手前に必要な作業**（CLAUDE.md「次のステップ」）: (1)タスク分割 `docs/tasks/atelier-alchemy-core/`（未作成） (2)`atelier/`プロジェクトのスキャフォールディング（Phase 1基盤構築） (3)バランス数値（🟡TBD項目）の確定 (4)1画面プロトタイプでの人間プレイテスト (5)正式ビジュアルデザインガイド策定
-- 日本語テキスト描画: Godot 4.xの既定フォントはCJK非対応のため、Phase 1で**必ず**CJK対応フォント（`FontFile`）をプロジェクト共通テーマに設定する必要がある（`.claude/rules/godot-best-practices.md`「日本語テキスト描画の注意」）
+- **Phase 1基盤構築（スキャフォールディング）は完了済み**（`docs/dev/plans/atelier-alchemy-core/`参照）。**Phase 2以降に必要な作業**（CLAUDE.md「次のステップ」）: (1)Phase 2機能実装タスク分割 `docs/tasks/atelier-alchemy-core/`（未作成） (2)バランス数値（🟡TBD項目）の確定 (3)1画面プロトタイプでの人間プレイテスト (4)正式ビジュアルデザインガイド策定
+- 日本語テキスト描画: Godot 4.xの既定フォントはCJK非対応のため、Phase 1でCJK対応フォント（`FontFile`、Noto Sans JP）をプロジェクト共通テーマに設定済み（`.claude/rules/godot-best-practices.md`「日本語テキスト描画の注意」）
 - Bashツールは1コマンドのみ実行（`&&`等の連結禁止）。Godotコマンドは基本`--path`で対象プロジェクトを明示するが、GdUnit4のテスト実行のみ`--path`相当がないため`cd atelier`が必須
 - Git運用: `rebase`禁止、`main`への直接コミット禁止、PR経由マージ、コミットメッセージは日本語Conventional Commits
 - コミット前チェック必須: GdUnit4全テスト → `gdlint` → `gdformat --check`（全てパスしないとコミット不可）

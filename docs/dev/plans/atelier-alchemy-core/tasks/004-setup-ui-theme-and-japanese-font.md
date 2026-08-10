@@ -1,7 +1,7 @@
 ---
 id: "004"
 title: "UiThemeと日本語（CJK）フォント対応をセットアップする"
-status: pending
+status: done
 priority: 2
 dependencies: ["001"]
 estimated_complexity: medium

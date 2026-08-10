@@ -10,6 +10,8 @@
 - 🟡 妥当な推測による基準
 - 🔴 AI推論補完（要確認）
 
+> 🔴 2026-08-10改訂: Godot 4.7のAsset Store移行期にGUTが導入できなかったため、テストフレームワークをGdUnit4に切り替えた（実装・動作確認済み）。AC-011・AC-014はヒアリング当時のGUT前提の記録として原文を残しつつ、実際の実施結果を追記した。
+
 ---
 
 ## AC-001: [FR-001, FR-002] ディレクトリスキャフォールディング 🔵
@@ -244,6 +246,8 @@
 - [ ] **正常系**: コマンド実行後の出力サマリーで`0 failures`であることを確認する 🔵
 - [ ] **異常系**: `-ginclude_subdirs`を付け忘れた場合に「0 tests, 0 failures」の偽グリーンになる既知の罠を踏んでいないか確認する 🟡
 
+> 🔴 2026-08-10実施結果: GUTではなくGdUnit4で実施した。実行コマンドは`cd atelier && GODOT_BIN="/c/Godot/godot.exe" ./addons/gdUnit4/runtest.sh -a res://tests/`（`.claude/rules/bash-commands.md`参照）。GameState/RngServiceの統合テスト9件全てパスを確認済み。
+
 ---
 
 ## AC-012: [FR-108] gdlint実行 🔵
@@ -304,6 +308,8 @@
 - [ ] **正常系**: 手順書通りに操作した後、`addons/gut/gut_cmdln.gd`が存在することを確認する 🔵
 - [ ] **正常系**: インストール後の動作確認コマンドが「アドオンが見つからない」エラーを出さないことを確認する 🔵
 - [ ] **異常系**: 手動ステップが自動化できない旨がタスク文書に明記されていることを確認する 🔵
+
+> 🔴 2026-08-10実施結果: Godot 4.7のAsset Store移行期にGUTがAssetLib経由でインストールできなかったため、GdUnit4をGitHub（`godot-gdunit-labs/gdUnit4`）からclone・`atelier/addons/gdUnit4/`へ配置する手順に切り替えた。`project.godot`の`[editor_plugins]`にプラグイン登録済み、動作確認済み。
 
 ---
 

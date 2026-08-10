@@ -1,7 +1,7 @@
 ---
 id: "007"
 title: "BootSceneを実装する（フォント適用→マスターデータ検証配線→MainScene遷移）"
-status: pending
+status: done
 priority: 2
 dependencies: ["004", "005", "006"]
 estimated_complexity: medium

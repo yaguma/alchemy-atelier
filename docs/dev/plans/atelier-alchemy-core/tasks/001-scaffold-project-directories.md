@@ -1,7 +1,7 @@
 ---
 id: "001"
 title: "Godotプロジェクトを新規作成しディレクトリをスキャフォールディングする"
-status: pending
+status: done
 priority: 1
 dependencies: []
 estimated_complexity: low

@@ -1,7 +1,7 @@
 ---
 id: "002"
 title: "GameState Autoloadの最小骨組みを実装する"
-status: pending
+status: done
 priority: 1
 dependencies: ["001"]
 estimated_complexity: medium

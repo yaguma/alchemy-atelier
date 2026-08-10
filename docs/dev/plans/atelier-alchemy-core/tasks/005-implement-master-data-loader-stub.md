@@ -1,7 +1,7 @@
 ---
 id: "005"
 title: "MasterDataLoaderの検証ロジックの骨組み（スタブ）を実装する"
-status: pending
+status: done
 priority: 2
 dependencies: ["001"]
 estimated_complexity: low

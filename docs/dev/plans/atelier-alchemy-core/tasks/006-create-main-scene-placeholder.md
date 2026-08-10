@@ -1,7 +1,7 @@
 ---
 id: "006"
 title: "MainSceneのプレースホルダを作成する"
-status: pending
+status: done
 priority: 3
 dependencies: ["001"]
 estimated_complexity: low

@@ -1,13 +1,15 @@
 ---
 id: "008"
 title: "GUTアドオンをAssetLib経由で導入する（手動手順）"
-status: pending
+status: done
 priority: 2
 dependencies: ["001"]
 estimated_complexity: low
 ---
 
 # Task: GUTアドオンをAssetLib経由で導入する（手動手順）
+
+> 🔴 2026-08-10実施結果: Godot 4.7のAsset Store移行期にGUTがAssetLib経由で導入できなかったため、実際はGdUnit4を`godot-gdunit-labs/gdUnit4`（GitHub）からclone・`atelier/addons/gdUnit4/`へ配置する手順で導入した。`project.godot`の`[editor_plugins]`に登録済み、動作確認済み。以下の本文はヒアリング当時のGUT前提の計画として原文を残す。
 
 ## Goal
 

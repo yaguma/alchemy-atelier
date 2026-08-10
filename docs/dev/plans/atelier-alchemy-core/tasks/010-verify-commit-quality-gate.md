@@ -1,7 +1,7 @@
 ---
 id: "010"
 title: "コミット前品質ゲート（GUT/gdlint/gdformat/日本語フォント）を確認する"
-status: pending
+status: done
 priority: 4
 dependencies: ["007", "009"]
 estimated_complexity: low
@@ -9,9 +9,11 @@ estimated_complexity: low
 
 # Task: コミット前品質ゲート（GUT/gdlint/gdformat/日本語フォント）を確認する
 
+> 🔴 2026-08-10実施結果: GUTがAssetLib経由で導入できなかったため、実際はGdUnit4で全テストを実行して確認した（`cd atelier && GODOT_BIN="/c/Godot/godot.exe" ./addons/gdUnit4/runtest.sh -a res://tests/`、9件全パス）。以下の`## Test Strategy`のGUT実行コマンドはヒアリング当時の計画として原文を残す。
+
 ## Goal
 
-Phase 1基盤構築の完了条件（DoD）を一括で確認する。GUT全テスト・gdlint・gdformatが全てパスし、日本語フォントが正しく描画されることを確認してPlan完了とする。
+Phase 1基盤構築の完了条件（DoD）を一括で確認する。GdUnit4全テスト・gdlint・gdformatが全てパスし、日本語フォントが正しく描画されることを確認してPlan完了とした。
 
 ## Interfaces
 

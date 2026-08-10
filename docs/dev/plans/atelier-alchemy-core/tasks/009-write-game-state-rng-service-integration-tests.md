@@ -1,13 +1,15 @@
 ---
 id: "009"
 title: "GameState/RngServiceのGUT統合テストを作成する"
-status: pending
+status: done
 priority: 3
 dependencies: ["002", "003", "008"]
 estimated_complexity: medium
 ---
 
 # Task: GameState/RngServiceのGUT統合テストを作成する
+
+> 🔴 2026-08-10実施結果: GUTがAssetLib経由で導入できなかったため、実際はGdUnit4（`extends GdUnitTestSuite`、`before_test()`、`assert_int/assert_str/assert_bool`、`monitor_signals()`+`assert_signal().is_emitted()`等）でテストを実装した。`atelier/tests/integration/test_game_state.gd`・`test_rng_service.gd`として実装済み、9件全パス確認済み。以下の`## Interfaces`・`## Test Strategy`はヒアリング当時のGUT前提の計画として原文を残す（実装済みコードは`atelier/tests/integration/`を正とする）。
 
 ## Goal
 
