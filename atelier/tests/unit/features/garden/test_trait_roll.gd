@@ -52,3 +52,12 @@ func test_rng_valueが1_0でも範囲外アクセスにならず末尾要素が�
 	var result := TraitRoll.roll_trait(seed_master, 1.0)
 
 	assert_that(result).is_equal(&"none")
+
+
+func test_trait_poolが空の場合は範囲外アクセスにならず空のStringNameが返る() -> void:
+	var seed_master := SeedMaster.new()
+	seed_master.trait_pool = []
+
+	var result := TraitRoll.roll_trait(seed_master, 0.5)
+
+	assert_that(result).is_equal(&"")
