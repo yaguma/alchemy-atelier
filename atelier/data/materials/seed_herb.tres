@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="SeedMaster" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://features/garden/resources/seed_master.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"seed_herb"
+name = "薬草の種"
+produces_material_id = &"material_herb"
+maturity_turns = 2
+death_grace_turns = 2
+base_quality = 2
+trait_pool = Array[StringName]([&"holy", &"gold", &"none"])

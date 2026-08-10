@@ -1,7 +1,7 @@
 ---
 id: "009"
 title: "庭の初期マスターデータ（.tres）を作成する"
-status: pending
+status: done
 priority: 2
 dependencies: ["004"]
 estimated_complexity: low

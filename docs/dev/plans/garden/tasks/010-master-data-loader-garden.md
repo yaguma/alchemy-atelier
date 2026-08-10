@@ -1,7 +1,7 @@
 ---
 id: "010"
 title: "MasterDataLoaderに庭マスターデータのロード・検証を実装する"
-status: pending
+status: done
 priority: 2
 dependencies: ["004", "009"]
 estimated_complexity: medium

@@ -1,13 +1,52 @@
 class_name MasterDataLoader
 
-
-# Phase1ではマスターデータ型が未整備のためスタブ（常に空配列）
-# TODO(後続Plan): res://data/<category>/*.tres を列挙してロードする
-static func load_all(_category: StringName) -> Array:
-	return []
+const MATERIALS_DIR := "res://data/materials/"
+const TRES_EXTENSION := ".tres"
 
 
-# Phase1では実マスターデータ型が無いためスタブ（常にtrue）
-# TODO(後続Plan): materials内のcatalyst_tag / recipe.material_id等の相互参照を検証する
-static func validate_references(_materials: Array) -> bool:
+## categoryに対応するディレクトリ配下の全.tresをロードして返す（SeedMaster/MaterialMaster混在）
+static func load_all(category: StringName) -> Array:
+	var dir_path := _resolve_dir_path(category)
+	if dir_path.is_empty():
+		return []
+
+	var result: Array = []
+	var dir := DirAccess.open(dir_path)
+	if dir == null:
+		return result
+
+	dir.list_dir_begin()
+	var file_name := dir.get_next()
+	while file_name != "":
+		if not dir.current_is_dir() and file_name.ends_with(TRES_EXTENSION):
+			var resource: Resource = load(dir_path + file_name)
+			if resource is SeedMaster or resource is MaterialMaster:
+				result.append(resource)
+		file_name = dir.get_next()
+	dir.list_dir_end()
+
+	return result
+
+
+## SeedMaster.produces_material_id が同一Array内のMaterialMaster.idを指しているか検証する
+static func validate_references(materials: Array) -> bool:
+	var material_ids: Dictionary = {}
+	for m in materials:
+		if m is MaterialMaster:
+			material_ids[(m as MaterialMaster).id] = true
+
+	for m in materials:
+		if m is SeedMaster:
+			var produces_id: StringName = (m as SeedMaster).produces_material_id
+			if not material_ids.has(produces_id):
+				return false
+
 	return true
+
+
+static func _resolve_dir_path(category: StringName) -> String:
+	match category:
+		&"materials":
+			return MATERIALS_DIR
+		_:
+			return ""
