@@ -1,7 +1,7 @@
 ---
 id: "006"
 title: "Planting（種植えロジック）を実装する"
-status: pending
+status: done
 priority: 2
 dependencies: ["001", "004", "005"]
 estimated_complexity: medium

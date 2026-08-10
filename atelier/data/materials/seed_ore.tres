@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="SeedMaster" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://features/garden/resources/seed_master.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"seed_ore"
+name = "鉱石の種"
+produces_material_id = &"material_ore"
+maturity_turns = 5
+death_grace_turns = 3
+base_quality = 3
+trait_pool = Array[StringName]([&"gold", &"sturdy", &"none"])
