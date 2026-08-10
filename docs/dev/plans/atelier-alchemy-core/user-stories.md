@@ -27,7 +27,7 @@
 ### US-001: ディレクトリ構造が最初から用意されている 🔵
 
 **私は** 未来の開発者 **として**
-**`atelier-alchemy/`にFeature-Based Architectureのディレクトリツリーが最初から用意されている状態**をしたい
+**`atelier/`にFeature-Based Architectureのディレクトリツリーが最初から用意されている状態**をしたい
 **そうすることで** 各Feature実装時にディレクトリ構成で迷わず、`architecture.md`の設計案通りにファイルを配置できる
 
 - **関連要件**: FR-001, FR-002, FR-003
@@ -143,7 +143,7 @@
 ### US-009: gdlint/gdformatが実行できる 🔵
 
 **私は** 未来の開発者 **として**
-**`gdlint`/`gdformat --check`が`atelier-alchemy/features/`, `shared/`, `autoload/`に対してエラー・フォーマット崩れなく実行できる状態**をしたい
+**`gdlint`/`gdformat --check`が`atelier/features/`, `shared/`, `autoload/`に対してエラー・フォーマット崩れなく実行できる状態**をしたい
 **そうすることで** コミット前チェック（`.claude/rules/implement-workflow.md`参照）を各Feature実装時からそのまま利用できる
 
 - **関連要件**: FR-108, FR-109
@@ -153,7 +153,7 @@
 ### US-010: クリーンチェックアウト直後でもインポートが成功する 🔵
 
 **私は** 未来の開発者 **として**
-**`.godot/`インポートキャッシュが存在しない状態から`godot --headless --path atelier-alchemy --import`が正常終了する状態**をしたい
+**`.godot/`インポートキャッシュが存在しない状態から`godot --headless --path atelier --import`が正常終了する状態**をしたい
 **そうすることで** CI環境や新規クローン直後でも安定してテスト・Lintを実行できる
 
 - **関連要件**: FR-106
@@ -191,7 +191,7 @@
 ### ジャーニー2: 後続Feature実装者が基盤を使い始めるフロー
 
 ```
-[atelier-alchemy/を開く] → [architecture.mdのディレクトリ案と一致を確認] → [GameStateへ新フィールド追加]
+[atelier/を開く] → [architecture.mdのディレクトリ案と一致を確認] → [GameStateへ新フィールド追加]
          US-001                          US-001                                  US-002
             ↓
 [新規logic/*.gdのGUTテストを既存基盤で実行] → [gdlint/gdformatでコミット前チェック]

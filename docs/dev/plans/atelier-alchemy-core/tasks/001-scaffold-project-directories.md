@@ -11,14 +11,14 @@ estimated_complexity: low
 
 ## Goal
 
-Godot 4.7で `atelier-alchemy/` プロジェクトを新規作成し、`architecture.md`「ディレクトリ構造（案）」+ FR-001の直積解釈（`workshop/state/`を含む全5機能×4サブディレクトリ）に基づく全ディレクトリツリーをスキャフォールディングする。空ディレクトリは`.gitkeep`でgit追跡する。
+Godot 4.7で `atelier/` プロジェクトを新規作成し、`architecture.md`「ディレクトリ構造（案）」+ FR-001の直積解釈（`workshop/state/`を含む全5機能×4サブディレクトリ）に基づく全ディレクトリツリーをスキャフォールディングする。空ディレクトリは`.gitkeep`でgit追跡する。
 
 ## Interfaces
 
 このタスクはコード実装ではなくディレクトリ・設定ファイル作成が中心（Directモード）。
 
 ```
-atelier-alchemy/                                              # 🔵 Godotエディタでプロジェクト新規作成時に自動生成
+atelier/                                              # 🔵 Godotエディタでプロジェクト新規作成時に自動生成
 ├── project.godot                                              # 🔵 Godot 4.7を対象バージョンとして固定（FR-003, CON-001）
 ├── autoload/                                                  # 🔵 非空（002, 003で使用）
 ├── features/
@@ -48,8 +48,8 @@ atelier-alchemy/                                              # 🔵 Godotエデ
 
 Directモードのためテストコードは書かない。以下を目視・コマンドで確認する。
 
-- [ ] `godot --headless --path atelier-alchemy --import` が正常終了する（FR-106, AC-010）
-- [ ] `atelier-alchemy/project.godot` に Godot 4.7 が対象バージョンとして記録されている
+- [ ] `godot --headless --path atelier --import` が正常終了する（FR-106, AC-010）
+- [ ] `atelier/project.godot` に Godot 4.7 が対象バージョンとして記録されている
 - [ ] 上記ディレクトリツリーが全て存在し、空ディレクトリには `.gitkeep` が配置されている（FR-001, FR-002, AC-001）
 - [ ] `git status` で全ディレクトリが追跡対象になっている（`.gitkeep`のみのディレクトリも含む）
 
@@ -62,6 +62,6 @@ Directモードのためテストコードは書かない。以下を目視・�
 
 ## Files
 
-- 新規: `atelier-alchemy/project.godot`, `atelier-alchemy/.gitignore`, 上記ディレクトリツリー一式 + 各空ディレクトリの `.gitkeep`
+- 新規: `atelier/project.godot`, `atelier/.gitignore`, 上記ディレクトリツリー一式 + 各空ディレクトリの `.gitkeep`
 - 変更: なし
 - テスト: なし（Directモード）

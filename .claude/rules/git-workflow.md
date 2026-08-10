@@ -176,10 +176,12 @@ git merge origin/main
 # 5. 解消したファイルをステージング
 git add <解消したファイル>
 
-# 6. 検証チェックリスト実行
-godot --headless --path atelier-alchemy -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -ginclude_subdirs -gexit
-gdlint atelier-alchemy/features/ atelier-alchemy/shared/ atelier-alchemy/autoload/
-gdformat --check atelier-alchemy/features/ atelier-alchemy/shared/ atelier-alchemy/autoload/
+# 6. 検証チェックリスト実行（GdUnit4は--path相当なしのためcd必須）
+cd atelier
+GODOT_BIN="/c/Godot/godot.exe" ./addons/gdUnit4/runtest.sh -a res://tests/
+cd ..
+gdlint atelier/features/ atelier/shared/ atelier/autoload/
+gdformat --check atelier/features/ atelier/shared/ atelier/autoload/
 
 # 7. 全てパスしたらマージコミットを作成
 git commit
@@ -198,7 +200,7 @@ git push
 ### 解消後の検証チェックリスト
 
 - [ ] 全てのコンフリクトマーカー（`<<<<<<<`, `=======`, `>>>>>>>`）が除去されていること
-- [ ] GUTテストがパスすること（`godot --headless --path atelier-alchemy -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -ginclude_subdirs -gexit`）
+- [ ] GdUnit4テストがパスすること（`cd atelier && GODOT_BIN="/c/Godot/godot.exe" ./addons/gdUnit4/runtest.sh -a res://tests/`）
 - [ ] `gdlint`の警告がないこと
 - [ ] `gdformat --check`のフォーマット崩れがないこと
 - [ ] アプリケーションが正常に起動すること（Godotエディタでの再生確認）

@@ -61,6 +61,6 @@ GUTテスト自体は009タスクで作成する（GameState/RngServiceをまと
 
 ## Files
 
-- 新規: `atelier-alchemy/autoload/game_state.gd`
-- 変更: `atelier-alchemy/project.godot`（Autoload登録）
-- テスト: `atelier-alchemy/tests/integration/test_game_state.gd`（009タスクで作成）
+- 新規: `atelier/autoload/game_state.gd`
+- 変更: `atelier/project.godot`（Autoload登録）
+- テスト: `atelier/tests/integration/test_game_state.gd`（009タスクで作成）

@@ -17,9 +17,9 @@ PR作成からマージまでの標準パイプラインフローを定義する
 PR作成前に以下を全てパスさせること。
 
 ```bash
-godot --headless --path atelier-alchemy -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -ginclude_subdirs -gexit   # ユニット/統合テスト（GUT）
-gdlint atelier-alchemy/features/ atelier-alchemy/shared/ atelier-alchemy/autoload/                                 # 静的解析
-gdformat --check atelier-alchemy/features/ atelier-alchemy/shared/ atelier-alchemy/autoload/                       # フォーマットチェック
+cd atelier && GODOT_BIN="/c/Godot/godot.exe" ./addons/gdUnit4/runtest.sh -a res://tests/   # ユニット/統合テスト（GdUnit4、--path相当なしのためcd必須）
+gdlint atelier/features/ atelier/shared/ atelier/autoload/                                 # 静的解析
+gdformat --check atelier/features/ atelier/shared/ atelier/autoload/                       # フォーマットチェック
 ```
 
 全てパスしない場合、PR作成に進まない。
@@ -72,7 +72,7 @@ gdformat --check atelier-alchemy/features/ atelier-alchemy/shared/ atelier-alche
 
 レビュー依頼前に、以下のセルフチェックを実施する。
 
-- [ ] 全テスト（GUT）がパスしているか
+- [ ] 全テスト（GdUnit4）がパスしているか
 - [ ] gdlintの警告がないか
 - [ ] gdformatのフォーマット崩れがないか
 - [ ] 不要な`print()`が残っていないか

@@ -19,10 +19,10 @@ Phase 1基盤構築の完了条件（DoD）を一括で確認する。GUT全テ�
 
 ## Test Strategy
 
-- [ ] `godot --headless --path atelier-alchemy --import` が正常終了する（クリーンチェックアウト相当の確認、FR-106, AC-010）
-- [ ] `godot --headless --path atelier-alchemy -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -ginclude_subdirs -gexit` を実行し、009で作成した全テストがパスする（FR-107, AC-011）
-- [ ] `gdlint atelier-alchemy/features/ atelier-alchemy/shared/ atelier-alchemy/autoload/` がエラーなく完了する（FR-108, AC-012）
-- [ ] `gdformat --check atelier-alchemy/features/ atelier-alchemy/shared/ atelier-alchemy/autoload/` がフォーマット崩れなく完了する（FR-109, AC-013）
+- [ ] `godot --headless --path atelier --import` が正常終了する（クリーンチェックアウト相当の確認、FR-106, AC-010）
+- [ ] `godot --headless --path atelier -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -ginclude_subdirs -gexit` を実行し、009で作成した全テストがパスする（FR-107, AC-011）
+- [ ] `gdlint atelier/features/ atelier/shared/ atelier/autoload/` がエラーなく完了する（FR-108, AC-012）
+- [ ] `gdformat --check atelier/features/ atelier/shared/ atelier/autoload/` がフォーマット崩れなく完了する（FR-109, AC-013）
 - [ ] Godotエディタで`boot.tscn`を実行し、日本語仮ラベルが矩形/豆腐文字にならず表示され、`main.tscn`へ正常遷移する（NFR-201, AC-015）
 - [ ] `GameState.get_state()`のディープコピー検証テスト（009）が実際にパスしていることを再確認する（FR-103の最終確認）
 

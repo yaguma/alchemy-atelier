@@ -56,6 +56,6 @@ func test_randf_rangeは指定範囲内の値を返す() -> void: pass     # �
 
 ## Files
 
-- 新規: `atelier-alchemy/tests/integration/test_game_state.gd`, `atelier-alchemy/tests/integration/test_rng_service.gd`
+- 新規: `atelier/tests/integration/test_game_state.gd`, `atelier/tests/integration/test_rng_service.gd`
 - 変更: なし
 - テスト: 本タスク自体がテスト作成タスク

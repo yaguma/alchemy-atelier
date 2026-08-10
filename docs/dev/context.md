@@ -11,7 +11,7 @@
 - `docs/design/atelier-alchemy-core/` — 技術設計文書一式（architecture / core-systems / dataflow / data-schema / c4-model / decision-log / game-mechanics / balance-design / ui-design/）
 - `.claude/rules/*.md` — Godot/GDScript前提の実装運用ルール群（詳細版）
 
-Godotプロジェクト本体（`atelier-alchemy/`）は**まだスキャフォールディングされていない**。以下の Tech Stack / Test Framework / Build & Run は全て「設計文書上で決定済みだが未実装」の情報であり、🔴（実コードなし、規約文書からの転記）として扱う。dev-plan で「基盤構築（スキャフォールディング）」タスクを最初に置く必要がある。
+Godotプロジェクト本体（`atelier/`）は**まだスキャフォールディングされていない**。以下の Tech Stack / Test Framework / Build & Run は全て「設計文書上で決定済みだが未実装」の情報であり、🔴（実コードなし、規約文書からの転記）として扱う。dev-plan で「基盤構築（スキャフォールディング）」タスクを最初に置く必要がある。
 
 ## Tech Stack
 
@@ -25,19 +25,19 @@ Godotプロジェクト本体（`atelier-alchemy/`）は**まだスキャフォ�
 
 | Item | Value |
 |------|-------|
-| Framework | GUT（Godot Unit Test）※ `addons/gut/` は未インストール | 🔴（採用予定、未セットアップ） |
-| Config File | 未定（GUTアドオン導入時に確定） | 🔴 |
-| Test Command（全体） | `godot --headless --path atelier-alchemy -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -ginclude_subdirs -gexit` | 🔵（`.claude/rules/bash-commands.md`記載） |
-| Test Command（単一ファイル） | `godot --headless --path atelier-alchemy -s addons/gut/gut_cmdln.gd -gtest=res://tests/unit/features/{feature}/test_{file}.gd -gexit` | 🔵 |
+| Framework | GdUnit4（`addons/gdUnit4/`にGitHubから直接導入済み。2026-08-10、Godot 4.7のAsset Store移行期にGUTが導入できなかったため変更） | 🔵（実導入済み、9件のテスト実行で動作確認済み） |
+| Config File | なし（GdUnit4はプラグイン形式で`project.godot`の`[editor_plugins]`に登録） | 🔵 |
+| Test Command（全体） | `cd atelier && GODOT_BIN="/c/Godot/godot.exe" ./addons/gdUnit4/runtest.sh -a res://tests/`（GdUnit4は`--path`相当のオプションがないため`cd`必須） | 🔵（`.claude/rules/bash-commands.md`記載、実行確認済み） |
+| Test Command（単一ファイル） | `cd atelier && GODOT_BIN="/c/Godot/godot.exe" ./addons/gdUnit4/runtest.sh -a res://tests/unit/features/{feature}/test_{file}.gd` | 🔵 |
 | Test Directory | `tests/unit/features/{feature}/`, `tests/unit/shared/`, `tests/integration/`（`features/`配下への配置は禁止） | 🔵 |
 | Coverage | 標準計測機構なし。「`logic/*.gd`の全public `static func`に正常系・異常系・境界値テスト最低1本ずつ」を基準とする | 🔵 |
 
-初回実行前（クリーンチェックアウト直後）は `godot --headless --path atelier-alchemy --import` でインポートを完了させる必要がある（🔵）。
+初回実行前（クリーンチェックアウト直後）は `godot --headless --path atelier --import` でインポートを完了させる必要がある（🔵）。
 
 ## Project Structure（設計文書上の計画。未作成）
 
 ```
-atelier-alchemy/                 # 🔴 未スキャフォールディング
+atelier/                 # 🔴 未スキャフォールディング
 ├── project.godot
 ├── autoload/                    # Application層（GameState, RngService）
 ├── features/                    # 機能単位モジュール
@@ -112,20 +112,20 @@ atelier-alchemy/                 # 🔴 未スキャフォールディング
 | 意思決定ログ | `docs/design/atelier-alchemy-core/decision-log.md` | ADR相当、各設計文書の🔵🔴集約 |
 | アーキテクチャ運用ルール | `.claude/rules/architecture.md` | Feature-Based / Functional Core運用ルール |
 | コーディングスタイル | `.claude/rules/coding-style.md` | GDScript命名・型・コメント規約 |
-| テスト運用ルール | `.claude/rules/testing.md`, `tdd-implementation.md` | GUT配置規約・TDDサイクル |
-| Bashコマンド運用 | `.claude/rules/bash-commands.md` | Godot/GUT実行コマンド集 |
+| テスト運用ルール | `.claude/rules/testing.md`, `tdd-implementation.md` | GdUnit4配置規約・TDDサイクル |
+| Bashコマンド運用 | `.claude/rules/bash-commands.md` | Godot/GdUnit4実行コマンド集 |
 | デバッグ運用 | `.claude/rules/godot-debug-tools.md` | エディタ調査・リモートシーンツリー活用法 |
 
 ## Build & Run（設計文書上の計画コマンド。プロジェクト未作成のため現状実行不可）
 
 | Command | Description |
 |---------|------------|
-| `godot --headless --path atelier-alchemy --import` | 初回インポート（クリーンチェックアウト後必須） |
-| `godot --headless --path atelier-alchemy -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -ginclude_subdirs -gexit` | 全GUTテスト実行 |
-| `gdlint atelier-alchemy/features/ atelier-alchemy/shared/ atelier-alchemy/autoload/` | 静的解析 |
-| `gdformat --check atelier-alchemy/features/ atelier-alchemy/shared/ atelier-alchemy/autoload/` | フォーマットチェック |
-| `godot --path atelier-alchemy`（`run_in_background: true`） | エディタ起動（対話操作・調査用） |
-| `godot --headless --path atelier-alchemy --export-release "<preset>" <output>` | エクスポートビルド（プリセット名は実装着手時に確定） |
+| `godot --headless --path atelier --import` | 初回インポート（クリーンチェックアウト後必須） |
+| `cd atelier && GODOT_BIN="/c/Godot/godot.exe" ./addons/gdUnit4/runtest.sh -a res://tests/` | 全GdUnit4テスト実行 |
+| `gdlint atelier/features/ atelier/shared/ atelier/autoload/` | 静的解析 |
+| `gdformat --check atelier/features/ atelier/shared/ atelier/autoload/` | フォーマットチェック |
+| `godot --path atelier`（`run_in_background: true`） | エディタ起動（対話操作・調査用） |
+| `godot --headless --path atelier --export-release "<preset>" <output>` | エクスポートビルド（プリセット名は実装着手時に確定） |
 
 ## Docker Environment
 
@@ -135,9 +135,9 @@ atelier-alchemy/                 # 🔴 未スキャフォールディング
 
 ## Additional Notes
 
-- **実装着手前に必要な作業**（CLAUDE.md「次のステップ」）: (1)タスク分割 `docs/tasks/atelier-alchemy-core/`（未作成） (2)`atelier-alchemy/`プロジェクトのスキャフォールディング（Phase 1基盤構築） (3)バランス数値（🟡TBD項目）の確定 (4)1画面プロトタイプでの人間プレイテスト (5)正式ビジュアルデザインガイド策定
+- **実装着手前に必要な作業**（CLAUDE.md「次のステップ」）: (1)タスク分割 `docs/tasks/atelier-alchemy-core/`（未作成） (2)`atelier/`プロジェクトのスキャフォールディング（Phase 1基盤構築） (3)バランス数値（🟡TBD項目）の確定 (4)1画面プロトタイプでの人間プレイテスト (5)正式ビジュアルデザインガイド策定
 - 日本語テキスト描画: Godot 4.xの既定フォントはCJK非対応のため、Phase 1で**必ず**CJK対応フォント（`FontFile`）をプロジェクト共通テーマに設定する必要がある（`.claude/rules/godot-best-practices.md`「日本語テキスト描画の注意」）
-- Bashツールは1コマンドのみ実行（`&&`等の連結禁止）。Godot/GUTコマンドは`--path`で対象プロジェクトを明示し、`cd`の多用を避ける
+- Bashツールは1コマンドのみ実行（`&&`等の連結禁止）。Godotコマンドは基本`--path`で対象プロジェクトを明示するが、GdUnit4のテスト実行のみ`--path`相当がないため`cd atelier`が必須
 - Git運用: `rebase`禁止、`main`への直接コミット禁止、PR経由マージ、コミットメッセージは日本語Conventional Commits
-- コミット前チェック必須: GUT全テスト → `gdlint` → `gdformat --check`（全てパスしないとコミット不可）
+- コミット前チェック必須: GdUnit4全テスト → `gdlint` → `gdformat --check`（全てパスしないとコミット不可）
 - ドキュメント状態の詳細は `CLAUDE.md`「ドキュメントマップ」節を参照。`experience-core.md`はv4.0のまま古い（`atelier-concept.md`優先）。`design-interview.md`・`prototype-validation-report.md`は存在しない（過去の誤記載）

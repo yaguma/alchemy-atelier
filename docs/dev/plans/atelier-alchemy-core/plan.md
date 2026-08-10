@@ -2,7 +2,7 @@
 
 ## Requirements Summary
 
-「Atelier」プロジェクト（Godot 4.7 + GDScript）の実装における最初のPlan。`atelier-alchemy/` プロジェクトのスキャフォールディング、`GameState`/`RngService` Autoloadの最小骨組み、日本語（CJK）フォント対応、`BootScene`→`MainScene`の起動フロー、GUT/gdlint/gdformatによる品質チェック基盤を整備する。庭・調合・ギルド納品・工房強化・ランク進行の各Feature実装は本Planのスコープ外（後日、別plan-nameでdev-planする）。
+「Atelier」プロジェクト（Godot 4.7 + GDScript）の実装における最初のPlan。`atelier/` プロジェクトのスキャフォールディング、`GameState`/`RngService` Autoloadの最小骨組み、日本語（CJK）フォント対応、`BootScene`→`MainScene`の起動フロー、GUT/gdlint/gdformatによる品質チェック基盤を整備する。庭・調合・ギルド納品・工房強化・ランク進行の各Feature実装は本Planのスコープ外（後日、別plan-nameでdev-planする）。
 
 詳細: [requirements.md](requirements.md) | [user-stories.md](user-stories.md) | [acceptance-criteria.md](acceptance-criteria.md)
 

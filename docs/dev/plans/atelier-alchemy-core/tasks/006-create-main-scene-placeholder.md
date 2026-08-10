@@ -37,6 +37,6 @@ Directモードのため自動テストは不要。以下を確認する。
 
 ## Files
 
-- 新規: `atelier-alchemy/scenes/main.tscn`
+- 新規: `atelier/scenes/main.tscn`
 - 変更: なし
 - テスト: なし

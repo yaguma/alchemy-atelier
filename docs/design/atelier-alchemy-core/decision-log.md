@@ -112,7 +112,7 @@
 | `.claude/skills/content-gen-pipeline/`（SKILL.md・references配下） | pnpm前提のコマンド例、およびv6.0「依頼（Quest）」語彙のエージェントプロンプトが残存 |
 | `.claude/settings.json` | `pnpm --filter atelier-guild-rank`・`mcp__playwright`の許可設定に加え、`Write`/`Edit`のたびに自動実行される`PostToolUse`フックが`atelier-guild-rank`への`cd`とbiome実行を試みる（存在しないディレクトリのため`2>/dev/null \|\| true`で握り潰され現状無害だが、他の許可設定と異なり**現在も毎回自動実行されている**点で緊急性の性質が異なる） |
 
-**判断の根拠**: 上記はいずれも実装着手（`atelier-alchemy/`スキャフォールディング）より前には実行される見込みが低く、`.claude/rules/`ほど緊急性が高くないと判断してスコープ外とした。ただし`self-healing-pipeline.md`のように今すぐ実行すれば即座に壊れるコマンドや、`settings.json`のPostToolUseフックのように**現在も毎回自動実行されている**設定を含むため、**移行完了と誤解しないこと**。[Issue #5](https://github.com/yaguma/alchemy-atelier/issues/5)で追跡し、実装着手前までに対応する。
+**判断の根拠**: 上記はいずれも実装着手（`atelier/`スキャフォールディング）より前には実行される見込みが低く、`.claude/rules/`ほど緊急性が高くないと判断してスコープ外とした。ただし`self-healing-pipeline.md`のように今すぐ実行すれば即座に壊れるコマンドや、`settings.json`のPostToolUseフックのように**現在も毎回自動実行されている**設定を含むため、**移行完了と誤解しないこと**。[Issue #5](https://github.com/yaguma/alchemy-atelier/issues/5)で追跡し、実装着手前までに対応する。
 
 ### 6.2 再レビューで確定した設計判断（2026-08-07追記）🔵
 

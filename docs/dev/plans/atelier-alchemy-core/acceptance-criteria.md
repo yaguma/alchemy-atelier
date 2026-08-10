@@ -17,10 +17,10 @@
 **関連**: FR-001, FR-002, US-001
 
 ### Given（前提条件）
-- リポジトリルートに`atelier-alchemy/`プロジェクトが未作成の状態
+- リポジトリルートに`atelier/`プロジェクトが未作成の状態
 
 ### When（実行条件）
-- `docs/design/atelier-alchemy-core/architecture.md`「ディレクトリ構造（案）」に従い、`atelier-alchemy/`配下にディレクトリツリーを作成する
+- `docs/design/atelier-alchemy-core/architecture.md`「ディレクトリ構造（案）」に従い、`atelier/`配下にディレクトリツリーを作成する
 
 ### Then（期待結果）
 - `autoload/`, `features/{garden,alchemy,guild,workshop,rank}/{logic,state,resources,ui}/`, `shared/{constants,theme,entities}/`, `data/{materials,recipes,ranks,upgrades,daily_orders}/`, `scenes/`, `tests/unit/features/{garden,alchemy,guild,workshop,rank}/`, `tests/integration/`のすべてが存在する
@@ -28,7 +28,7 @@
 
 ### テストチェックリスト
 
-- [ ] **正常系**: `find atelier-alchemy -type d`の出力がarchitecture.mdのディレクトリ案と一致する 🔵
+- [ ] **正常系**: `find atelier -type d`の出力がarchitecture.mdのディレクトリ案と一致する 🔵
 - [ ] **正常系**: 空ディレクトリをコミットした際、git履歴に`.gitkeep`が含まれる 🔵
 - [ ] **異常系**: architecture.mdに存在しないディレクトリが誤って作成されていないことを確認する 🟡
 
@@ -39,7 +39,7 @@
 **関連**: FR-003, US-001
 
 ### Given（前提条件）
-- `atelier-alchemy/project.godot`が作成済みである
+- `atelier/project.godot`が作成済みである
 
 ### When（実行条件）
 - `project.godot`の内容を確認する
@@ -49,7 +49,7 @@
 
 ### テストチェックリスト
 
-- [ ] **正常系**: Godot 4.7エディタで`atelier-alchemy/`を開いてもバージョン変換ダイアログが出ない 🔵
+- [ ] **正常系**: Godot 4.7エディタで`atelier/`を開いてもバージョン変換ダイアログが出ない 🔵
 - [ ] **異常系**: Godot 4.6以前や4.8以降のエディタで開いた場合に互換性警告が出ることを許容する（対象外バージョンでの動作保証はしない） 🟡
 
 ---
@@ -170,7 +170,7 @@
 - `scenes/main.tscn`（空のControlのみのプレースホルダ）が存在する
 
 ### When（実行条件）
-- Godotエディタでプロジェクトを実行する（F5相当）、または`godot --headless --path atelier-alchemy`でBootSceneを起動する
+- Godotエディタでプロジェクトを実行する（F5相当）、または`godot --headless --path atelier`でBootSceneを起動する
 
 ### Then（期待結果）
 - `UiTheme`のフォント適用処理が実行される
@@ -210,10 +210,10 @@
 **関連**: FR-106, US-010
 
 ### Given（前提条件）
-- `atelier-alchemy/.godot/`インポートキャッシュディレクトリが存在しない（新規clone直後を模擬）
+- `atelier/.godot/`インポートキャッシュディレクトリが存在しない（新規clone直後を模擬）
 
 ### When（実行条件）
-- `godot --headless --path atelier-alchemy --import`を実行する
+- `godot --headless --path atelier --import`を実行する
 
 ### Then（期待結果）
 - コマンドが終了コード0で正常終了し、`.godot/`にインポートキャッシュが生成される
@@ -234,7 +234,7 @@
 - `tests/integration/`にGameState/RngServiceのテストファイルが作成済みである
 
 ### When（実行条件）
-- `godot --headless --path atelier-alchemy -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -ginclude_subdirs -gexit`を実行する
+- `godot --headless --path atelier -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -ginclude_subdirs -gexit`を実行する
 
 ### Then（期待結果）
 - すべてのテストがパスし、失敗（failures）が0件で終了する
@@ -251,10 +251,10 @@
 **関連**: FR-108, US-009
 
 ### Given（前提条件）
-- `atelier-alchemy/features/`, `shared/`, `autoload/`配下に本Planで作成したGDScriptファイル（`game_state.gd`, `rng_service.gd`, `theme.gd`等）が存在する
+- `atelier/features/`, `shared/`, `autoload/`配下に本Planで作成したGDScriptファイル（`game_state.gd`, `rng_service.gd`, `theme.gd`等）が存在する
 
 ### When（実行条件）
-- `gdlint atelier-alchemy/features/ atelier-alchemy/shared/ atelier-alchemy/autoload/`を実行する
+- `gdlint atelier/features/ atelier/shared/ atelier/autoload/`を実行する
 
 ### Then（期待結果）
 - リント違反エラーが0件で終了する
@@ -274,7 +274,7 @@
 - 本Planで作成したGDScriptファイルが存在する
 
 ### When（実行条件）
-- `gdformat --check atelier-alchemy/features/ atelier-alchemy/shared/ atelier-alchemy/autoload/`を実行する
+- `gdformat --check atelier/features/ atelier/shared/ atelier/autoload/`を実行する
 
 ### Then（期待結果）
 - フォーマット崩れが検出されず終了コード0で終了する
@@ -297,7 +297,7 @@
 - 提示された手順書（GodotエディタのAssetLibからGUTを検索・インストールする手順）に従ってユーザーが手動インストールを行う
 
 ### Then（期待結果）
-- インストール後、`godot --headless --path atelier-alchemy -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -ginclude_subdirs -gexit`が実行可能になる（コマンド自体は成功し、テストが0件でも「アドオン未検出」エラーにならない）
+- インストール後、`godot --headless --path atelier -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -ginclude_subdirs -gexit`が実行可能になる（コマンド自体は成功し、テストが0件でも「アドオン未検出」エラーにならない）
 
 ### テストチェックリスト
 

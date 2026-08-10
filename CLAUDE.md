@@ -24,13 +24,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 技術スタック（決定済み・実装未着手）
 
-2026-07-09、技術設計フェーズにて **Godot 4.x + GDScript** を正式採用することが確定した（決定経緯を記録した `design-interview.md` は本リポジトリに存在しないが、初回コミット `747ee79`「Godot 4.x + GDScript版アトリエ錬金術ゲームの開発に向けて」の時点から一貫してこの方針であり、揺らぎはない）。ただし **Godotプロジェクト（`atelier-alchemy/`）のスキャフォールディングはまだ行われていない**。実装着手時は設計文書に従って新規プロジェクトを作成するところから始める。
+2026-07-09、技術設計フェーズにて **Godot 4.x + GDScript** を正式採用することが確定した（決定経緯を記録した `design-interview.md` は本リポジトリに存在しないが、初回コミット `747ee79`「Godot 4.x + GDScript版アトリエ錬金術ゲームの開発に向けて」の時点から一貫してこの方針であり、揺らぎはない）。ただし **Godotプロジェクト（`atelier/`）のスキャフォールディングはまだ行われていない**。実装着手時は設計文書に従って新規プロジェクトを作成するところから始める。
 
 | Category | Technology |
 |----------|------------|
 | Engine | Godot 4.x（実装着手時点の最新安定版を採用） |
 | Language | GDScript |
-| Unit Test | GUT（Godot Unit Test）を採用予定 |
+| Unit Test | GdUnit4を採用（2026-08-10、Godot 4.7のAsset Store移行期にGUTが導入できなかったため変更） |
 
 セーブ/ロード機能、タイトル画面・設定画面等の周辺機能は現時点の設計スコープ外（[`requirements.md`](docs/spec/atelier-alchemy-core/requirements.md) 冒頭・[`ui-design/overview.md`](docs/design/atelier-alchemy-core/ui-design/overview.md) 画面一覧参照）。
 
@@ -52,7 +52,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | GAME_CONFIG / THEME | `res://shared/constants/game_balance.gd` / `res://shared/theme/theme.gd` |
 | マスターデータ（素材・レシピ・特性） | カスタム `Resource`（`class_name` + `.tres`） |
 
-計画中のディレクトリ構造は `architecture.md` 内「ディレクトリ構造（案）」を参照（`atelier-alchemy/` プロジェクト自体はまだ未作成）。実装着手時にこの案に従って新規作成する。
+計画中のディレクトリ構造は `architecture.md` 内「ディレクトリ構造（案）」を参照（`atelier/` プロジェクト自体はまだ未作成）。実装着手時にこの案に従って新規作成する。
 
 ## ゲームフロー（v7.0）
 
@@ -87,7 +87,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## 次のステップ（実装着手前に必要な作業）
 
 - タスク分割（`docs/tasks/atelier-alchemy-core/`）
-- `atelier-alchemy/` プロジェクトのスキャフォールディング（Phase 1基盤構築、[`architecture.md`](docs/design/atelier-alchemy-core/architecture.md) のディレクトリ構造案に従う）
+- `atelier/` プロジェクトのスキャフォールディング（Phase 1基盤構築、[`architecture.md`](docs/design/atelier-alchemy-core/architecture.md) のディレクトリ構造案に従う）
 - バランス数値（TBD項目。[`balance-design.md`](docs/design/atelier-alchemy-core/balance-design.md) の🟡🔴項目を参照）の確定
 - 1画面プロトタイプでの「調合で一瞬迷うか」の人間による検証（正式な人間プレイテストはまだ行われていない）
 - 正式なビジュアルデザインガイドの策定（[`ui-design/overview.md`](docs/design/atelier-alchemy-core/ui-design/overview.md) のカラーパレット等は暫定案）
