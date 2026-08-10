@@ -1,6 +1,7 @@
 # TDD実装ルール
 
 > 🔴 2026-08-06改訂: 技術スタックがGodot 4.x + GDScriptに確定済み（`CLAUDE.md`参照）のため、本ファイルはVitest前提からGUT（Godot Unit Test）前提に全面書き換えした。
+> 🔴 2026-08-10改訂: Godot 4.7のAsset Store移行期にGUTが導入できなかったため、テストフレームワークをGdUnit4に切り替えた。本ファイルのGUT前提の記述を全面的にGdUnit4に置き換えた（実際に`atelier/tests/integration/`でGdUnit4テストの動作確認済み）。
 
 ## 概要
 
@@ -25,11 +26,11 @@ tests/unit/features/{feature}/test_{対象サービス名}.gd
 
 ```gdscript
 # class_name経由のグローバル参照を使用（GDScriptにはimport文がない）
-extends GutTest
+extends GdUnitTestSuite
 
 func test_基本的な動作を検証する() -> void:
 	var result := QualityCalculator.calculate_quality(_make_materials())
-	assert_eq(result, 3)
+	assert_int(result).is_equal(3)
 
 # 相対パスpreloadは、class_nameを付けていない補助クラスの参照時のみ使用
 const TestFixtures = preload("res://tests/mocks/fixtures.gd")
@@ -37,13 +38,13 @@ const TestFixtures = preload("res://tests/mocks/fixtures.gd")
 
 #### 内部テストクラスによるグルーピング（`describe`相当）
 
-GUTはネストした内部クラス（いずれも`GutTest`を継承）でテストをグルーピングできる。正常系と異常系を必ず分離する。
+GdUnit4はネストした内部クラス（いずれも`GdUnitTestSuite`を継承）でテストをグルーピングできる。正常系と異常系を必ず分離する。
 
 ```gdscript
-extends GutTest
+extends GdUnitTestSuite
 
 class TestNormalCases:
-	extends GutTest
+	extends GdUnitTestSuite
 
 	func test_基本的な動作を検証する() -> void:
 		pass
@@ -52,7 +53,7 @@ class TestNormalCases:
 		pass
 
 class TestErrorCases:
-	extends GutTest
+	extends GdUnitTestSuite
 
 	func test_無効な入力でエラーを返す() -> void:
 		pass
@@ -63,8 +64,11 @@ class TestErrorCases:
 
 #### 失敗確認コマンド
 
+GdUnit4の`runtest.sh`/`runtest.cmd`は`--path`相当のオプションを持たないため、`atelier/`に`cd`してから実行する（実証済み）。
+
 ```bash
-godot --headless --path atelier-alchemy -s addons/gut/gut_cmdln.gd -gtest=res://tests/unit/features/{feature}/test_{ファイル}.gd -gexit
+cd atelier
+GODOT_BIN="/c/Godot/godot.exe" ./addons/gdUnit4/runtest.sh -a res://tests/unit/features/{feature}/test_{ファイル}.gd
 ```
 
 テストが**失敗する**ことを必ず確認する。テストが成功してしまう場合はテスト設計を見直す。
@@ -112,7 +116,8 @@ static func calculate_reward_bad(difficulty: StringName) -> int:
 #### 成功確認コマンド
 
 ```bash
-godot --headless --path atelier-alchemy -s addons/gut/gut_cmdln.gd -gtest=res://tests/unit/features/{feature}/test_{ファイル}.gd -gexit
+cd atelier
+GODOT_BIN="/c/Godot/godot.exe" ./addons/gdUnit4/runtest.sh -a res://tests/unit/features/{feature}/test_{ファイル}.gd
 ```
 
 テストが**成功する**ことを確認する。
@@ -126,7 +131,8 @@ godot --headless --path atelier-alchemy -s addons/gut/gut_cmdln.gd -gtest=res://
 リファクタリング中は頻繁にテストを実行し、グリーン状態を維持する。
 
 ```bash
-godot --headless --path atelier-alchemy -s addons/gut/gut_cmdln.gd -gdir=res://tests/unit/features/{feature}/ -ginclude_subdirs -gexit
+cd atelier
+GODOT_BIN="/c/Godot/godot.exe" ./addons/gdUnit4/runtest.sh -a res://tests/unit/features/{feature}/
 ```
 
 #### リファクタリング対象
@@ -165,15 +171,15 @@ func test_報酬が正しく計算される() -> void:
 	var result := RewardCalculator.calculate_reward(difficulty, base_gold)
 
 	# Assert: 結果の検証
-	assert_eq(result, 200)
+	assert_int(result).is_equal(200)
 ```
 
-### 境界値テスト（`use_parameters`）
+### 境界値テスト（`test_parameters`）
 
-GUTの`use_parameters()`パターンで境界値を網羅する（VitestやJestの`it.each`に相当）。
+GdUnit4のパラメータ化テスト（関数引数のデフォルト値に`test_parameters`データセットを渡す形式）で境界値を網羅する（VitestやJestの`it.each`に相当）。
 
 ```gdscript
-func test_品質からグレードを判定する(params = use_parameters([
+func test_品質からグレードを判定する(quality: int, expected: StringName, _test_parameters := [
 	[0, &"C"],   # 最小値
 	[49, &"C"],  # 閾値直前
 	[50, &"B"],  # 閾値
@@ -182,10 +188,8 @@ func test_品質からグレードを判定する(params = use_parameters([
 	[89, &"A"],  # 最大閾値直前
 	[90, &"S"],  # 最大閾値
 	[100, &"S"], # 最大値
-])) -> void:
-	var quality: int = params[0]
-	var expected: StringName = params[1]
-	assert_eq(GradeResolver.get_grade(quality), expected)
+]) -> void:
+	assert_that(GradeResolver.get_grade(quality)).is_equal(expected)
 ```
 
 ### テストダブル（モック）使用
@@ -193,19 +197,19 @@ func test_品質からグレードを判定する(params = use_parameters([
 ```gdscript
 const RngServiceScript = preload("res://autoload/rng_service.gd")
 
-var _doubled_rng
+var _mocked_rng: RngServiceScript
 
-func before_each() -> void:
-	# RngServiceはAutoload（インスタンス）のため、double()にはスクリプト自体を渡す
-	_doubled_rng = double(RngServiceScript).new()
-	stub(_doubled_rng, "roll_quality").to_return(0.9)
+func before_test() -> void:
+	# RngServiceはAutoload（インスタンス）のため、mock()にはスクリプト自体を渡す
+	_mocked_rng = mock(RngServiceScript)
+	do_return(0.9).on(_mocked_rng).roll_quality()
 
 func test_乱数結果を差し替えて検証する() -> void:
-	var result := Harvest.harvest(_plant_state(), _doubled_rng.roll_quality(), 0.5)
-	assert_true(result.success)
+	var result := Harvest.harvest(_plant_state(), _mocked_rng.roll_quality(), 0.5)
+	assert_bool(result.success).is_true()
 ```
 
-Domain層（`logic/*.gd`）は乱数値を**引数で直接受け取る**設計のため、単体テストでは`double()`は基本不要（値をそのまま渡せばよい）。`double()`が必要になるのは、Application層（Autoload）の統合テストで`RngService`そのものを差し替える場合に限られる。
+Domain層（`logic/*.gd`）は乱数値を**引数で直接受け取る**設計のため、単体テストでは`mock()`は基本不要（値をそのまま渡せばよい）。`mock()`が必要になるのは、Application層（Autoload）の統合テストで`RngService`そのものを差し替える場合に限られる。
 
 ---
 
@@ -218,18 +222,19 @@ GDScriptには`index.ts`のような明示的な公開APIファイルはない�
 ### 全体確認
 
 ```bash
-# 全テスト
-godot --headless --path atelier-alchemy -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -ginclude_subdirs -gexit
+# 全テスト（atelier/にcd済み前提）
+cd atelier
+GODOT_BIN="/c/Godot/godot.exe" ./addons/gdUnit4/runtest.sh -a res://tests/
 
-# gdlint（静的解析。型の欠落やスタイル違反を検出）
-gdlint atelier-alchemy/features/ atelier-alchemy/shared/ atelier-alchemy/autoload/
+# gdlint（静的解析。型の欠落やスタイル違反を検出。リポジトリルートまたはatelier配下いずれからでも可）
+gdlint atelier/features/ atelier/shared/ atelier/autoload/
 ```
 
 ---
 
 ## カバレッジ目標
 
-GDScript/GUTには標準のカバレッジ計測機構がないため、%ベースの数値目標は採用しない。「`logic/*.gd`の全public `static func`に正常系・異常系・境界値のテストを最低1本ずつ持つ」という数え上げ可能な基準に一本化する（個人開発規模での運用を踏まえた決定。[`docs/design/atelier-alchemy-core/decision-log.md`](../../docs/design/atelier-alchemy-core/decision-log.md)に記録）。
+GDScript/GdUnit4には標準のカバレッジ計測機構がないため、%ベースの数値目標は採用しない。「`logic/*.gd`の全public `static func`に正常系・異常系・境界値のテストを最低1本ずつ持つ」という数え上げ可能な基準に一本化する（個人開発規模での運用を踏まえた決定。[`docs/design/atelier-alchemy-core/decision-log.md`](../../docs/design/atelier-alchemy-core/decision-log.md)に記録）。
 
 ### 除外対象
 
@@ -249,3 +254,5 @@ GDScript/GUTには標準のカバレッジ計測機構がないため、%ベー�
 | `features/`にテストファイルを配置 | `tests/unit/`に配置する |
 | `logic/*.gd`に副作用を含む関数 | 副作用はImperative Shell（`autoload/`, `ui/`）に分離 |
 | Domain層で乱数を自己生成 | `RngService`から払い出された値を引数で受け取る |
+| リポジトリルートから`runtest.sh`を絶対パス実行 | `res://`解決に失敗するため必ず`cd atelier`してから実行する |
+| Autoloadを`monitor_signals(obj)`と第2引数省略で監視 | デフォルトで自動解放されるため`monitor_signals(obj, false)`を明示する |

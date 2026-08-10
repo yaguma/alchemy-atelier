@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 「Atelier」は錬金術をテーマにしたギルドランク制デッキ構築RPGの個人開発プロジェクト。
 
-> ⚠️ **現在の状態（2026-08-04時点）**: 本リポジトリには**まだ実装コードが存在しない**。存在するのは `docs/concept/`（コンセプト設計）・`docs/spec/atelier-alchemy-core/requirements.md`（要件定義書）・`docs/design/atelier-alchemy-core/`（技術設計、2026-08-04の `/game-design` にて新規作成）のみ。過去バージョンで検討された Phaser 3 + TypeScript版（`atelier-guild-rank/`）や Unity版（`Assets/`）は本リポジトリには含まれていない。実装はこれから、設計文書に従って新規に開始する。
+> ⚠️ **現在の状態（2026-08-10時点）**: Godotプロジェクト（`atelier/`）のPhase 1基盤構築が完了し、本リポジトリに実装コードが存在する。`atelier/`には`GameState`/`RngService` Autoload、`UiTheme`（日本語フォント設定込み）、`MasterDataLoader`スタブ、`BootScene`/`MainScene`、GdUnit4テスト（`tests/`配下、9件パス）が実装済み（詳細: `docs/dev/plans/atelier-alchemy-core/`）。過去バージョンで検討された Phaser 3 + TypeScript版（`atelier-guild-rank/`）や Unity版（`Assets/`）は本リポジトリには含まれていない。Phase 2以降（`features/`配下の各機能実装）はこれから、設計文書に従って着手する。
 >
 > 過去に本ファイルが「`docs/design/atelier-alchemy-core/architecture.md` 等は最新」「`design-interview.md` に決定経緯を記録済み」と記載していたが、実体はリポジトリにもgit履歴にも存在しなかった（別環境の作業記録がドキュメント上に混入していたと推測される）。`architecture.md` 等は2026-08-04付で実質的な初版として新規作成した。`design-interview.md`・`prototype-validation-report.md` は依然として存在しない（下記ドキュメントマップ参照）。
 
@@ -22,15 +22,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 > `docs/concept/experience-core.md`（体験コア言語化）は **v4.0時点のまま更新されておらず**、v7.0（調合主軸）のコンセプトとは内容が食い違っている。参照する場合は `atelier-concept.md` を優先すること。
 
-## 技術スタック（決定済み・実装未着手）
+## 技術スタック（決定済み・Phase 1基盤構築完了）
 
-2026-07-09、技術設計フェーズにて **Godot 4.x + GDScript** を正式採用することが確定した（決定経緯を記録した `design-interview.md` は本リポジトリに存在しないが、初回コミット `747ee79`「Godot 4.x + GDScript版アトリエ錬金術ゲームの開発に向けて」の時点から一貫してこの方針であり、揺らぎはない）。ただし **Godotプロジェクト（`atelier-alchemy/`）のスキャフォールディングはまだ行われていない**。実装着手時は設計文書に従って新規プロジェクトを作成するところから始める。
+2026-07-09、技術設計フェーズにて **Godot 4.x + GDScript** を正式採用することが確定した（決定経緯を記録した `design-interview.md` は本リポジトリに存在しないが、初回コミット `747ee79`「Godot 4.x + GDScript版アトリエ錬金術ゲームの開発に向けて」の時点から一貫してこの方針であり、揺らぎはない）。2026-08-10、**Godotプロジェクト（`atelier/`）のPhase 1基盤構築（スキャフォールディング）が完了した**。以降の機能実装（`features/`配下）は`architecture.md`のディレクトリ構造案に従って着手する。
 
 | Category | Technology |
 |----------|------------|
 | Engine | Godot 4.x（実装着手時点の最新安定版を採用） |
 | Language | GDScript |
-| Unit Test | GUT（Godot Unit Test）を採用予定 |
+| Unit Test | GdUnit4を採用（2026-08-10、Godot 4.7のAsset Store移行期にGUTが導入できなかったため変更） |
 
 セーブ/ロード機能、タイトル画面・設定画面等の周辺機能は現時点の設計スコープ外（[`requirements.md`](docs/spec/atelier-alchemy-core/requirements.md) 冒頭・[`ui-design/overview.md`](docs/design/atelier-alchemy-core/ui-design/overview.md) 画面一覧参照）。
 
@@ -52,7 +52,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | GAME_CONFIG / THEME | `res://shared/constants/game_balance.gd` / `res://shared/theme/theme.gd` |
 | マスターデータ（素材・レシピ・特性） | カスタム `Resource`（`class_name` + `.tres`） |
 
-計画中のディレクトリ構造は `architecture.md` 内「ディレクトリ構造（案）」を参照（`atelier-alchemy/` プロジェクト自体はまだ未作成）。実装着手時にこの案に従って新規作成する。
+ディレクトリ構造は `architecture.md` 内「ディレクトリ構造（案）」を参照。`atelier/`プロジェクト自体・`autoload/`・`shared/theme/`・`scenes/`・`tests/`はPhase 1で作成済み。`features/`配下の各機能モジュールはこれから着手する。
 
 ## ゲームフロー（v7.0）
 
@@ -84,10 +84,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 > 昇格試験（ランク到達時の一発勝負の特殊局面）は、2026-08-04の追加ヒアリングで「通常ターンループの調合・納品を、庭なし・専用試験ノルマ・超短期ターン・指定調合物ボーナスなしで流用する」設計として確定した（[`core-systems.md`](docs/design/atelier-alchemy-core/core-systems.md) RankSystem節参照）。残る未確定事項は試験ノルマ難度係数・制限ターン数などの具体数値のみ（[`balance-design.md`](docs/design/atelier-alchemy-core/balance-design.md) 参照）。「HP」表記は2026-08-06にギルドの世界観に合わせて「ノルマ」へ全面改称した。
 
-## 次のステップ（実装着手前に必要な作業）
+## 次のステップ（Phase 2以降に必要な作業）
 
-- タスク分割（`docs/tasks/atelier-alchemy-core/`）
-- `atelier-alchemy/` プロジェクトのスキャフォールディング（Phase 1基盤構築、[`architecture.md`](docs/design/atelier-alchemy-core/architecture.md) のディレクトリ構造案に従う）
+- `atelier/` プロジェクトのPhase 1基盤構築（スキャフォールディング）は完了済み（[`docs/dev/plans/atelier-alchemy-core/`](docs/dev/plans/atelier-alchemy-core/)参照）
+- Phase 2以降の機能実装タスク分割（`docs/tasks/atelier-alchemy-core/`、未作成）
 - バランス数値（TBD項目。[`balance-design.md`](docs/design/atelier-alchemy-core/balance-design.md) の🟡🔴項目を参照）の確定
 - 1画面プロトタイプでの「調合で一瞬迷うか」の人間による検証（正式な人間プレイテストはまだ行われていない）
 - 正式なビジュアルデザインガイドの策定（[`ui-design/overview.md`](docs/design/atelier-alchemy-core/ui-design/overview.md) のカラーパレット等は暫定案）

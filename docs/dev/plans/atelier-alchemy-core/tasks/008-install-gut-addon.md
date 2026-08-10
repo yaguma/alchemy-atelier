@@ -1,13 +1,15 @@
 ---
 id: "008"
 title: "GUTアドオンをAssetLib経由で導入する（手動手順）"
-status: pending
+status: done
 priority: 2
 dependencies: ["001"]
 estimated_complexity: low
 ---
 
 # Task: GUTアドオンをAssetLib経由で導入する（手動手順）
+
+> 🔴 2026-08-10実施結果: Godot 4.7のAsset Store移行期にGUTがAssetLib経由で導入できなかったため、実際はGdUnit4を`godot-gdunit-labs/gdUnit4`（GitHub）からclone・`atelier/addons/gdUnit4/`へ配置する手順で導入した。`project.godot`の`[editor_plugins]`に登録済み、動作確認済み。以下の本文はヒアリング当時のGUT前提の計画として原文を残す。
 
 ## Goal
 
@@ -21,8 +23,8 @@ GUT（Godot Unit Test）アドオンをGodotエディタのAssetLib経由でイ�
 
 - [ ] Godotエディタで `AssetLib` タブから「Gut」を検索しインストールする（ユーザー手動操作）
 - [ ] `Project > Project Settings > Plugins` で GUT プラグインを有効化する（ユーザー手動操作）
-- [ ] `atelier-alchemy/addons/gut/` が存在することを確認する
-- [ ] インストール後、`godot --headless --path atelier-alchemy -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -ginclude_subdirs -gexit` を実行し、テスト0件でもエラーなく終了する（FR-107前提、この時点ではまだ009のテストが無いため「0 tests, 0 failures」で正常終了することを確認する）
+- [ ] `atelier/addons/gut/` が存在することを確認する
+- [ ] インストール後、`godot --headless --path atelier -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -ginclude_subdirs -gexit` を実行し、テスト0件でもエラーなく終了する（FR-107前提、この時点ではまだ009のテストが無いため「0 tests, 0 failures」で正常終了することを確認する）
 
 ## Implementation Notes
 
@@ -32,6 +34,6 @@ GUT（Godot Unit Test）アドオンをGodotエディタのAssetLib経由でイ�
 
 ## Files
 
-- 新規: `atelier-alchemy/addons/gut/`（AssetLib経由でユーザーが導入。Claude Codeによる直接作成対象外）
-- 変更: `atelier-alchemy/project.godot`（プラグイン有効化設定、GUI操作で自動反映）
+- 新規: `atelier/addons/gut/`（AssetLib経由でユーザーが導入。Claude Codeによる直接作成対象外）
+- 変更: `atelier/project.godot`（プラグイン有効化設定、GUI操作で自動反映）
 - テスト: なし

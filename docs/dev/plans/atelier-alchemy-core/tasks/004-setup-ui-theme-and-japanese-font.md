@@ -1,7 +1,7 @@
 ---
 id: "004"
 title: "UiThemeと日本語（CJK）フォント対応をセットアップする"
-status: pending
+status: done
 priority: 2
 dependencies: ["001"]
 estimated_complexity: medium
@@ -47,6 +47,6 @@ const FONT_SIZE_DEFAULT := 16  # 🟡 Phase1での目視確認用の仮値。本
 
 ## Files
 
-- 新規: `atelier-alchemy/assets/fonts/noto_sans_jp_regular.ttf`, `atelier-alchemy/assets/fonts/OFL.txt`（ライセンス表記）, `atelier-alchemy/shared/theme/theme.gd`, `atelier-alchemy/shared/theme/main_theme.tres`
-- 変更: `atelier-alchemy/project.godot`（GUI Themeカスタム設定）
+- 新規: `atelier/assets/fonts/noto_sans_jp_regular.ttf`, `atelier/assets/fonts/OFL.txt`（ライセンス表記）, `atelier/shared/theme/theme.gd`, `atelier/shared/theme/main_theme.tres`
+- 変更: `atelier/project.godot`（GUI Themeカスタム設定）
 - テスト: なし（目視確認のみ、GUT自動テスト対象外）

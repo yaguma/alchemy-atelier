@@ -57,7 +57,7 @@ GameState.execute_alchemy(recipe_id, material_ids)
 
 ### テスト用API
 
-`GameState`はAutoload（プロセス内で単一）のため、GUTテストはインスタンスを差し替えられない。テスト分離のために内部状態を初期値へ戻す`reset_for_test()`を実装し、本番コードパスからは呼び出さない（[`godot-debug-tools.md`](./godot-debug-tools.md)「雛形1」参照）。
+`GameState`はAutoload（プロセス内で単一）のため、GdUnit4テストはインスタンスを差し替えられない。テスト分離のために内部状態を初期値へ戻す`reset_for_test()`を実装し、本番コードパスからは呼び出さない（[`godot-debug-tools.md`](./godot-debug-tools.md)「雛形1」参照）。
 
 ```gdscript
 func reset_for_test() -> void:

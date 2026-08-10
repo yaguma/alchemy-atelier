@@ -1,7 +1,7 @@
 ---
 id: "005"
 title: "MasterDataLoaderの検証ロジックの骨組み（スタブ）を実装する"
-status: pending
+status: done
 priority: 2
 dependencies: ["001"]
 estimated_complexity: low
@@ -48,6 +48,6 @@ Domain層の`static func`だが、本Planでは中身がスタブのため簡易
 
 ## Files
 
-- 新規: `atelier-alchemy/shared/loaders/master_data_loader.gd`
+- 新規: `atelier/shared/loaders/master_data_loader.gd`
 - 変更: なし
-- テスト: `atelier-alchemy/tests/integration/test_master_data_loader.gd`（簡易確認用、任意）
+- テスト: `atelier/tests/integration/test_master_data_loader.gd`（簡易確認用、任意）

@@ -82,7 +82,7 @@
 ### テスト
 
 - [ ] テストファイルが `tests/unit/` または `tests/integration/` に配置されている（`features/`配下ではない）
-- [ ] テストファイルが`test_*.gd`命名規則・`extends GutTest`に従っている
+- [ ] テストファイルが`test_*.gd`命名規則・`extends GdUnitTestSuite`に従っている
 - [ ] 正常系・異常系・境界値のテストがある
 
 ### リソース管理
@@ -98,14 +98,15 @@
 以下の3つが全てPassしていることを確認してからコミットする。
 
 ```bash
-# 1. 全テスト
-godot --headless --path atelier-alchemy -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -ginclude_subdirs -gexit
+# 1. 全テスト（GdUnit4は--path相当のオプションがないためcd必須）
+cd atelier
+GODOT_BIN="/c/Godot/godot.exe" ./addons/gdUnit4/runtest.sh -a res://tests/
 
 # 2. 静的解析
-gdlint atelier-alchemy/features/ atelier-alchemy/shared/ atelier-alchemy/autoload/
+gdlint atelier/features/ atelier/shared/ atelier/autoload/
 
 # 3. フォーマットチェック
-gdformat --check atelier-alchemy/features/ atelier-alchemy/shared/ atelier-alchemy/autoload/
+gdformat --check atelier/features/ atelier/shared/ atelier/autoload/
 ```
 
 いずれかが失敗している場合はコミットしない。

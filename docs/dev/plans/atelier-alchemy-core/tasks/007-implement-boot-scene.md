@@ -1,7 +1,7 @@
 ---
 id: "007"
 title: "BootSceneを実装する（フォント適用→マスターデータ検証配線→MainScene遷移）"
-status: pending
+status: done
 priority: 2
 dependencies: ["004", "005", "006"]
 estimated_complexity: medium
@@ -54,6 +54,6 @@ func _apply_theme() -> void:
 
 ## Files
 
-- 新規: `atelier-alchemy/scenes/boot.tscn`, `atelier-alchemy/scenes/boot.gd`
-- 変更: `atelier-alchemy/project.godot`（`run/main_scene`設定）
-- テスト: `atelier-alchemy/tests/integration/test_boot_scene.gd`（任意、シーン遷移ロジックのみ）
+- 新規: `atelier/scenes/boot.tscn`, `atelier/scenes/boot.gd`
+- 変更: `atelier/project.godot`（`run/main_scene`設定）
+- テスト: `atelier/tests/integration/test_boot_scene.gd`（任意、シーン遷移ロジックのみ）

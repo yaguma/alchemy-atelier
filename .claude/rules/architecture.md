@@ -27,7 +27,7 @@
 ### ディレクトリ構成
 
 ```
-atelier-alchemy/
+atelier/
 ├── project.godot
 ├── autoload/                    # Application層（シングルトンNode）
 │   ├── game_state.gd            # GameState Autoload（状態の一元管理）
@@ -54,7 +54,7 @@ atelier-alchemy/
 │   ├── boot.tscn
 │   ├── main.tscn
 │   └── result.tscn
-└── tests/                       # GUTテスト
+└── tests/                       # GdUnit4テスト
     └── unit/
         └── features/
 ```
@@ -183,12 +183,12 @@ func execute_alchemy(recipe_id: StringName, material_ids: Array[String]) -> void
 
 | 部分 | テスト方法 | カバレッジ基準 |
 |------|-----------|--------------|
-| Functional Core | GUTユニットテスト（モック不要） | 全public `static func`に正常系・異常系・境界値のテストを最低1本ずつ（%計測機構がGDScript/GUTに無いため、[`testing.md`](./testing.md)の数え上げ基準に統一） |
-| Imperative Shell | GUT統合テスト・手動プレイテスト | 主要なsignal連携・ユーザー操作パスをカバー（数値目標なし） |
+| Functional Core | GdUnit4ユニットテスト（モック不要） | 全public `static func`に正常系・異常系・境界値のテストを最低1本ずつ（%計測機構がGDScript/GdUnit4に無いため、[`testing.md`](./testing.md)の数え上げ基準に統一） |
+| Imperative Shell | GdUnit4統合テスト・手動プレイテスト | 主要なsignal連携・ユーザー操作パスをカバー（数値目標なし） |
 
 ```gdscript
 # tests/unit/features/alchemy/test_quality_calculator.gd
-extends GutTest
+extends GdUnitTestSuite
 
 func test_素材の平均品質を計算する() -> void:
 	var materials: Array[MaterialInstance] = [
@@ -198,7 +198,7 @@ func test_素材の平均品質を計算する() -> void:
 
 	var result := QualityCalculator.calculate_quality(materials)
 
-	assert_eq(result, 3) # (4+2)/2
+	assert_int(result).is_equal(3) # (4+2)/2
 ```
 
 ---
@@ -216,7 +216,7 @@ func test_素材の平均品質を計算する() -> void:
 
 ## テストファイル配置
 
-GUT（Godot Unit Test）の規約に従い**専用ディレクトリ配置**パターンを採用する。
+GdUnit4の規約に従い**専用ディレクトリ配置**パターンを採用する。
 
 ```
 tests/
@@ -232,7 +232,7 @@ tests/
 ### 禁止事項
 
 - `features/` 配下にテストファイル（`test_*.gd`）を配置しない
-- GUTの既定命名規則`test_*.gd`（`extends GutTest`）から外れたファイル名を使わない
+- GdUnit4の既定命名規則`test_*.gd`（`extends GdUnitTestSuite`）から外れたファイル名を使わない
 
 ---
 

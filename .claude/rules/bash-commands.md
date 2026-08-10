@@ -1,6 +1,7 @@
 # Bashコマンドルール
 
 > 🔴 2026-08-06改訂: 技術スタックがGodot 4.x + GDScriptに確定済み（`CLAUDE.md`参照）のため、pnpm/Vitest/TypeScript前提だったコマンド例をGodot/GUT前提に更新した（`cd`運用・並列実行・Windows/MSYS注意等の一般原則は変更なし）。
+> 🔴 2026-08-10改訂: テストフレームワークをGUTからGdUnit4に切り替えたため（Asset Store移行期にGUTがAsset Libraryで検索不能だったことが契機）、GUT前提だったコマンド例を全面的にGdUnit4に置き換えた。GdUnit4の`runtest.sh`/`runtest.cmd`はプロジェクトディレクトリ内から実行する前提で`--path`相当のオプションを持たないため、テスト実行コマンドに限り「`cd`してから実行」が必須の例外となる点に注意（下記「Godot / GdUnit4 実行ルール」参照）。
 
 ## 基本原則
 
@@ -14,21 +15,20 @@
 
 ### 原則: 毎回 `cd` しない
 
-Bashツールの作業ディレクトリは呼び出し間で永続化されるため、毎回 `cd` する必要はない。
+Bashツールの作業ディレクトリは呼び出し間で永続化されるため、毎回 `cd` する必要はない。ただし**GdUnit4のテスト実行コマンドのみ`atelier/`への`cd`が必須**（`--path`相当のオプションがGdUnit4のCLIツールに存在しないため。下記「Godot / GdUnit4 実行ルール」参照）。
 
 ```bash
-# NG: 毎回cdを繰り返す
-cd atelier-alchemy && godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -ginclude_subdirs -gexit
-cd atelier-alchemy && gdlint features/
-cd atelier-alchemy && godot --headless --export-release "Windows Desktop" build/atelier.exe
+# NG: 毎回cdを繰り返す（GdUnit4以外のコマンドで）
+cd atelier && gdlint features/
+cd atelier && godot --headless --export-release "Windows Desktop" build/atelier.exe
 
-# OK: --pathを活用
-godot --headless --path atelier-alchemy -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -ginclude_subdirs -gexit
+# OK: --pathを活用（GdUnit4のテスト実行以外）
+godot --headless --path atelier --import
 
 # OK: 最初の1回だけcd（以降は不要）
-cd atelier-alchemy
+cd atelier
 # 次のBash呼び出しではcdなしで実行可能
-godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -ginclude_subdirs -gexit
+GODOT_BIN="/c/Godot/godot.exe" ./addons/gdUnit4/runtest.sh -a res://tests/
 ```
 
 ---
@@ -83,14 +83,12 @@ cmd1 && cmd2 && cmd3 && cmd4 && cmd5 && cmd6 && cmd7 && cmd8 && cmd9 && cmd10
 
 ```bash
 # NG: 全並列呼び出しで同じcdを繰り返す
-# 呼び出し1: cd atelier-alchemy && godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -ginclude_subdirs -gexit
-# 呼び出し2: cd atelier-alchemy && gdlint features/
-# 呼び出し3: cd atelier-alchemy && gdformat --check features/
+# 呼び出し1: cd atelier && gdlint features/
+# 呼び出し2: cd atelier && gdformat --check features/
 
 # OK: cdなしで直接実行（作業ディレクトリが既に正しい場合）
-# 呼び出し1: godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -ginclude_subdirs -gexit
-# 呼び出し2: gdlint features/
-# 呼び出し3: gdformat --check features/
+# 呼び出し1: gdlint features/
+# 呼び出し2: gdformat --check features/
 ```
 
 ### 独立コマンドの過剰チェーン
@@ -116,40 +114,53 @@ gh issue create ... && gh issue create ... && gh issue create ... && ...
 
 ---
 
-## Godot / GUT 実行ルール
+## Godot / GdUnit4 実行ルール
 
-本プロジェクトは`atelier-alchemy/`配下に単一のGodotプロジェクトを持つ構成（モノレポではない）。コマンドはリポジトリルートまたは`atelier-alchemy/`のいずれからでも、`--path`指定で絶対パスを渡すのが安全。
+本プロジェクトは`atelier/`配下に単一のGodotプロジェクトを持つ構成（モノレポではない）。テスト実行以外のコマンドはリポジトリルートまたは`atelier/`のいずれからでも、`--path`指定で絶対パスを渡すのが安全。
 
-### 原則: `--path`で対象プロジェクトを明示する
+### 原則: テスト実行以外は`--path`で対象プロジェクトを明示する
 
 ```bash
 # OK: --pathでプロジェクトディレクトリを明示（cd不要）
-godot --headless --path atelier-alchemy -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -ginclude_subdirs -gexit
+godot --headless --path atelier --import
 
 # OK: 最初の1回だけcd（以降は不要）
-cd atelier-alchemy
-# 次のBash呼び出しではcdなしで実行可能
-godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -ginclude_subdirs -gexit
+cd atelier
+gdlint features/
+```
+
+### 例外: GdUnit4のテスト実行は`cd`必須
+
+GdUnit4の`runtest.sh`（Windows版`runtest.cmd`）は`--path`相当のオプションを持たず、`res://`パス解決がカレントディレクトリ基準で行われるため、**`atelier/`に`cd`してから実行する必要がある**（実証済み。リポジトリルートから絶対パスでスクリプトを呼ぶと`res://addons/gdUnit4/bin/GdUnitCmdTool.gd`が見つからずエラーになる）。`GODOT_BIN`環境変数でGodot実行ファイルの絶対パスを指定する。
+
+```bash
+# NG: リポジトリルートから絶対パス指定で実行（res://解決に失敗する）
+GODOT_BIN="/c/Godot/godot.exe" atelier/addons/gdUnit4/runtest.sh -a res://tests/
+
+# OK: cdしてから実行（GdUnit4のみの例外）
+cd atelier
+GODOT_BIN="/c/Godot/godot.exe" ./addons/gdUnit4/runtest.sh -a res://tests/
 ```
 
 ### 利用可能な主要コマンド
 
 | コマンド | 内容 |
 |---------|------|
-| `godot --path atelier-alchemy` | エディタをGUIで起動（対話操作、調査用。[`godot-debug-tools.md`](./godot-debug-tools.md)参照） |
-| `godot --headless --path atelier-alchemy -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -ginclude_subdirs -gexit` | 全GUTテストをヘッドレス実行 |
-| `godot --headless --path atelier-alchemy -s addons/gut/gut_cmdln.gd -gtest=res://tests/unit/features/{feature}/test_{file}.gd -gexit` | 特定テストファイルのみ実行 |
-| `gdlint atelier-alchemy/features/ atelier-alchemy/shared/ atelier-alchemy/autoload/` | 静的解析（gdtoolkit） |
-| `gdformat atelier-alchemy/features/ atelier-alchemy/shared/ atelier-alchemy/autoload/` | 自動フォーマット |
-| `godot --headless --path atelier-alchemy --export-release "<preset>" <output>` | エクスポートビルド（プリセット名は実装着手時に確定） |
+| `godot --path atelier` | エディタをGUIで起動（対話操作、調査用。[`godot-debug-tools.md`](./godot-debug-tools.md)参照） |
+| `cd atelier && GODOT_BIN="/c/Godot/godot.exe" ./addons/gdUnit4/runtest.sh -a res://tests/` | 全GdUnit4テストをヘッドレス実行 |
+| `cd atelier && GODOT_BIN="/c/Godot/godot.exe" ./addons/gdUnit4/runtest.sh -a res://tests/unit/features/{feature}/test_{file}.gd` | 特定テストファイルのみ実行 |
+| `gdlint atelier/features/ atelier/shared/ atelier/autoload/` | 静的解析（gdtoolkit） |
+| `gdformat atelier/features/ atelier/shared/ atelier/autoload/` | 自動フォーマット |
+| `godot --headless --path atelier --export-release "<preset>" <output>` | エクスポートビルド（プリセット名は実装着手時に確定） |
 
-具体的なCLIオプション・GUTアドオンのインストール手順は実装着手時に確定する（🟡TBD、[`docs/design/atelier-alchemy-core/architecture.md`](../../docs/design/atelier-alchemy-core/architecture.md)「テスト運用規約」参照）。
+`GODOT_BIN`にはリネーム済みのGodot実行ファイル絶対パス（`/c/Godot/godot.exe`）を指定する。
 
-クリーンチェックアウト直後（CI・新規clone）は`.godot/`インポートキャッシュが存在しないため、初回のみ`godot --headless --path atelier-alchemy --import`でインポートを完了させてからGUTを実行する。インポートと同時にテストを走らせると不安定になることがある。
+クリーンチェックアウト直後（CI・新規clone）は`.godot/`インポートキャッシュが存在しないため、初回のみ`godot --headless --path atelier --import`でインポートを完了させてからGdUnit4を実行する。インポートと同時にテストを走らせると不安定になることがある。
 
 ### サブディレクトリでの直接実行が許される場合
 
-- デバッグ目的で一時的に`atelier-alchemy/`に`cd`して実行する場合
+- デバッグ目的で一時的に`atelier/`に`cd`して実行する場合
+- GdUnit4のテスト実行（上記の通り必須）
 
 ---
 
@@ -161,10 +172,10 @@ devサーバーなど終了しないプロセスは `run_in_background: true` �
 
 ```bash
 # OK: バックグラウンドで起動
-godot --path atelier-alchemy  # run_in_background: true を設定（エディタ/実機プレイの起動）
+godot --path atelier  # run_in_background: true を設定（エディタ/実機プレイの起動）
 
 # NG: フォアグラウンドで起動（タイムアウトする）
-godot --path atelier-alchemy
+godot --path atelier
 ```
 
 ### タイムアウト設定
@@ -173,7 +184,7 @@ godot --path atelier-alchemy
 
 | コマンド | 推奨タイムアウト |
 |---------|---------------|
-| `godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -ginclude_subdirs -gexit` | 120000ms（2分） |
+| `GODOT_BIN=... ./addons/gdUnit4/runtest.sh -a res://tests/` | 120000ms（2分） |
 | `godot --headless --export-release ...` | 300000ms（5分、初回エクスポートは特に時間がかかる） |
 
 ---
@@ -221,27 +232,19 @@ cd /c/Users/syagu/My Documents
 テストは対象を絞って実行し、出力を読みやすく保つ。
 
 ```bash
-# 特定ディレクトリ
-godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/unit/features/garden/ -ginclude_subdirs -gexit
+# 特定ディレクトリ（cd atelier実施済み前提）
+GODOT_BIN="/c/Godot/godot.exe" ./addons/gdUnit4/runtest.sh -a res://tests/unit/features/garden/
 
 # 特定ファイル
-godot --headless -s addons/gut/gut_cmdln.gd -gtest=res://tests/unit/features/alchemy/test_quality_calculator.gd -gexit
+GODOT_BIN="/c/Godot/godot.exe" ./addons/gdUnit4/runtest.sh -a res://tests/unit/features/alchemy/test_quality_calculator.gd
 
 # 全テスト実行（CIまたは最終確認）
-godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -ginclude_subdirs -gexit
+GODOT_BIN="/c/Godot/godot.exe" ./addons/gdUnit4/runtest.sh -a res://tests/
 ```
 
 ### ヘッドレス実行の徹底
 
-`godot --headless`を付けないとGUIウィンドウが起動し、CIやワンショット実行がハングする。CI・自動検証では必ず`--headless`を付ける。
-
-```bash
-# OK: ヘッドレス実行
-godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -ginclude_subdirs -gexit
-
-# NG: --headless忘れ（GUIウィンドウが起動し終了しない）
-godot -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -ginclude_subdirs -gexit
-```
+GdUnit4の`runtest.sh`は内部で`--headless`相当のGodot起動オプションを付与するため、GUTのような明示的な`--headless`フラグの付け忘れによるGUIハングは基本的に発生しない。ただし`godot --path atelier`でエディタ自体を起動する場合は、`--headless`を付けないとGUIウィンドウが起動する点は変わらない（対話操作が目的の場合は意図通り）。
 
 ### 出力が長い場合
 
@@ -249,10 +252,10 @@ godot -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -ginclude_subdirs -gexit
 
 ```bash
 # 末尾30行のみ表示
-godot --headless -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -ginclude_subdirs -gexit 2>&1 | tail -30
+GODOT_BIN="/c/Godot/godot.exe" ./addons/gdUnit4/runtest.sh -a res://tests/ 2>&1 | tail -30
 ```
 
-> `| tail -30`を挟むとパイプの終了コードが`tail`のもの（常に0）になり、`$?`によるテスト失敗の機械判定ができなくなる。終了コードを見る場合は`tail`を通さないか、`set -o pipefail`と併用する。
+> `| tail -30`を挟むとパイプの終了コードが`tail`のもの（常に0）になり、`$?`によるテスト失敗の機械判定ができなくなる。終了コードを見る場合は`tail`を通さないか、`set -o pipefail`と併用する。GdUnit4は失敗時に非ゼロ終了コード（101警告あり成功、それ以外は失敗）を返す。
 
 ---
 
@@ -292,14 +295,15 @@ rmdir target_directory/
 コードを変更した場合、コミット前に以下を必ず実行する。
 
 ```bash
-# 1. テスト実行
-godot --headless --path atelier-alchemy -s addons/gut/gut_cmdln.gd -gdir=res://tests/ -ginclude_subdirs -gexit
+# 1. テスト実行（cd atelier後に実行）
+cd atelier
+GODOT_BIN="/c/Godot/godot.exe" ./addons/gdUnit4/runtest.sh -a res://tests/
 
-# 2. 静的解析（gdlint）
-gdlint atelier-alchemy/features/ atelier-alchemy/shared/ atelier-alchemy/autoload/
+# 2. 静的解析（gdlint、リポジトリルートまたはatelier配下いずれからでも可）
+gdlint atelier/features/ atelier/shared/ atelier/autoload/
 
 # 3. フォーマットチェック
-gdformat --check atelier-alchemy/features/ atelier-alchemy/shared/ atelier-alchemy/autoload/
+gdformat --check atelier/features/ atelier/shared/ atelier/autoload/
 ```
 
 全てパスしてからコミットすること。pre-commitフックが設定されていれば同様に検証されるが、事前に確認することで修正の手戻りを減らせる。
@@ -356,9 +360,10 @@ git commit -m "fix: エラーを修正"
 
 | エラー | 原因 | 対処 |
 |--------|------|------|
-| `Node not found` | シーンツリー未接続でのノード参照 | `add_child_autofree()`忘れがないか確認（[`godot-debug-tools.md`](./godot-debug-tools.md)参照） |
+| `Node not found` | シーンツリー未接続でのノード参照 | `auto_free()`でノードを生成し`add_child()`しているか確認（[`godot-debug-tools.md`](./godot-debug-tools.md)参照） |
 | `Identifier not found` | `class_name`未登録、または`preload`パス誤り | スクリプトの`class_name`宣言とファイルパスを確認 |
-| GUTがGUIウィンドウを開いたまま終了しない | `--headless`フラグ忘れ | コマンドに`--headless`を追加 |
+| `Nonexistent function 'xxx' in base 'previously freed'` | `monitor_signals(obj)`のデフォルト引数`_auto_free=true`によりAutoloadが誤って解放された | Autoload等テスト終了後も生存すべきオブジェクトには`monitor_signals(obj, false)`を明示する |
+| `Attempt to open script '...GdUnitCmdTool.gd' resulted in error 'File not found'` | `atelier/`に`cd`せずリポジトリルートから`runtest.sh`を呼んだ（`res://`解決失敗） | 必ず`cd atelier`してから実行する |
 | `Invalid get index` | Resourceのプロパティ名誤り、またはnullアクセス | マスターデータ（`.tres`）のスキーマとロード順序を確認 |
 
 ---

@@ -1,7 +1,7 @@
 ---
 id: "003"
 title: "RngService Autoloadの最小骨組みを実装する"
-status: pending
+status: done
 priority: 1
 dependencies: ["001"]
 estimated_complexity: medium
@@ -56,6 +56,6 @@ GUTテスト自体は009タスクで作成する。本タスクでは実装の�
 
 ## Files
 
-- 新規: `atelier-alchemy/autoload/rng_service.gd`
-- 変更: `atelier-alchemy/project.godot`（Autoload登録）
-- テスト: `atelier-alchemy/tests/integration/test_rng_service.gd`（009タスクで作成）
+- 新規: `atelier/autoload/rng_service.gd`
+- 変更: `atelier/project.godot`（Autoload登録）
+- テスト: `atelier/tests/integration/test_rng_service.gd`（009タスクで作成）
