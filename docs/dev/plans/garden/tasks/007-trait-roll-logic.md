@@ -1,7 +1,7 @@
 ---
 id: "007"
 title: "TraitRoll（特性選択ロジック）を実装する"
-status: pending
+status: done
 priority: 2
 dependencies: ["004"]
 estimated_complexity: low

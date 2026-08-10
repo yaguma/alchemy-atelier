@@ -1,7 +1,7 @@
 ---
 id: "008"
 title: "Harvestの生育・成熟・枯死判定ロジックを実装する"
-status: pending
+status: done
 priority: 2
 dependencies: ["004", "005"]
 estimated_complexity: medium
