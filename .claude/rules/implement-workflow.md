@@ -1,5 +1,7 @@
 # 実装ワークフロールール
 
+> 🔴 2026-08-10改訂: `GODOT_BIN`をシステム環境変数として永続設定する運用に変更したため（設定手順は[`README.md`](../../README.md)「開発環境セットアップ」参照）、コマンド例の`GODOT_BIN="/c/Godot/godot.exe"`インライン指定を削除した。
+
 ## 概要
 
 タスク実装の標準ワークフローとモード判定基準を定義する。
@@ -98,9 +100,9 @@
 以下の3つが全てPassしていることを確認してからコミットする。
 
 ```bash
-# 1. 全テスト（GdUnit4は--path相当のオプションがないためcd必須）
+# 1. 全テスト（GdUnit4は--path相当のオプションがないためcd必須。GODOT_BINは事前にシステム環境変数として設定済み前提）
 cd atelier
-GODOT_BIN="/c/Godot/godot.exe" ./addons/gdUnit4/runtest.sh -a res://tests/
+./addons/gdUnit4/runtest.sh -a res://tests/
 
 # 2. 静的解析
 gdlint atelier/features/ atelier/shared/ atelier/autoload/

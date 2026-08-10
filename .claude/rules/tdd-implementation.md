@@ -2,6 +2,7 @@
 
 > 🔴 2026-08-06改訂: 技術スタックがGodot 4.x + GDScriptに確定済み（`CLAUDE.md`参照）のため、本ファイルはVitest前提からGUT（Godot Unit Test）前提に全面書き換えした。
 > 🔴 2026-08-10改訂: Godot 4.7のAsset Store移行期にGUTが導入できなかったため、テストフレームワークをGdUnit4に切り替えた。本ファイルのGUT前提の記述を全面的にGdUnit4に置き換えた（実際に`atelier/tests/integration/`でGdUnit4テストの動作確認済み）。
+> 🔴 2026-08-10改訂: `GODOT_BIN`をシステム環境変数として永続設定する運用に変更したため（設定手順は[`README.md`](../../README.md)「開発環境セットアップ」参照）、コマンド例の`GODOT_BIN="/c/Godot/godot.exe"`インライン指定を削除した。
 
 ## 概要
 
@@ -68,7 +69,7 @@ GdUnit4の`runtest.sh`/`runtest.cmd`は`--path`相当のオプションを持た
 
 ```bash
 cd atelier
-GODOT_BIN="/c/Godot/godot.exe" ./addons/gdUnit4/runtest.sh -a res://tests/unit/features/{feature}/test_{ファイル}.gd
+./addons/gdUnit4/runtest.sh -a res://tests/unit/features/{feature}/test_{ファイル}.gd
 ```
 
 テストが**失敗する**ことを必ず確認する。テストが成功してしまう場合はテスト設計を見直す。
@@ -117,7 +118,7 @@ static func calculate_reward_bad(difficulty: StringName) -> int:
 
 ```bash
 cd atelier
-GODOT_BIN="/c/Godot/godot.exe" ./addons/gdUnit4/runtest.sh -a res://tests/unit/features/{feature}/test_{ファイル}.gd
+./addons/gdUnit4/runtest.sh -a res://tests/unit/features/{feature}/test_{ファイル}.gd
 ```
 
 テストが**成功する**ことを確認する。
@@ -132,7 +133,7 @@ GODOT_BIN="/c/Godot/godot.exe" ./addons/gdUnit4/runtest.sh -a res://tests/unit/f
 
 ```bash
 cd atelier
-GODOT_BIN="/c/Godot/godot.exe" ./addons/gdUnit4/runtest.sh -a res://tests/unit/features/{feature}/
+./addons/gdUnit4/runtest.sh -a res://tests/unit/features/{feature}/
 ```
 
 #### リファクタリング対象
@@ -224,7 +225,7 @@ GDScriptには`index.ts`のような明示的な公開APIファイルはない�
 ```bash
 # 全テスト（atelier/にcd済み前提）
 cd atelier
-GODOT_BIN="/c/Godot/godot.exe" ./addons/gdUnit4/runtest.sh -a res://tests/
+./addons/gdUnit4/runtest.sh -a res://tests/
 
 # gdlint（静的解析。型の欠落やスタイル違反を検出。リポジトリルートまたはatelier配下いずれからでも可）
 gdlint atelier/features/ atelier/shared/ atelier/autoload/

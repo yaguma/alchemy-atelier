@@ -2,6 +2,7 @@
 
 > 🔴 2026-08-06改訂: 技術スタックがGodot 4.x + GDScriptに確定済み（`CLAUDE.md`参照）のため、pnpm/Vitest/TypeScript前提だったコマンド例をGodot/GUT前提に更新した（`cd`運用・並列実行・Windows/MSYS注意等の一般原則は変更なし）。
 > 🔴 2026-08-10改訂: テストフレームワークをGUTからGdUnit4に切り替えたため（Asset Store移行期にGUTがAsset Libraryで検索不能だったことが契機）、GUT前提だったコマンド例を全面的にGdUnit4に置き換えた。GdUnit4の`runtest.sh`/`runtest.cmd`はプロジェクトディレクトリ内から実行する前提で`--path`相当のオプションを持たないため、テスト実行コマンドに限り「`cd`してから実行」が必須の例外となる点に注意（下記「Godot / GdUnit4 実行ルール」参照）。
+> 🔴 2026-08-10改訂: `GODOT_BIN`をコマンドごとにインライン指定する運用から、システム環境変数として事前に永続設定する運用に変更した（設定手順は[`README.md`](../../README.md)「開発環境セットアップ」参照）。以降、本ファイルのコマンド例は`GODOT_BIN`が設定済みであることを前提とし、`GODOT_BIN="/c/Godot/godot.exe"`のようなインライン指定は行わない。
 
 ## 基本原則
 
@@ -27,8 +28,8 @@ godot --headless --path atelier --import
 
 # OK: 最初の1回だけcd（以降は不要）
 cd atelier
-# 次のBash呼び出しではcdなしで実行可能
-GODOT_BIN="/c/Godot/godot.exe" ./addons/gdUnit4/runtest.sh -a res://tests/
+# 次のBash呼び出しではcdなしで実行可能（GODOT_BINは事前にシステム環境変数として設定済み前提）
+./addons/gdUnit4/runtest.sh -a res://tests/
 ```
 
 ---
@@ -131,15 +132,15 @@ gdlint features/
 
 ### 例外: GdUnit4のテスト実行は`cd`必須
 
-GdUnit4の`runtest.sh`（Windows版`runtest.cmd`）は`--path`相当のオプションを持たず、`res://`パス解決がカレントディレクトリ基準で行われるため、**`atelier/`に`cd`してから実行する必要がある**（実証済み。リポジトリルートから絶対パスでスクリプトを呼ぶと`res://addons/gdUnit4/bin/GdUnitCmdTool.gd`が見つからずエラーになる）。`GODOT_BIN`環境変数でGodot実行ファイルの絶対パスを指定する。
+GdUnit4の`runtest.sh`（Windows版`runtest.cmd`）は`--path`相当のオプションを持たず、`res://`パス解決がカレントディレクトリ基準で行われるため、**`atelier/`に`cd`してから実行する必要がある**（実証済み。リポジトリルートから絶対パスでスクリプトを呼ぶと`res://addons/gdUnit4/bin/GdUnitCmdTool.gd`が見つからずエラーになる）。`GODOT_BIN`（Godot実行ファイルの絶対パス）はシステム環境変数として事前に設定しておく（[`README.md`](../../README.md)「開発環境セットアップ」参照。未設定の場合`runtest.sh`はエラーで終了する）。
 
 ```bash
 # NG: リポジトリルートから絶対パス指定で実行（res://解決に失敗する）
-GODOT_BIN="/c/Godot/godot.exe" atelier/addons/gdUnit4/runtest.sh -a res://tests/
+atelier/addons/gdUnit4/runtest.sh -a res://tests/
 
 # OK: cdしてから実行（GdUnit4のみの例外）
 cd atelier
-GODOT_BIN="/c/Godot/godot.exe" ./addons/gdUnit4/runtest.sh -a res://tests/
+./addons/gdUnit4/runtest.sh -a res://tests/
 ```
 
 ### 利用可能な主要コマンド
@@ -147,13 +148,13 @@ GODOT_BIN="/c/Godot/godot.exe" ./addons/gdUnit4/runtest.sh -a res://tests/
 | コマンド | 内容 |
 |---------|------|
 | `godot --path atelier` | エディタをGUIで起動（対話操作、調査用。[`godot-debug-tools.md`](./godot-debug-tools.md)参照） |
-| `cd atelier && GODOT_BIN="/c/Godot/godot.exe" ./addons/gdUnit4/runtest.sh -a res://tests/` | 全GdUnit4テストをヘッドレス実行 |
-| `cd atelier && GODOT_BIN="/c/Godot/godot.exe" ./addons/gdUnit4/runtest.sh -a res://tests/unit/features/{feature}/test_{file}.gd` | 特定テストファイルのみ実行 |
+| `cd atelier && ./addons/gdUnit4/runtest.sh -a res://tests/` | 全GdUnit4テストをヘッドレス実行 |
+| `cd atelier && ./addons/gdUnit4/runtest.sh -a res://tests/unit/features/{feature}/test_{file}.gd` | 特定テストファイルのみ実行 |
 | `gdlint atelier/features/ atelier/shared/ atelier/autoload/` | 静的解析（gdtoolkit） |
 | `gdformat atelier/features/ atelier/shared/ atelier/autoload/` | 自動フォーマット |
 | `godot --headless --path atelier --export-release "<preset>" <output>` | エクスポートビルド（プリセット名は実装着手時に確定） |
 
-`GODOT_BIN`にはリネーム済みのGodot実行ファイル絶対パス（`/c/Godot/godot.exe`）を指定する。
+`GODOT_BIN`（リネーム済みのGodot実行ファイル絶対パス）はシステム環境変数として事前に設定しておく（[`README.md`](../../README.md)「開発環境セットアップ」参照）。上記コマンド例では既に設定済みであることを前提とし、コマンドごとのインライン指定は行わない。
 
 クリーンチェックアウト直後（CI・新規clone）は`.godot/`インポートキャッシュが存在しないため、初回のみ`godot --headless --path atelier --import`でインポートを完了させてからGdUnit4を実行する。インポートと同時にテストを走らせると不安定になることがある。
 
@@ -184,7 +185,7 @@ godot --path atelier
 
 | コマンド | 推奨タイムアウト |
 |---------|---------------|
-| `GODOT_BIN=... ./addons/gdUnit4/runtest.sh -a res://tests/` | 120000ms（2分） |
+| `./addons/gdUnit4/runtest.sh -a res://tests/` | 120000ms（2分） |
 | `godot --headless --export-release ...` | 300000ms（5分、初回エクスポートは特に時間がかかる） |
 
 ---
@@ -233,13 +234,13 @@ cd /c/Users/syagu/My Documents
 
 ```bash
 # 特定ディレクトリ（cd atelier実施済み前提）
-GODOT_BIN="/c/Godot/godot.exe" ./addons/gdUnit4/runtest.sh -a res://tests/unit/features/garden/
+./addons/gdUnit4/runtest.sh -a res://tests/unit/features/garden/
 
 # 特定ファイル
-GODOT_BIN="/c/Godot/godot.exe" ./addons/gdUnit4/runtest.sh -a res://tests/unit/features/alchemy/test_quality_calculator.gd
+./addons/gdUnit4/runtest.sh -a res://tests/unit/features/alchemy/test_quality_calculator.gd
 
 # 全テスト実行（CIまたは最終確認）
-GODOT_BIN="/c/Godot/godot.exe" ./addons/gdUnit4/runtest.sh -a res://tests/
+./addons/gdUnit4/runtest.sh -a res://tests/
 ```
 
 ### ヘッドレス実行の徹底
@@ -252,7 +253,7 @@ GdUnit4の`runtest.sh`は内部で`--headless`相当のGodot起動オプショ�
 
 ```bash
 # 末尾30行のみ表示
-GODOT_BIN="/c/Godot/godot.exe" ./addons/gdUnit4/runtest.sh -a res://tests/ 2>&1 | tail -30
+./addons/gdUnit4/runtest.sh -a res://tests/ 2>&1 | tail -30
 ```
 
 > `| tail -30`を挟むとパイプの終了コードが`tail`のもの（常に0）になり、`$?`によるテスト失敗の機械判定ができなくなる。終了コードを見る場合は`tail`を通さないか、`set -o pipefail`と併用する。GdUnit4は失敗時に非ゼロ終了コード（101警告あり成功、それ以外は失敗）を返す。
@@ -297,7 +298,7 @@ rmdir target_directory/
 ```bash
 # 1. テスト実行（cd atelier後に実行）
 cd atelier
-GODOT_BIN="/c/Godot/godot.exe" ./addons/gdUnit4/runtest.sh -a res://tests/
+./addons/gdUnit4/runtest.sh -a res://tests/
 
 # 2. 静的解析（gdlint、リポジトリルートまたはatelier配下いずれからでも可）
 gdlint atelier/features/ atelier/shared/ atelier/autoload/

@@ -2,6 +2,7 @@
 
 > 🔴 2026-08-06改訂: 技術スタックがGodot 4.x + GDScriptに確定済み（`CLAUDE.md`参照）のため、本ファイルはVitest+Playwright前提からGUT（Godot Unit Test）前提に全面書き換えした。ブラウザ前提だったPlaywrightMCPの運用は[`godot-debug-tools.md`](./godot-debug-tools.md)（調査・手動検証専用）に置き換えている。
 > 🔴 2026-08-10改訂: Godot 4.7のAsset Store移行期にGUTが導入できなかったため、テストフレームワークをGdUnit4に切り替えた。本ファイルのGUT前提の記述を全面的にGdUnit4に置き換えた（実際に`atelier/tests/integration/`でGdUnit4テストの動作確認済み）。
+> 🔴 2026-08-10改訂: `GODOT_BIN`をシステム環境変数として永続設定する運用に変更したため（設定手順は[`README.md`](../../README.md)「開発環境セットアップ」参照）、コマンド例の`GODOT_BIN="/c/Godot/godot.exe"`インライン指定を削除した。
 
 ## 基本原則
 
@@ -175,19 +176,19 @@ GdUnit4のCLIツール（`runtest.sh`/`runtest.cmd`）は`--path`相当のオプ
 cd atelier
 
 # ユニット/統合テスト（全体）
-GODOT_BIN="/c/Godot/godot.exe" ./addons/gdUnit4/runtest.sh -a res://tests/
+./addons/gdUnit4/runtest.sh -a res://tests/
 
 # 特定ディレクトリ
-GODOT_BIN="/c/Godot/godot.exe" ./addons/gdUnit4/runtest.sh -a res://tests/unit/features/garden/
+./addons/gdUnit4/runtest.sh -a res://tests/unit/features/garden/
 
 # 特定ファイル
-GODOT_BIN="/c/Godot/godot.exe" ./addons/gdUnit4/runtest.sh -a res://tests/unit/features/alchemy/test_quality_calculator.gd
+./addons/gdUnit4/runtest.sh -a res://tests/unit/features/alchemy/test_quality_calculator.gd
 
 # 特定ディレクトリ全体を実行しつつ、特定テストケースのみ除外
-GODOT_BIN="/c/Godot/godot.exe" ./addons/gdUnit4/runtest.sh -a res://tests/ -i "test_quality_calculator.gd:test_境界値ケース"
+./addons/gdUnit4/runtest.sh -a res://tests/ -i "test_quality_calculator.gd:test_境界値ケース"
 ```
 
-`GODOT_BIN`にはリネーム済みのGodot実行ファイル絶対パスを指定する。デフォルトでは最初の失敗でテスト実行が打ち切られる（fail fast）ため、全件実行したい場合は`-c`（`--continue`）オプションを付ける。
+`GODOT_BIN`（リネーム済みのGodot実行ファイル絶対パス）はシステム環境変数として事前に設定しておく（[`README.md`](../../README.md)「開発環境セットアップ」参照）。デフォルトでは最初の失敗でテスト実行が打ち切られる（fail fast）ため、全件実行したい場合は`-c`（`--continue`）オプションを付ける。
 
 具体的なCLIオプションは`--help-advanced`で確認できる（[`docs/design/atelier-alchemy-core/architecture.md`](../../docs/design/atelier-alchemy-core/architecture.md)「テスト運用規約」参照）。
 

@@ -1,5 +1,7 @@
 # パイプラインルール
 
+> 🔴 2026-08-10改訂: `GODOT_BIN`をシステム環境変数として永続設定する運用に変更したため（設定手順は[`README.md`](../../README.md)「開発環境セットアップ」参照）、コマンド例の`GODOT_BIN="/c/Godot/godot.exe"`インライン指定を削除した。
+
 ## 概要
 
 PR作成からマージまでの標準パイプラインフローを定義する。品質ゲートを設けることで、一貫した品質を担保する。
@@ -17,7 +19,7 @@ PR作成からマージまでの標準パイプラインフローを定義する
 PR作成前に以下を全てパスさせること。
 
 ```bash
-cd atelier && GODOT_BIN="/c/Godot/godot.exe" ./addons/gdUnit4/runtest.sh -a res://tests/   # ユニット/統合テスト（GdUnit4、--path相当なしのためcd必須）
+cd atelier && ./addons/gdUnit4/runtest.sh -a res://tests/   # ユニット/統合テスト（GdUnit4、--path相当なしのためcd必須。GODOT_BINは事前にシステム環境変数として設定済み前提）
 gdlint atelier/features/ atelier/shared/ atelier/autoload/                                 # 静的解析
 gdformat --check atelier/features/ atelier/shared/ atelier/autoload/                       # フォーマットチェック
 ```

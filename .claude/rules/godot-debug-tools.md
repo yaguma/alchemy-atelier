@@ -20,7 +20,7 @@
 | ランダム探索・状態の直接確認 | エディタ実行中のリモートシーンツリー（`Remote`タブ） |
 | 状態を直接注入して特定シナリオを再現したい | GdUnit4の`before_test`でシーン/Autoloadを直接操作するテストコードを書く（下記「状態セットアップ雛形」参照） |
 | 回帰テスト・再発防止 | GdUnit4のシーンレベル統合テスト（`tests/integration/`） |
-| CI実行 | GdUnit4 CLI（`cd atelier && GODOT_BIN=... ./addons/gdUnit4/runtest.sh`）一択 |
+| CI実行 | GdUnit4 CLI（`cd atelier && ./addons/gdUnit4/runtest.sh`。`GODOT_BIN`は事前にシステム環境変数として設定済み前提）一択 |
 | パフォーマンス測定 | Godotエディタ内蔵`Profiler`/`Monitors`（[`performance.md`](./performance.md)参照） |
 
 判断の優先順:
