@@ -1,7 +1,7 @@
 ---
 id: "012"
 title: "GameStateに庭関連の内部状態とマスターデータ読み込みを追加する"
-status: pending
+status: done
 priority: 3
 dependencies: ["001", "002", "003", "004", "005", "010"]
 estimated_complexity: high

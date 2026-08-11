@@ -1,7 +1,7 @@
 ---
 id: "013"
 title: "GameState.plant_seed()を実装する"
-status: pending
+status: done
 priority: 3
 dependencies: ["006", "012"]
 estimated_complexity: medium
