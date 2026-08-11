@@ -1,7 +1,7 @@
 ---
 id: "004"
 title: "SlotState型とcan_executeを実装する"
-status: pending
+status: done
 priority: 1
 dependencies: []
 estimated_complexity: low
