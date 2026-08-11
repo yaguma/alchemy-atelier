@@ -1,7 +1,7 @@
 ---
 id: "011"
 title: "Harvestの収穫・枯死解決ロジックを実装する"
-status: pending
+status: done
 priority: 2
 dependencies: ["001", "002", "003", "007", "008"]
 estimated_complexity: high

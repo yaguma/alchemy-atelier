@@ -1,7 +1,7 @@
 ---
 id: "014"
 title: "GameState.harvest()を実装する"
-status: pending
+status: done
 priority: 3
 dependencies: ["011", "012"]
 estimated_complexity: medium
