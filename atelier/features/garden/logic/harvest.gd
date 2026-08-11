@@ -30,13 +30,16 @@ static func is_dead(plant_state: PlantState, master: SeedMaster) -> bool:
 ## is_deadな株をgarden_state.plantsから除去した新しいGardenStateを返す（🔵 core-systems.md L65）。
 ## ターン終了処理でadvance_growthの直後に必ず呼ぶ（FR-103）。
 ## 🔵 該当するSeedMasterが見つからないseed_idの株は安全側に倒して除去しない（生存として扱う、タスク011方針）
+## 🔴 生存株はplant.clone()で複製してから格納する。GardenState.plantsのsetterはArray.duplicate()による
+## 配列の浅いコピーのみでPlantState要素自体は複製しないため、複製しないと戻り値のGardenStateが
+## 呼び出し元のgarden_stateとPlantStateの同一性をエイリアスしてしまう（GardenState.clone()と同じ罠、コードレビュー指摘対応）
 static func resolve_withering(garden_state: GardenState, masters: Dictionary) -> GardenState:
 	var survivors: Array[PlantState] = []
 	for plant in garden_state.plants:
 		var master: SeedMaster = masters.get(plant.seed_id)
 		if master != null and is_dead(plant, master):
 			continue
-		survivors.append(plant)
+		survivors.append(plant.clone())
 	var result := GardenState.new()
 	result.plants = survivors
 	return result

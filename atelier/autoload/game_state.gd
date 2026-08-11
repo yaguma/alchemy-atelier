@@ -113,11 +113,12 @@ func harvest(slot_index: int) -> Result:
 		return Result.fail(&"slot_not_found")
 
 	var plant_state: PlantState = _garden_state.plants[plant_index]
-	# 🟡 該当seed_idのSeedMasterが見つからない場合は内部不整合のため安全側に倒しslot_not_foundとして扱う
+	# 🔴 該当seed_idのSeedMasterが見つからない場合はスロット自体は存在するがマスターデータが
+	# 欠落している内部不整合のため、slot_not_foundとは区別した専用エラーコードで返す（コードレビュー指摘対応）
 	var master: SeedMaster = _seed_masters.get(plant_state.seed_id)
 	if master == null:
-		harvest_failed.emit(slot_index, &"slot_not_found")
-		return Result.fail(&"slot_not_found")
+		harvest_failed.emit(slot_index, &"master_data_missing")
+		return Result.fail(&"master_data_missing")
 
 	# 🔵 品質用・特性用の乱数はそれぞれ個別に払い出す（1回の呼び出し結果を使い回さない、FR-104）
 	var rng_roll_quality := RngService.randf()
@@ -132,7 +133,10 @@ func harvest(slot_index: int) -> Result:
 	_material_instance_seq += 1
 
 	_garden_state.plants.remove_at(plant_index)
-	_inventory.append(material)
+	# 🔴 _inventoryへはclone()した独立コピーを格納する。material_harvestedシグナル・戻り値のResult.valueは
+	# 生成直後の同一参照のままのため、将来の購読側がin-place変更しても_inventoryの正本データは汚染されない
+	# （state-management.mdの防御的コピー方針に合わせる、コードレビュー指摘対応）
+	_inventory.append(material.clone())
 
 	material_harvested.emit(material, slot_index)
 	return result
@@ -154,6 +158,28 @@ func _set_masters_for_test(seeds: Dictionary, materials: Dictionary) -> void:
 		return
 	_seed_masters = seeds
 	_material_masters = materials
+
+
+## 🔴 テスト専用。seed_inventoryを実プレイの操作を介さず直接注入する
+## （テストコードが非公開フィールドへ直接書き込むことを避けるための正規API、コードレビュー指摘対応）
+func _set_seed_inventory_for_test(seed_inventory: Array[Dictionary]) -> void:
+	assert(
+		OS.is_debug_build(), "_set_seed_inventory_for_test() must not be called in release builds"
+	)
+	if not OS.is_debug_build():
+		push_error("_set_seed_inventory_for_test() must not be called in release builds")
+		return
+	_seed_inventory = seed_inventory
+
+
+## 🔴 テスト専用。plant_seed()を経由せずgarden_state.plantsへ株を直接追加する
+## （生育経過済み・枯死済みなど、通常操作では到達しづらい状態を作るための正規API、コードレビュー指摘対応）
+func _inject_plant_for_test(plant_state: PlantState) -> void:
+	assert(OS.is_debug_build(), "_inject_plant_for_test() must not be called in release builds")
+	if not OS.is_debug_build():
+		push_error("_inject_plant_for_test() must not be called in release builds")
+		return
+	_garden_state.plants.append(plant_state)
 
 
 # テスト分離専用。assert()はリリースビルドで除去されるため、
