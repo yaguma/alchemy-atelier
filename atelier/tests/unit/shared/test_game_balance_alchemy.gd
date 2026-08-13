@@ -17,6 +17,10 @@ func test_触媒基準品質が3である() -> void:
 	assert_int(GameBalance.CATALYST_BASE_QUALITY_SCORE).is_equal(3)
 
 
+func test_触媒タグがcatalystである() -> void:
+	assert_that(GameBalance.CATALYST_TAG).is_equal(&"catalyst")
+
+
 func test_貢献度向け特性ボーナスがholyで1_3を返す() -> void:
 	assert_float(GameBalance.TRAIT_CONTRIBUTION_BONUS[&"holy"]).is_equal(1.3)
 

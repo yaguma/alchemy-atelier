@@ -2,8 +2,6 @@
 # 副作用・乱数を持たない。
 class_name TraitActivation
 
-const CATALYST_TAG := &"catalyst"
-
 
 ## 🔵 traits_unlocked=falseなら常に空配列。真の場合、同一特性タグの出現数が
 ## GameBalance.TRAIT_ACTIVATION_THRESHOLD以上のものだけを発現済みとして返す。
@@ -16,7 +14,7 @@ static func resolve_traits(
 
 	var activated: Array[StringName] = []
 	for trait_tag in _collect_unique_tags(materials):
-		if trait_tag == CATALYST_TAG:
+		if trait_tag == GameBalance.CATALYST_TAG:
 			continue
 		if count_trait_occurrences(materials, trait_tag) >= GameBalance.TRAIT_ACTIVATION_THRESHOLD:
 			activated.append(trait_tag)

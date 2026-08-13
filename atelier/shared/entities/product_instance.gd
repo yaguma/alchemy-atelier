@@ -27,8 +27,7 @@ func _init(
 
 
 ## 🔵 GameState.get_state()の防御的コピー要件（FR-403）を満たす。
-## activated_traitsは要素がStringNameのプリミティブ相当のため浅い複製で十分
+## activated_traitsは要素がStringNameのプリミティブ相当のため浅い複製で十分。
+## 複製自体は_init()側が行うため、ここでは複製せずそのまま渡す（PR#15レビュー指摘対応）
 func clone() -> ProductInstance:
-	return ProductInstance.new(
-		recipe_id, quality_score, activated_traits.duplicate(), contribution, reward
-	)
+	return ProductInstance.new(recipe_id, quality_score, activated_traits, contribution, reward)

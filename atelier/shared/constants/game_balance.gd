@@ -40,6 +40,10 @@ const TRAIT_ACTIVATION_THRESHOLD := 2  # 🔴 FR-005, core-systems.md AlchemySys
 # 触媒効果の基準となる品質スコア。本plan内では未消費でWorkshopSystem側で参照する前方定義のため削除しない
 const CATALYST_BASE_QUALITY_SCORE := 3  # 🔴 FR-005
 
+# 触媒素材を識別する特性タグ。QualityCalculator（品質+1）とTraitActivation（特性発現の対象外）の
+# 2箇所が同一タグを見る前提のため、単一の定義をここに置く（PR#15レビュー指摘対応）
+const CATALYST_TAG: StringName = &"catalyst"  # 🔴 FR-005
+
 # 貢献度向き特性の倍率。報酬向きとキーが重複しないことが「真のトレードオフ」の前提（atelier-concept.md v7.0）
 const TRAIT_CONTRIBUTION_BONUS := {&"holy": 1.3, &"purify": 1.3, &"heal": 1.3}  # 🔴 FR-005
 

@@ -2,8 +2,6 @@
 # （core-systems.md L146-147）。副作用・乱数を持たない。
 class_name QualityCalculator
 
-const CATALYST_TAG := &"catalyst"
-
 
 ## 🔵 投入素材の品質スコア平均を四捨五入し、traits_unlockedかつ触媒タグ保有時のみ+1する（core-systems.md L146）。
 ## 空配列は SlotState.can_execute() により実運用では到達しない防御的分岐
@@ -23,7 +21,10 @@ static func calculate_quality(materials: Array[MaterialInstance], traits_unlocke
 
 
 ## 🔵 品質スコアに対応する価値倍率を返す（core-systems.md L147）。
-## 範囲外の入力はテーブル未定義キーによるnull返却を避けるため下限・上限にクランプする
+## 範囲外の入力はテーブル未定義キーによるnull返却を避けるため下限・上限にクランプする。
+## 🔴 このクランプはQUALITY_MULTIPLIER_TABLEのキー集合がQUALITY_SCORE_MIN〜MAXと一致することが前提。
+## 両者は独立した定数のため、一致はtest_game_balance_alchemy.gdの
+## test_品質倍率テーブルが品質1から5までのキーを持つ() が担保する（PR#15レビュー指摘対応）
 static func quality_multiplier(quality_score: int) -> float:
 	var clamped := clampi(
 		quality_score, GameBalance.QUALITY_SCORE_MIN, GameBalance.QUALITY_SCORE_MAX
@@ -33,6 +34,6 @@ static func quality_multiplier(quality_score: int) -> float:
 
 static func _has_catalyst(materials: Array[MaterialInstance]) -> bool:
 	for material in materials:
-		if material.trait_tags.has(CATALYST_TAG):
+		if material.trait_tags.has(GameBalance.CATALYST_TAG):
 			return true
 	return false
