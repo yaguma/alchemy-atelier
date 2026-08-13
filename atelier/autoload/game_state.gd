@@ -5,6 +5,9 @@ signal seed_planted(slot_index: int, seed_id: StringName)  # 🔵 FR-101
 signal plant_seed_failed(seed_id: StringName, error_code: StringName)  # 🔴 UI側トースト表示(NFR-202)用の新規補完
 signal material_harvested(material: MaterialInstance, slot_index: int)  # 🔵 FR-105
 signal harvest_failed(slot_index: int, error_code: StringName)  # 🔴 UI側フィードバック用の新規補完
+signal product_crafted(product: ProductInstance)  # 🔵 FR-112
+# 🔴 garden の plant_seed_failed/harvest_failed パターン踏襲（FR-113）
+signal execute_alchemy_failed(recipe_id: StringName, error_code: StringName)
 
 var _current_phase: StringName = &"garden"
 var _gold: int = 0
@@ -21,6 +24,15 @@ var _material_instance_seq: int = 0  # 🔴 instance_id採番用（新規補完�
 # 本plan内では庭専用フィールドとして仮に保持する）
 var _garden_slot_count: int = GameBalance.GARDEN_SLOT_COUNT
 
+# --- 調合（alchemy）関連フィールド ---
+var _recipe_masters: Dictionary = {}  # 🔵 Dictionary[StringName, RecipeMaster]
+var _unlocked_recipe_ids: Array[StringName] = [GameBalance.INITIAL_RECIPE_ID]  # 🔵 FR-007
+var _pending_products: Array[ProductInstance] = []  # 🔴 FR-008 ギルド納品待ちキュー
+# 🔵 FR-006「実行時権威」の暫定置き場（_garden_slot_countと同様、本plan内ではGameStateが仮に保持する）
+var _alchemy_slot_count: int = GameBalance.ALCHEMY_SLOT_COUNT_DEFAULT
+# 🔴 CON-007。特性解禁はRankMaster側で管理する想定だが未実装のため暫定フィールドとして持つ
+var _traits_unlocked: bool = false
+
 
 # 内部Dictionary/Arrayフィールドを直接返すと呼び出し元が改変できてしまうため、
 # 辞書リテラルを都度生成しduplicate(true)でディープコピーを保証する（state-management.md）。
@@ -33,6 +45,10 @@ func get_state() -> Dictionary:
 	for material in _inventory:
 		cloned_inventory.append(material.clone())
 
+	var cloned_pending_products: Array[ProductInstance] = []
+	for product in _pending_products:
+		cloned_pending_products.append(product.clone())
+
 	return {
 		"current_phase": _current_phase,
 		"gold": _gold,
@@ -40,6 +56,9 @@ func get_state() -> Dictionary:
 		"garden_state": _garden_state.clone(),
 		"seed_inventory": _seed_inventory.duplicate(true),
 		"inventory": cloned_inventory,
+		# 🔴 要素がStringName（値型相当）のため浅い複製で十分（FR-403）
+		"unlocked_recipe_ids": _unlocked_recipe_ids.duplicate(),
+		"pending_products": cloned_pending_products,
 	}
 
 
@@ -66,6 +85,17 @@ func load_garden_master_data() -> void:
 			material_masters[(m as MaterialMaster).id] = m
 	_seed_masters = seeds
 	_material_masters = material_masters
+
+
+## res://data/recipes/ から RecipeMaster をロードし _recipe_masters に格納する（🔵 FR-301）。
+## 🔴 BootSceneからの呼び出し配線自体は本plan外。GameState側にAPIとして用意するのみ
+func load_alchemy_master_data() -> void:
+	var recipes := MasterDataLoader.load_all(&"recipes")
+
+	var recipe_masters: Dictionary = {}
+	for r in recipes:
+		recipe_masters[(r as RecipeMaster).id] = r
+	_recipe_masters = recipe_masters
 
 
 ## (1) seed_inventoryの対象countを確認 (2) Planting.plantを実行 (3) 両方成功時のみcountを1減算
@@ -150,6 +180,105 @@ func _find_plant_index(slot_index: int) -> int:
 	return -1
 
 
+## 🔵 FR-102の順序で検証: (1)recipe_id実在 (2)unlocked (3)material実在 (4)投入枠内重複なし。
+## 通過後にFR-103でSlotState.can_execute()を実行直前に再評価する。
+## 成功時のみinventory除去→pending_products追加→product_crafted発行（FR-112）。
+## いずれかの段階の失敗はinventory/pending_productsを一切変更せずexecute_alchemy_failedを発行（FR-113）
+func execute_alchemy(recipe_id: StringName, material_instance_ids: Array[String]) -> Result:
+	var indices := _resolve_inventory_indices(material_instance_ids)
+	var error_code := _validate_alchemy_request(recipe_id, material_instance_ids, indices)
+	if error_code != &"":
+		execute_alchemy_failed.emit(recipe_id, error_code)
+		return Result.fail(error_code)
+
+	var materials: Array[MaterialInstance] = []
+	for index in indices:
+		materials.append(_inventory[index])
+
+	# 🔵 FR-103。UI側の先出し判定を信頼せず、状態変更の直前にDomain層の実行可否を再評価する
+	var slot_state := SlotState.new()
+	slot_state.selected_recipe_id = recipe_id
+	slot_state.max_slots = _alchemy_slot_count
+	slot_state.materials = materials
+	if not slot_state.can_execute():
+		execute_alchemy_failed.emit(recipe_id, &"slot_execution_invalid")
+		return Result.fail(&"slot_execution_invalid")
+
+	# 🔵 FR-104。品質判定と特性発現判定には同一の_traits_unlockedを渡す
+	var quality := QualityCalculator.calculate_quality(materials, _traits_unlocked)
+	var quality_mult := QualityCalculator.quality_multiplier(quality)
+	var activated_traits := TraitActivation.resolve_traits(materials, _traits_unlocked)
+
+	var recipe: RecipeMaster = _recipe_masters[recipe_id]
+	var contribution := ProductValueCalculator.calculate_contribution(
+		recipe.base_contribution,
+		quality_mult,
+		ProductValueCalculator.resolve_contribution_bonus(activated_traits)
+	)
+	var reward := ProductValueCalculator.calculate_reward(
+		recipe.base_reward,
+		quality_mult,
+		ProductValueCalculator.resolve_reward_bonus(activated_traits)
+	)
+	var product := ProductInstance.new(recipe_id, quality, activated_traits, contribution, reward)
+
+	# 🔵 副作用はすべての検証・計算が成功した後にのみ適用する（FR-113のアトミック性）。
+	# 🔴 remove_atのインデックスずれを避けるため降順に削除する
+	indices.sort()
+	indices.reverse()
+	for index in indices:
+		_inventory.remove_at(index)
+	# 🔴 harvest()の_inventory.append(material.clone())と同方針。正本は独立コピーとして保持し、
+	# シグナル購読側・戻り値の受け取り側による事後変更から守る
+	_pending_products.append(product.clone())
+
+	product_crafted.emit(product)
+	return Result.ok(product)
+
+
+## 🔵 FR-102の4段階検証。問題がなければ空のStringNameを返す。
+## 副作用を持たず、呼び出し元がシグナル発行とResult生成を担う
+func _validate_alchemy_request(
+	recipe_id: StringName, material_instance_ids: Array[String], indices: Array[int]
+) -> StringName:
+	if not _recipe_masters.has(recipe_id):
+		return &"unknown_recipe_id"
+	if not _unlocked_recipe_ids.has(recipe_id):
+		return &"recipe_not_unlocked"
+	if indices.has(-1):
+		return &"material_not_owned"
+	if _has_duplicate_ids(material_instance_ids):
+		return &"duplicate_material_in_slot"
+	return &""
+
+
+## 各instance_idに対応する_inventory上のインデックスを、引数と同じ並び順で返す。
+## 未所持のidは-1として保持し、検証側で一括判定できるようにする
+func _resolve_inventory_indices(material_instance_ids: Array[String]) -> Array[int]:
+	var indices: Array[int] = []
+	for instance_id in material_instance_ids:
+		indices.append(_find_inventory_index(instance_id))
+	return indices
+
+
+## _inventory内でinstance_idが一致する要素のインデックスを返す。見つからない場合は-1
+func _find_inventory_index(instance_id: String) -> int:
+	for i in range(_inventory.size()):
+		if _inventory[i].instance_id == instance_id:
+			return i
+	return -1
+
+
+## material_instance_ids内に重複が存在するか
+func _has_duplicate_ids(ids: Array[String]) -> bool:
+	var seen: Dictionary = {}
+	for instance_id in ids:
+		if seen.has(instance_id):
+			return true
+		seen[instance_id] = true
+	return false
+
+
 ## テスト専用。実.tresロードを介さずSeedMaster/MaterialMasterを直接注入する（🟡 CON-005対応）
 func _set_masters_for_test(seeds: Dictionary, materials: Dictionary) -> void:
 	assert(OS.is_debug_build(), "_set_masters_for_test() must not be called in release builds")
@@ -182,6 +311,63 @@ func _inject_plant_for_test(plant_state: PlantState) -> void:
 	_garden_state.plants.append(plant_state)
 
 
+## 🟡 テスト専用。実.tresロードを介さずRecipeMasterを直接注入する（CON-005対応、_set_masters_for_testと同型）
+func _set_recipe_masters_for_test(masters: Dictionary) -> void:
+	assert(
+		OS.is_debug_build(), "_set_recipe_masters_for_test() must not be called in release builds"
+	)
+	if not OS.is_debug_build():
+		push_error("_set_recipe_masters_for_test() must not be called in release builds")
+		return
+	_recipe_masters = masters
+
+
+## 🔴 テスト専用。unlocked_recipe_idsをランク進行を介さず直接注入する（AC-009検証用）
+func _set_unlocked_recipe_ids_for_test(ids: Array[StringName]) -> void:
+	assert(
+		OS.is_debug_build(),
+		"_set_unlocked_recipe_ids_for_test() must not be called in release builds"
+	)
+	if not OS.is_debug_build():
+		push_error("_set_unlocked_recipe_ids_for_test() must not be called in release builds")
+		return
+	_unlocked_recipe_ids = ids
+
+
+## 🔴 テスト専用。alchemy_slot_countを工房強化を介さず直接注入する（AC-007境界値検証用）
+func _set_alchemy_slot_count_for_test(count: int) -> void:
+	assert(
+		OS.is_debug_build(),
+		"_set_alchemy_slot_count_for_test() must not be called in release builds"
+	)
+	if not OS.is_debug_build():
+		push_error("_set_alchemy_slot_count_for_test() must not be called in release builds")
+		return
+	_alchemy_slot_count = count
+
+
+## 🔴 テスト専用。traits_unlockedをランク進行を介さず直接注入する（AC-011検証用）
+func _set_traits_unlocked_for_test(value: bool) -> void:
+	assert(
+		OS.is_debug_build(), "_set_traits_unlocked_for_test() must not be called in release builds"
+	)
+	if not OS.is_debug_build():
+		push_error("_set_traits_unlocked_for_test() must not be called in release builds")
+		return
+	_traits_unlocked = value
+
+
+## 🔴 テスト専用。harvest()/execute_alchemy()を経由せずinventoryへ素材を直接注入する。
+## 内部正本は独立コピーとして保持し、呼び出し元が注入後に引数を変更しても汚染されないようにする
+## （harvest()の_inventory.append(material.clone())と同じ方針）
+func _inject_material_for_test(material: MaterialInstance) -> void:
+	assert(OS.is_debug_build(), "_inject_material_for_test() must not be called in release builds")
+	if not OS.is_debug_build():
+		push_error("_inject_material_for_test() must not be called in release builds")
+		return
+	_inventory.append(material.clone())
+
+
 # テスト分離専用。assert()はリリースビルドで除去されるため、
 # push_error+returnを併用して本番コードパスからの実行を確実に止める
 func reset_for_test() -> void:
@@ -201,3 +387,8 @@ func reset_for_test() -> void:
 	_material_masters = {}
 	_material_instance_seq = 0
 	_garden_slot_count = GameBalance.GARDEN_SLOT_COUNT
+	_recipe_masters = {}
+	_unlocked_recipe_ids = [GameBalance.INITIAL_RECIPE_ID]
+	_pending_products = []
+	_alchemy_slot_count = GameBalance.ALCHEMY_SLOT_COUNT_DEFAULT
+	_traits_unlocked = false

@@ -1,7 +1,7 @@
 ---
 id: "011"
 title: "GameState.execute_alchemyを実装する"
-status: pending
+status: done
 priority: 3
 dependencies: ["005", "006", "007", "010"]
 estimated_complexity: high
