@@ -1,7 +1,7 @@
 ---
 id: "005"
 title: "QualityCalculatorを実装する"
-status: pending
+status: done
 priority: 2
 dependencies: ["003"]
 estimated_complexity: medium

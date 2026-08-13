@@ -24,3 +24,27 @@ const WITHER_WARNING_REMAINING_TURNS := 1  # 🔴 FR-204（設計時点で未確
 # CON-007/CON-008: 初期手持ち種セット
 const INITIAL_SEED_ID: StringName = &"seed_herb"  # 🔵 CON-007, AC-011
 const INITIAL_SEED_COUNT := 2  # 🔵 CON-007, AC-011
+
+# --- 調合（alchemy）関連定数 ---
+
+# core-systems.md AlchemySystem「投入枠」。実行時権威はplayer.permanent_upgrades側にあり、
+# 本定数はゲーム開始時の初期値としてのみ使用する
+const ALCHEMY_SLOT_COUNT_DEFAULT := 4  # 🔴 FR-005, core-systems.md AlchemySystem
+
+# requirements.md §5 品質→価値倍率。品質スコア1〜5に対して単調非減少であることが前提
+const QUALITY_MULTIPLIER_TABLE := {1: 1.0, 2: 1.25, 3: 1.5, 4: 1.75, 5: 2.0}  # 🔴 FR-005
+
+# 同一特性タグが投入素材中にこの本数以上あると特性が発現する
+const TRAIT_ACTIVATION_THRESHOLD := 2  # 🔴 FR-005, core-systems.md AlchemySystem
+
+# 触媒効果の基準となる品質スコア。本plan内では未消費でWorkshopSystem側で参照する前方定義のため削除しない
+const CATALYST_BASE_QUALITY_SCORE := 3  # 🔴 FR-005
+
+# 貢献度向き特性の倍率。報酬向きとキーが重複しないことが「真のトレードオフ」の前提（atelier-concept.md v7.0）
+const TRAIT_CONTRIBUTION_BONUS := {&"holy": 1.3, &"purify": 1.3, &"heal": 1.3}  # 🔴 FR-005
+
+# 報酬向き特性の倍率
+const TRAIT_REWARD_BONUS := {&"gold": 1.3, &"glamour": 1.3, &"rare": 1.3}  # 🔴 FR-005
+
+# CON-008: 初期解禁レシピ（data-schema.mdのサンプル値を流用）
+const INITIAL_RECIPE_ID: StringName = &"recipe_healing_potion"  # 🔵 CON-008
