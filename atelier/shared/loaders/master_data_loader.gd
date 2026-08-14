@@ -1,10 +1,12 @@
 class_name MasterDataLoader
 
 const MATERIALS_DIR := "res://data/materials/"
+const RECIPES_DIR := "res://data/recipes/"
 const TRES_EXTENSION := ".tres"
 
 
-## categoryに対応するディレクトリ配下の全.tresをロードして返す（SeedMaster/MaterialMaster混在）
+## categoryに対応するディレクトリ配下の全.tresをロードして返す
+## &"materials"はSeedMaster/MaterialMaster混在、&"recipes"はRecipeMasterのみを返す
 static func load_all(category: StringName) -> Array:
 	var dir_path := _resolve_dir_path(category)
 	if dir_path.is_empty():
@@ -20,7 +22,7 @@ static func load_all(category: StringName) -> Array:
 	while file_name != "":
 		if not dir.current_is_dir() and file_name.ends_with(TRES_EXTENSION):
 			var resource: Resource = load(dir_path + file_name)
-			if resource is SeedMaster or resource is MaterialMaster:
+			if _is_allowed_type(category, resource):
 				result.append(resource)
 		file_name = dir.get_next()
 	dir.list_dir_end()
@@ -48,5 +50,18 @@ static func _resolve_dir_path(category: StringName) -> String:
 	match category:
 		&"materials":
 			return MATERIALS_DIR
+		&"recipes":
+			return RECIPES_DIR
 		_:
 			return ""
+
+
+## ディレクトリに他カテゴリのリソースが紛れ込んでも取り込まないよう、category単位で受理型を限定する
+static func _is_allowed_type(category: StringName, resource: Resource) -> bool:
+	match category:
+		&"materials":
+			return resource is SeedMaster or resource is MaterialMaster
+		&"recipes":
+			return resource is RecipeMaster
+		_:
+			return false

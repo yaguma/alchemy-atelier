@@ -1,7 +1,7 @@
 ---
 id: "008"
 title: "初期解禁レシピのマスターデータフィクスチャを作成する"
-status: pending
+status: done
 priority: 2
 dependencies: ["002"]
 estimated_complexity: low

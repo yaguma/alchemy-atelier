@@ -1,7 +1,7 @@
 ---
 id: "010"
 title: "GameStateに調合関連フィールド・マスターデータロード・テストAPIを追加する"
-status: pending
+status: done
 priority: 3
 dependencies: ["001", "002", "003", "004", "009"]
 estimated_complexity: medium

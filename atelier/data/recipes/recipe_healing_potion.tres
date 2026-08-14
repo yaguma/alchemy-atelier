@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="RecipeMaster" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://features/alchemy/resources/recipe_master.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"recipe_healing_potion"
+name = "回復薬"
+base_contribution = 10.0
+base_reward = 5.0

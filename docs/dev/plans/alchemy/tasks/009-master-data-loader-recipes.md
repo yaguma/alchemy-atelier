@@ -1,7 +1,7 @@
 ---
 id: "009"
 title: "MasterDataLoaderにrecipesカテゴリ対応を追加する"
-status: pending
+status: done
 priority: 2
 dependencies: ["002", "008"]
 estimated_complexity: medium
