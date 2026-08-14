@@ -94,7 +94,11 @@ func load_alchemy_master_data() -> void:
 
 	var recipe_masters: Dictionary = {}
 	for r in recipes:
-		recipe_masters[(r as RecipeMaster).id] = r
+		var recipe := r as RecipeMaster
+		if recipe_masters.has(recipe.id):
+			push_error("調合レシピのIDが重複しています: %s" % recipe.id)
+			return
+		recipe_masters[recipe.id] = recipe
 	_recipe_masters = recipe_masters
 
 
@@ -331,7 +335,7 @@ func _set_unlocked_recipe_ids_for_test(ids: Array[StringName]) -> void:
 	if not OS.is_debug_build():
 		push_error("_set_unlocked_recipe_ids_for_test() must not be called in release builds")
 		return
-	_unlocked_recipe_ids = ids
+	_unlocked_recipe_ids = ids.duplicate()
 
 
 ## 🔴 テスト専用。alchemy_slot_countを工房強化を介さず直接注入する（AC-007境界値検証用）
