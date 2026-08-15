@@ -1,7 +1,7 @@
 ---
 id: "005"
 title: "GameStateにギルド納品関連フィールド・テストAPIを追加する"
-status: pending
+status: done
 priority: 3
 dependencies: ["002"]
 estimated_complexity: medium

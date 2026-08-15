@@ -1,7 +1,7 @@
 ---
 id: "006"
 title: "GameState.deliver_pending_productsを実装する"
-status: pending
+status: done
 priority: 3
 dependencies: ["004", "005"]
 estimated_complexity: high

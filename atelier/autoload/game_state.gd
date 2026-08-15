@@ -8,6 +8,7 @@ signal harvest_failed(slot_index: int, error_code: StringName)  # 🔴 UI側フ�
 signal product_crafted(product: ProductInstance)  # 🔵 FR-112
 # 🔴 garden の plant_seed_failed/harvest_failed パターン踏襲（FR-113）
 signal execute_alchemy_failed(recipe_id: StringName, error_code: StringName)
+signal delivered(results: Array[DeliveryResult])  # 🔴 FR-108
 
 var _current_phase: StringName = &"garden"
 var _gold: int = 0
@@ -32,6 +33,12 @@ var _pending_products: Array[ProductInstance] = []  # 🔴 FR-008 ギルド納�
 var _alchemy_slot_count: int = GameBalance.ALCHEMY_SLOT_COUNT_DEFAULT
 # 🔴 CON-007。特性解禁はRankMaster側で管理する想定だが未実装のため暫定フィールドとして持つ
 var _traits_unlocked: bool = false
+
+# --- ギルド納品（guild）関連フィールド ---
+# 🔴 FR-006, CON-004。RankSystem未実装のため、ランクノルマへの反映は行わず累積値のみ保持する
+var _accumulated_contribution: float = 0.0
+# 🔴 CON-010。日替わり指定調合物の再抽選ロジックは別planのため、既定値nullでも納品が成立する
+var _current_daily_order: DailyOrderMaster = null
 
 
 # 内部Dictionary/Arrayフィールドを直接返すと呼び出し元が改変できてしまうため、
@@ -59,6 +66,11 @@ func get_state() -> Dictionary:
 		# 🔴 要素がStringName（値型相当）のため浅い複製で十分（FR-403）
 		"unlocked_recipe_ids": _unlocked_recipe_ids.duplicate(),
 		"pending_products": cloned_pending_products,
+		# 🔴 floatは値型のため複製不要（FR-403）
+		"accumulated_contribution": _accumulated_contribution,
+		# 🔴 DailyOrderMasterは@export var（プリミティブ）のみでネストしたArray/Dictionaryを
+		# 持たないため、参照をそのまま返してよい（FR-408の対象はpending_productsに限定）
+		"current_daily_order": _current_daily_order,
 	}
 
 
@@ -240,6 +252,30 @@ func execute_alchemy(recipe_id: StringName, material_instance_ids: Array[String]
 	return Result.ok(product)
 
 
+## 🔴 _pending_productsを先頭から全件消費し、各ProductInstanceについて
+## DeliveryResolver.resolve(product, _current_daily_order)を呼び出す（FR-005, FR-105）。
+## final_rewardはroundi()で丸めて_goldへ即時加算（FR-106, CON-007）、
+## final_contributionはfloatのまま_accumulated_contributionへ加算する（FR-107）。
+## 全件処理後にキューを空にしdelivered(results)を発行する（FR-108）。
+## キューが空の場合は状態を一切変更せずResult.ok([])を返す（FR-109, AC-012）
+func deliver_pending_products() -> Result:
+	var results: Array[DeliveryResult] = []
+	if _pending_products.is_empty():
+		return Result.ok(results)
+
+	for product in _pending_products:
+		var delivery_result := DeliveryResolver.resolve(product, _current_daily_order)
+		_gold += roundi(delivery_result.final_reward)
+		_accumulated_contribution += delivery_result.final_contribution
+		results.append(delivery_result)
+
+	# 🔴 走査中にclear()すると反復が壊れるため、キューの破棄はループ完了後に行う
+	_pending_products.clear()
+
+	delivered.emit(results)
+	return Result.ok(results)
+
+
 ## 🔵 FR-102の4段階検証。問題がなければ空のStringNameを返す。
 ## 副作用を持たず、呼び出し元がシグナル発行とResult生成を担う
 func _validate_alchemy_request(
@@ -361,6 +397,18 @@ func _set_traits_unlocked_for_test(value: bool) -> void:
 	_traits_unlocked = value
 
 
+## 🔴 テスト専用。deliver_pending_products()を経由せず本日の指定調合物を直接注入する（FR-301, AC-008）
+func _set_current_daily_order_for_test(order: DailyOrderMaster) -> void:
+	assert(
+		OS.is_debug_build(),
+		"_set_current_daily_order_for_test() must not be called in release builds"
+	)
+	if not OS.is_debug_build():
+		push_error("_set_current_daily_order_for_test() must not be called in release builds")
+		return
+	_current_daily_order = order
+
+
 ## 🔴 テスト専用。harvest()/execute_alchemy()を経由せずinventoryへ素材を直接注入する。
 ## 内部正本は独立コピーとして保持し、呼び出し元が注入後に引数を変更しても汚染されないようにする
 ## （harvest()の_inventory.append(material.clone())と同じ方針）
@@ -370,6 +418,19 @@ func _inject_material_for_test(material: MaterialInstance) -> void:
 		push_error("_inject_material_for_test() must not be called in release builds")
 		return
 	_inventory.append(material.clone())
+
+
+## 🔴 テスト専用。execute_alchemy()を経由せず納品待ちキューへ調合物を直接注入する。
+## 内部正本は独立コピーとして保持する（_inject_material_for_testと同じ方針）
+func _inject_pending_product_for_test(product: ProductInstance) -> void:
+	assert(
+		OS.is_debug_build(),
+		"_inject_pending_product_for_test() must not be called in release builds"
+	)
+	if not OS.is_debug_build():
+		push_error("_inject_pending_product_for_test() must not be called in release builds")
+		return
+	_pending_products.append(product.clone())
 
 
 # テスト分離専用。assert()はリリースビルドで除去されるため、
@@ -396,3 +457,5 @@ func reset_for_test() -> void:
 	_pending_products = []
 	_alchemy_slot_count = GameBalance.ALCHEMY_SLOT_COUNT_DEFAULT
 	_traits_unlocked = false
+	_accumulated_contribution = 0.0
+	_current_daily_order = null

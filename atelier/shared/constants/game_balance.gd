@@ -48,3 +48,9 @@ const TRAIT_REWARD_BONUS := {&"gold": 1.3, &"glamour": 1.3, &"rare": 1.3}  # �
 
 # CON-008: 初期解禁レシピ（data-schema.mdのサンプル値を流用）
 const INITIAL_RECIPE_ID: StringName = &"recipe_healing_potion"  # 🔵 CON-008
+
+# --- ギルド納品（guild）関連定数 ---
+
+# 指定合致ボーナス倍率の既定値。DeliveryResolverはDailyOrderMaster.match_bonus_multiplier側を
+# 参照するため（CON-006）、本定数はマスターデータ（.tres）作成時・テストフィクスチャの既定値に留まる
+const DAILY_ORDER_MATCH_BONUS_MULTIPLIER := 1.3  # 🔵 FR-004/CON-006, requirements.md §5

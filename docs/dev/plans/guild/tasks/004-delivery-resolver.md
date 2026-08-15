@@ -1,7 +1,7 @@
 ---
 id: "004"
 title: "DeliveryResolverを実装する"
-status: pending
+status: done
 priority: 2
 dependencies: ["001", "002"]
 estimated_complexity: medium
