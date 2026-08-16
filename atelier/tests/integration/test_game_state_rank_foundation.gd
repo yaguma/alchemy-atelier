@@ -64,16 +64,23 @@ func test_get_stateがランク関連キーを含む() -> void:
 	assert_int(state["demotion_count"]).is_equal(0)
 
 
+## testing.mdの禁止事項によりprivateメソッド_get_current_rank_master_or_fallback()を
+## 直接呼ばず、公開API（commit_rank_outcome）が注入したRankMasterのquota_maxを
+## 実際に使うことで間接的に検証する（コードレビュー指摘対応）
 func test_set_rank_masters_for_testと_set_current_rank_id_for_testで注入したRankMasterが返る() -> void:
 	var rank := _make_rank("rank_g", true)
 	GameState._set_rank_masters_for_test({RANK_ID: rank})
 	GameState._set_current_rank_id_for_test(RANK_ID)
+	var rank_state := RankState.new()
+	rank_state.quota = 20.0
+	rank_state.elapsed_turn = 30
+	GameState._set_rank_state_for_test(rank_state)
 
-	var resolved: RankMaster = GameState._get_current_rank_master_or_fallback()
+	GameState.commit_rank_outcome()
 
-	assert_object(resolved).is_same(rank)
-	assert_bool(resolved.traits_unlocked).is_true()
-	assert_float(resolved.quota_max).is_equal(100.0)
+	# DEMOTION再挑戦時のノルマ初期値はreset_for_retry(rank_master)が返す値、
+	# つまり注入したRankMasterのquota_max(100.0)と一致するはず
+	assert_float(GameState._rank_state.quota).is_equal_approx(100.0, FLOAT_TOLERANCE)
 
 
 func test_set_rank_state_for_testで注入した値が状態に反映される() -> void:
@@ -121,22 +128,45 @@ func test_特性未解禁ランクでは同じ素材構成でも両ボーナス�
 # 異常系
 
 
+## testing.mdの禁止事項によりprivateメソッド_get_current_rank_master_or_fallback()を
+## 直接呼ばず、公開API（evaluate_rank_outcome）がクラッシュせず安全な結果を返すことで
+## 間接的に検証する（コードレビュー指摘対応）。rank_masters/current_rank_idが
+## 未設定の状態でelapsed_turnだけ極端に大きくしても、CONTINUEを返し
+## 誤ってPROMOTION_ELIGIBLEにならないことを確認する
 func test_rank_mastersが空でもフォールバックRankMasterが返りクラッシュしない() -> void:
-	var resolved: RankMaster = GameState._get_current_rank_master_or_fallback()
+	var rank_state := RankState.new()
+	rank_state.quota = 0.0
+	rank_state.elapsed_turn = 999
+	GameState._set_rank_state_for_test(rank_state)
 
-	assert_object(resolved).is_not_null()
-	assert_bool(resolved.traits_unlocked).is_false()
-	assert_float(resolved.quota_max).is_equal(0.0)
-	assert_int(resolved.limit_turn).is_equal(0)
+	var outcome := GameState.evaluate_rank_outcome()
+
+	assert_int(outcome).is_equal(RankOutcome.Value.CONTINUE)
 
 
+## testing.mdの禁止事項によりprivateメソッド_get_current_rank_master_or_fallback()を
+## 直接呼ばず、公開API（execute_alchemy）が現在ランクIDに対応するマスターが
+## 見つからない場合に特性無効のフォールバックとして扱うことを間接的に検証する
+## （コードレビュー指摘対応）
 func test_現在ランクIDに対応するマスターが無い場合もフォールバックが返る() -> void:
+	GameState._set_recipe_masters_for_test({RECIPE_ID: _make_recipe(RECIPE_ID)})
+	GameState._set_unlocked_recipe_ids_for_test([RECIPE_ID] as Array[StringName])
 	GameState._set_rank_masters_for_test({&"rank_f": _make_rank("rank_f", true)})
 	GameState._set_current_rank_id_for_test(&"rank_s")
+	GameState._inject_material_for_test(
+		MaterialInstance.new(
+			"mat_1", &"material_herb", 3, [&"catalyst", &"heal"] as Array[StringName]
+		)
+	)
+	GameState._inject_material_for_test(
+		MaterialInstance.new("mat_2", &"material_herb", 3, [&"heal"] as Array[StringName])
+	)
 
-	var resolved: RankMaster = GameState._get_current_rank_master_or_fallback()
+	var result := GameState.execute_alchemy(RECIPE_ID, ["mat_1", "mat_2"] as Array[String])
 
-	assert_bool(resolved.traits_unlocked).is_false()
+	var product: ProductInstance = result.value
+	assert_int(product.quality_score).is_equal(3)
+	assert_array(product.activated_traits).is_empty()
 
 
 func test_マスター未注入のまま調合しても特性は無効のまま成功する() -> void:

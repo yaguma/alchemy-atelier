@@ -1,6 +1,3 @@
-# 🔴 500行ルール対応。テスト専用API委譲先(game_state_test_support.gd)からの型注釈用の別名。
-# Autoload名"GameState"とは独立しており、既存の参照方法（GameState.xxx）に影響しない
-class_name GameStateAutoload
 extends Node
 
 signal phase_changed(previous: StringName, next: StringName)
@@ -51,6 +48,15 @@ var _rank_state: RankState = RankState.new()  # 🔵 FR-006
 var _demotion_count: int = 0  # 🔵 FR-006
 # 🔴 FR-202。ゲームオーバー確定後にcommit_rank_outcome()が冪等に返すための直近確定結果
 var _last_rank_outcome: RankOutcome.Value = RankOutcome.Value.CONTINUE
+# 🔴 コードレビュー指摘対応。_rank_state.quotaは現状どの本番コードパスからもquota_maxから
+# 初期化されない（ランクマスターロード自体がCON-006で本plan外）ため、「まだ本物のノルマ値が
+# セットされていない」ことを明示的に区別するフラグ。falseの間はevaluate_rank_outcome()が
+# 常にCONTINUEを返し、quota=0.0の既定値が「ノルマ達成済み」と誤認されることを防ぐ
+var _rank_state_initialized: bool = false
+# 🔴 コードレビュー指摘対応。_get_current_rank_master_or_fallback()のpush_error()が
+# ランクマスター未登録の間、呼び出しのたびに多重発生しコンソールを埋めるのを防ぐため、
+# 一度警告済みのランクIDを記録する（reset_for_test()で初期化）
+var _warned_missing_rank_master_ids: Dictionary = {}
 
 
 # 内部Dictionary/Arrayフィールドを直接返すと呼び出し元が改変できてしまうため、
@@ -345,15 +351,27 @@ func _has_duplicate_ids(ids: Array[String]) -> bool:
 	return false
 
 
+## _current_rank_idに対応するランクIDについて、まだ_warn_missing_rank_master()で
+## 警告していなければpush_error()する。同一ランクIDでの多重発生を防ぐ（🔴 コードレビュー指摘対応）
+func _warn_missing_rank_master() -> void:
+	if _warned_missing_rank_master_ids.has(_current_rank_id):
+		return
+	_warned_missing_rank_master_ids[_current_rank_id] = true
+	push_error("現在ランクのマスターデータが見つかりません: %s" % _current_rank_id)
+
+
 ## 現在ランクのRankMasterを返す。_rank_mastersに_current_rank_idが存在しない場合は
-## push_error()した上で、特性未解禁・ノルマ0・制限ターン0の安全側フォールバックを返す（🔴 FR-114, CON-008）。
-## マスターデータ未ロード時でも調合・納品が例外なく成立することを優先し、null返却は行わない
+## _warn_missing_rank_master()した上で、特性未解禁・ノルマ0・制限ターン0の安全側フォールバックを返す
+## （🔴 FR-114, CON-008）。マスターデータ未ロード時でも調合・納品が例外なく成立することを優先し、
+## null返却は行わない。ランク結果評価（evaluate_rank_outcome）はこのフォールバックの
+## quota_max=0.0/limit_turn=0が誤ってPROMOTION_ELIGIBLEを誘発しないよう、あえてこの関数を
+## 経由せず_rank_mastersを直接参照する（コードレビュー指摘対応）
 func _get_current_rank_master_or_fallback() -> RankMaster:
 	var master: RankMaster = _rank_masters.get(_current_rank_id)
 	if master != null:
 		return master
 
-	push_error("現在ランクのマスターデータが見つかりません: %s" % _current_rank_id)
+	_warn_missing_rank_master()
 	var fallback := RankMaster.new()
 	fallback.id = String(_current_rank_id)
 	fallback.traits_unlocked = false
@@ -363,9 +381,20 @@ func _get_current_rank_master_or_fallback() -> RankMaster:
 
 
 ## 🔴 CON-009。現在のRankState/RankMasterからランク結果を算出して返す（FR-109）。
-## 副作用を持たない問い合わせ専用。UIの先出し表示と、commit_rank_outcome()の実行直前再評価の両方から使う
+## 副作用を持たない問い合わせ専用。UIの先出し表示と、commit_rank_outcome()の実行直前再評価の両方から使う。
+## 🔴 コードレビュー指摘対応。_rank_state_initializedがfalseの間（quota_maxからの初期化が
+## まだ行われていない、ランクマスターがロードされていない等）は常にCONTINUEを返す。
+## こうしないと_rank_state.quotaの既定値0.0が「ノルマ達成済み」と誤認され、
+## ランクの初回挑戦が常にPROMOTION_ELIGIBLE判定になってしまう
 func evaluate_rank_outcome() -> RankOutcome.Value:
-	var rank_master := _get_current_rank_master_or_fallback()
+	if not _rank_state_initialized:
+		return RankOutcome.Value.CONTINUE
+
+	var rank_master: RankMaster = _rank_masters.get(_current_rank_id)
+	if rank_master == null:
+		_warn_missing_rank_master()
+		return RankOutcome.Value.CONTINUE
+
 	var quota_cleared := RankQuotaResolver.is_rank_cleared(_rank_state.quota)
 	var turn_limit_reached := TurnLimitResolver.is_turn_limit_reached(
 		_rank_state.elapsed_turn, rank_master.limit_turn
@@ -377,20 +406,25 @@ func evaluate_rank_outcome() -> RankOutcome.Value:
 ## DEMOTIONなら降格回数を加算し、RankStateを再挑戦用に差し替える。
 ## ゲームオーバー成立時のみgame_over(_demotion_count)を発行する（FR-113）。
 ## PROMOTION_ELIGIBLEでは次ランクへ進めない（FR-404、promotion-exam planの責務）。
-## 既にゲームオーバー確定済みなら状態を変更せず直近の確定結果を返す（FR-202、冪等性）
+## 既にゲームオーバー確定済みなら状態を変更せず直近の確定結果を返す（FR-202、冪等性）。
+## 🔴 コードレビュー指摘対応。DEMOTION側の状態更新（_demotion_count/_rank_state）は、
+## 他の全GameStateミューテータ（harvest/execute_alchemy/deliver_pending_products）と同様、
+## 必ずrank_outcome_confirmed発行より前に完了させる（同期リスナーが更新前の値を読むのを防ぐ）
 func commit_rank_outcome() -> Result:
 	if is_game_over():
 		return Result.ok(_last_rank_outcome)
 
 	var outcome := evaluate_rank_outcome()
 	_last_rank_outcome = outcome
-	rank_outcome_confirmed.emit(outcome)  # 🔴 FR-112
 
 	if outcome == RankOutcome.Value.DEMOTION:
 		_demotion_count += 1
 		_rank_state = RankQuotaResolver.reset_for_retry(_get_current_rank_master_or_fallback())
-		if is_game_over():
-			game_over.emit(_demotion_count)
+
+	rank_outcome_confirmed.emit(outcome)  # 🔴 FR-112
+
+	if outcome == RankOutcome.Value.DEMOTION and is_game_over():
+		game_over.emit(_demotion_count)
 
 	return Result.ok(outcome)
 
@@ -469,12 +503,11 @@ func _inject_pending_product_for_test(product: ProductInstance) -> void:
 	GameStateTestSupport.inject_pending_product(self, product)
 
 
-# テスト分離専用。assert()はリリースビルドで除去されるため、
-# push_error+returnを併用して本番コードパスからの実行を確実に止める
+# テスト分離専用。デバッグビルドガードは他のテスト専用API群と同じくGameStateTestSupport.guard()
+# へ一元化する（🔴 コードレビュー指摘対応。以前は本関数だけ独自にassert+push_error+returnを
+# 重複実装していた）
 func reset_for_test() -> void:
-	assert(OS.is_debug_build(), "reset_for_test() must not be called in release builds")
-	if not OS.is_debug_build():
-		push_error("reset_for_test() must not be called in release builds")
+	if not GameStateTestSupport.guard("reset_for_test"):
 		return
 	_current_phase = &"garden"
 	_gold = 0
@@ -498,3 +531,5 @@ func reset_for_test() -> void:
 	_rank_state = RankState.new()
 	_demotion_count = 0
 	_last_rank_outcome = RankOutcome.Value.CONTINUE
+	_rank_state_initialized = false
+	_warned_missing_rank_master_ids = {}
