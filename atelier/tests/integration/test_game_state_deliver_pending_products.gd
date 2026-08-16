@@ -147,6 +147,39 @@ func test_monitor_signalsでdeliveredシグナルの発行を検証できる() -
 	await assert_signal(GameState).is_emitted("delivered", [results])
 
 
+## コードレビュー指摘: delivered.emit(results)とReturn.ok(results)が同一配列を共有していると、
+## 購読側が配列を書き換えた場合に戻り値まで汚染される。emit側には独立した配列を渡す
+func test_deliveredで受け取った配列を変更してもResultの戻り値は汚染されない() -> void:
+	_inject_product(_make_product(RECIPE_ID, 10.0, 2.0))
+	_inject_product(_make_product(RECIPE_ID, 20.0, 3.0))
+
+	var results: Array[DeliveryResult] = GameState.deliver_pending_products().value
+	_delivered_payloads[0].clear()
+
+	assert_int(results.size()).is_equal(2)
+
+
+func test_gold_changedシグナルがgold加算後に発行される() -> void:
+	monitor_signals(GameState, false)
+	_inject_product(_make_product(RECIPE_ID, 10.0, 5.0))
+
+	GameState.deliver_pending_products()
+
+	await assert_signal(GameState).is_emitted(GameState.gold_changed, 0, 5, 5)
+
+
+func test_goldに変化がない場合はgold_changedシグナルが発行されない() -> void:
+	var emit_count := 0
+	var handler := func(_previous: int, _new_amount: int, _delta: int) -> void: emit_count += 1
+	GameState.gold_changed.connect(handler)
+
+	_inject_product(_make_product(RECIPE_ID, 10.0, 0.0))
+	GameState.deliver_pending_products()
+
+	GameState.gold_changed.disconnect(handler)
+	assert_int(emit_count).is_equal(0)
+
+
 # 異常系・エッジケース
 
 

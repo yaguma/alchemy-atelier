@@ -15,8 +15,14 @@ static func matches_order(product: ProductInstance, daily_order: DailyOrderMaste
 
 	match daily_order.condition_type:
 		CONDITION_TYPE_ITEM:
+			# 🔴 target_recipe_id未設定（既定値""）を、recipe_idが空のProduct（本来あり得ないが
+			# 不正なマスターデータ/フィクスチャ由来の場合）と誤って合致させないためのガード
+			if daily_order.target_recipe_id.is_empty():
+				return false
 			return product.recipe_id == StringName(daily_order.target_recipe_id)
 		CONDITION_TYPE_TRAIT:
+			if daily_order.target_trait.is_empty():
+				return false
 			return product.activated_traits.has(StringName(daily_order.target_trait))
 		_:
 			return false

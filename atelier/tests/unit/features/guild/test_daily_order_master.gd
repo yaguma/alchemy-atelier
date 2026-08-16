@@ -39,6 +39,33 @@ func test_Resourceを継承している() -> void:
 	assert_bool(order is Resource).is_true()
 
 
+func test_cloneで全フィールドを保持した独立インスタンスが得られる() -> void:
+	var original := DailyOrderMaster.new()
+	original.id = "order_original"
+	original.condition_type = "item"
+	original.target_recipe_id = "recipe_original"
+	original.target_trait = "trait_original"
+	original.match_bonus_multiplier = 2.0
+
+	var copy := original.clone()
+
+	assert_str(copy.id).is_equal("order_original")
+	assert_str(copy.condition_type).is_equal("item")
+	assert_str(copy.target_recipe_id).is_equal("recipe_original")
+	assert_str(copy.target_trait).is_equal("trait_original")
+	assert_float(copy.match_bonus_multiplier).is_equal(2.0)
+
+
+func test_clone後に複製側を変更しても元のインスタンスは汚染されない() -> void:
+	var original := DailyOrderMaster.new()
+	original.match_bonus_multiplier = 1.3
+
+	var copy := original.clone()
+	copy.match_bonus_multiplier = 9.9
+
+	assert_float(original.match_bonus_multiplier).is_equal(1.3)
+
+
 func test_tres実データなしでフィクスチャ生成のみでインスタンス化が完結する() -> void:
 	var order := DailyOrderMaster.new()
 	order.id = "fixture_only"

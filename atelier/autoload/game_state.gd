@@ -9,6 +9,9 @@ signal product_crafted(product: ProductInstance)  # 🔵 FR-112
 # 🔴 garden の plant_seed_failed/harvest_failed パターン踏襲（FR-113）
 signal execute_alchemy_failed(recipe_id: StringName, error_code: StringName)
 signal delivered(results: Array[DeliveryResult])  # 🔴 FR-108
+# 🔴 state-management.mdが定義するゴールド変動通知。deliver_pending_products()が
+# _goldを変更する最初の経路のため、ここで初めて発行する
+signal gold_changed(previous_amount: int, new_amount: int, delta: int)
 
 var _current_phase: StringName = &"garden"
 var _gold: int = 0
@@ -68,9 +71,9 @@ func get_state() -> Dictionary:
 		"pending_products": cloned_pending_products,
 		# 🔴 floatは値型のため複製不要（FR-403）
 		"accumulated_contribution": _accumulated_contribution,
-		# 🔴 DailyOrderMasterは@export var（プリミティブ）のみでネストしたArray/Dictionaryを
-		# 持たないため、参照をそのまま返してよい（FR-408の対象はpending_productsに限定）
-		"current_daily_order": _current_daily_order,
+		# 🔴 DailyOrderMasterは@export var（プリミティブ）のみで構成されるが、Resource自体は
+		# 参照型のため他フィールドと同様clone()してから返す（state-management.md防御的コピー要件）
+		"current_daily_order": _current_daily_order.clone() if _current_daily_order else null,
 	}
 
 
@@ -263,6 +266,7 @@ func deliver_pending_products() -> Result:
 	if _pending_products.is_empty():
 		return Result.ok(results)
 
+	var gold_before := _gold
 	for product in _pending_products:
 		var delivery_result := DeliveryResolver.resolve(product, _current_daily_order)
 		_gold += roundi(delivery_result.final_reward)
@@ -272,7 +276,14 @@ func deliver_pending_products() -> Result:
 	# 🔴 走査中にclear()すると反復が壊れるため、キューの破棄はループ完了後に行う
 	_pending_products.clear()
 
-	delivered.emit(results)
+	if _gold != gold_before:
+		gold_changed.emit(gold_before, _gold, _gold - gold_before)
+
+	# 🔴 emit直後にResult.ok(results)で同一配列を返すと、delivered購読側がその場で
+	# 配列を書き換え（clear/並べ替え等）た場合に戻り値まで汚染される。
+	# duplicate()でシグナル発行用の別配列を渡し、戻り値の配列とは独立させる
+	# （要素のDeliveryResultインスタンス自体はプリミティブ値型フィールドのみのため共有で問題ない）
+	delivered.emit(results.duplicate())
 	return Result.ok(results)
 
 
@@ -397,7 +408,9 @@ func _set_traits_unlocked_for_test(value: bool) -> void:
 	_traits_unlocked = value
 
 
-## 🔴 テスト専用。deliver_pending_products()を経由せず本日の指定調合物を直接注入する（FR-301, AC-008）
+## 🔴 テスト専用。deliver_pending_products()を経由せず本日の指定調合物を直接注入する（FR-301, AC-008）。
+## 内部正本は独立コピーとして保持し、呼び出し元が注入後に引数を変更しても汚染されないようにする
+## （_inject_material_for_test/_inject_pending_product_for_testと同じ方針）
 func _set_current_daily_order_for_test(order: DailyOrderMaster) -> void:
 	assert(
 		OS.is_debug_build(),
@@ -406,7 +419,7 @@ func _set_current_daily_order_for_test(order: DailyOrderMaster) -> void:
 	if not OS.is_debug_build():
 		push_error("_set_current_daily_order_for_test() must not be called in release builds")
 		return
-	_current_daily_order = order
+	_current_daily_order = order.clone() if order else null
 
 
 ## 🔴 テスト専用。harvest()/execute_alchemy()を経由せずinventoryへ素材を直接注入する。

@@ -58,6 +58,24 @@ func test_特性条件で発現特性が空なら非合致と判定される() -
 	assert_bool(DeliveryResolver.matches_order(product, order)).is_false()
 
 
+# 異常系: target_recipe_id未設定（既定値""）のitem条件は、recipe_idが空の調合物とも
+# 誤って合致しないことを保証する（コードレビュー指摘: 不正なマスターデータ/フィクスチャ対策）
+func test_アイテム条件でtarget_recipe_idが空なら非合致と判定される() -> void:
+	var product := _make_product(&"")
+	var order := _make_order("item", "")
+
+	assert_bool(DeliveryResolver.matches_order(product, order)).is_false()
+
+
+# 異常系: target_trait未設定（既定値""）のtrait条件は、活性特性が空の調合物とも
+# 誤って合致しないことを保証する
+func test_特性条件でtarget_traitが空なら非合致と判定される() -> void:
+	var product := _make_product(&"healing_potion", [&""] as Array[StringName])
+	var order := _make_order("trait", "", "")
+
+	assert_bool(DeliveryResolver.matches_order(product, order)).is_false()
+
+
 # 異常系: AC-003 daily_order=nullでも判定がクラッシュしない
 func test_指定依頼がnullなら非合致と判定される() -> void:
 	var product := _make_product(&"healing_potion")
