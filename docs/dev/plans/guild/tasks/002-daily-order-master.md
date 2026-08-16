@@ -1,7 +1,7 @@
 ---
 id: "002"
 title: "DailyOrderMasterのResource型を実装する"
-status: pending
+status: done
 priority: 1
 dependencies: []
 estimated_complexity: low
