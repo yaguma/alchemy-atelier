@@ -54,3 +54,11 @@ const INITIAL_RECIPE_ID: StringName = &"recipe_healing_potion"  # 🔵 CON-008
 # 指定合致ボーナス倍率の既定値。DeliveryResolverはDailyOrderMaster.match_bonus_multiplier側を
 # 参照するため（CON-006）、本定数はマスターデータ（.tres）作成時・テストフィクスチャの既定値に留まる
 const DAILY_ORDER_MATCH_BONUS_MULTIPLIER := 1.3  # 🔵 FR-004/CON-006, requirements.md §5
+
+# --- ランク進行（rank）関連定数 ---
+
+# 降格がこの回数に達した時点でゲームオーバーとする（requirements.md §7「仮3」を採用した暫定値）
+const MAX_DEMOTION_COUNT := 3  # 🟡 FR-007/CON-007, requirements.md §7
+
+# ゲーム開始時のランク。対応する.tresは未作成（CON-006）のため、テストではフィクスチャを注入する
+const INITIAL_RANK_ID: StringName = &"rank_g"  # 🔴 新規補完（INITIAL_SEED_ID/INITIAL_RECIPE_ID同型）

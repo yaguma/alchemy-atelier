@@ -12,6 +12,8 @@ signal delivered(results: Array[DeliveryResult])  # 🔴 FR-108
 # 🔴 state-management.mdが定義するゴールド変動通知。deliver_pending_products()が
 # _goldを変更する最初の経路のため、ここで初めて発行する
 signal gold_changed(previous_amount: int, new_amount: int, delta: int)
+signal rank_outcome_confirmed(outcome: RankOutcome.Value)  # 🔴 FR-112
+signal game_over(demotion_count: int)  # 🔴 FR-113
 
 var _current_phase: StringName = &"garden"
 var _gold: int = 0
@@ -34,14 +36,18 @@ var _unlocked_recipe_ids: Array[StringName] = [GameBalance.INITIAL_RECIPE_ID]  #
 var _pending_products: Array[ProductInstance] = []  # 🔴 FR-008 ギルド納品待ちキュー
 # 🔵 FR-006「実行時権威」の暫定置き場（_garden_slot_countと同様、本plan内ではGameStateが仮に保持する）
 var _alchemy_slot_count: int = GameBalance.ALCHEMY_SLOT_COUNT_DEFAULT
-# 🔴 CON-007。特性解禁はRankMaster側で管理する想定だが未実装のため暫定フィールドとして持つ
-var _traits_unlocked: bool = false
 
 # --- ギルド納品（guild）関連フィールド ---
-# 🔴 FR-006, CON-004。RankSystem未実装のため、ランクノルマへの反映は行わず累積値のみ保持する
-var _accumulated_contribution: float = 0.0
 # 🔴 CON-010。日替わり指定調合物の再抽選ロジックは別planのため、既定値nullでも納品が成立する
 var _current_daily_order: DailyOrderMaster = null
+
+# --- ランク進行（rank）関連フィールド ---
+var _current_rank_id: StringName = GameBalance.INITIAL_RANK_ID  # 🔵 FR-006
+var _rank_masters: Dictionary = {}  # 🔵 FR-006。Dictionary[StringName, RankMaster]
+var _rank_state: RankState = RankState.new()  # 🔵 FR-006
+var _demotion_count: int = 0  # 🔵 FR-006
+# 🔴 FR-202。ゲームオーバー確定後にcommit_rank_outcome()が冪等に返すための直近確定結果
+var _last_rank_outcome: RankOutcome.Value = RankOutcome.Value.CONTINUE
 
 
 # 内部Dictionary/Arrayフィールドを直接返すと呼び出し元が改変できてしまうため、
@@ -69,11 +75,13 @@ func get_state() -> Dictionary:
 		# 🔴 要素がStringName（値型相当）のため浅い複製で十分（FR-403）
 		"unlocked_recipe_ids": _unlocked_recipe_ids.duplicate(),
 		"pending_products": cloned_pending_products,
-		# 🔴 floatは値型のため複製不要（FR-403）
-		"accumulated_contribution": _accumulated_contribution,
 		# 🔴 DailyOrderMasterは@export var（プリミティブ）のみで構成されるが、Resource自体は
 		# 参照型のため他フィールドと同様clone()してから返す（state-management.md防御的コピー要件）
 		"current_daily_order": _current_daily_order.clone() if _current_daily_order else null,
+		# 🔵 FR-006。StringName/intは値型のため複製不要。RankStateは参照型のためclone()する（FR-410）
+		"current_rank_id": _current_rank_id,
+		"demotion_count": _demotion_count,
+		"rank_state": _rank_state.clone(),
 	}
 
 
@@ -223,10 +231,11 @@ func execute_alchemy(recipe_id: StringName, material_instance_ids: Array[String]
 		execute_alchemy_failed.emit(recipe_id, &"slot_execution_invalid")
 		return Result.fail(&"slot_execution_invalid")
 
-	# 🔵 FR-104。品質判定と特性発現判定には同一の_traits_unlockedを渡す
-	var quality := QualityCalculator.calculate_quality(materials, _traits_unlocked)
+	# 🔵 FR-104/FR-201。品質判定と特性発現判定には現在ランク由来の同一のtraits_unlockedを渡す
+	var traits_unlocked := _get_current_rank_master_or_fallback().traits_unlocked
+	var quality := QualityCalculator.calculate_quality(materials, traits_unlocked)
 	var quality_mult := QualityCalculator.quality_multiplier(quality)
-	var activated_traits := TraitActivation.resolve_traits(materials, _traits_unlocked)
+	var activated_traits := TraitActivation.resolve_traits(materials, traits_unlocked)
 
 	var recipe: RecipeMaster = _recipe_masters[recipe_id]
 	var contribution := ProductValueCalculator.calculate_contribution(
@@ -258,7 +267,8 @@ func execute_alchemy(recipe_id: StringName, material_instance_ids: Array[String]
 ## 🔴 _pending_productsを先頭から全件消費し、各ProductInstanceについて
 ## DeliveryResolver.resolve(product, _current_daily_order)を呼び出す（FR-005, FR-105）。
 ## final_rewardはroundi()で丸めて_goldへ即時加算（FR-106, CON-007）、
-## final_contributionはfloatのまま_accumulated_contributionへ加算する（FR-107）。
+## final_contributionはRankQuotaResolver.apply_contributionで現在ランクのノルマ残量から
+## 減算する（🔵 FR-108, CON-004）。
 ## 全件処理後にキューを空にしdelivered(results)を発行する（FR-108）。
 ## キューが空の場合は状態を一切変更せずResult.ok([])を返す（FR-109, AC-012）
 func deliver_pending_products() -> Result:
@@ -270,7 +280,9 @@ func deliver_pending_products() -> Result:
 	for product in _pending_products:
 		var delivery_result := DeliveryResolver.resolve(product, _current_daily_order)
 		_gold += roundi(delivery_result.final_reward)
-		_accumulated_contribution += delivery_result.final_contribution
+		_rank_state.quota = RankQuotaResolver.apply_contribution(
+			_rank_state.quota, delivery_result.final_contribution
+		)
 		results.append(delivery_result)
 
 	# 🔴 走査中にclear()すると反復が壊れるため、キューの破棄はループ完了後に行う
@@ -328,6 +340,61 @@ func _has_duplicate_ids(ids: Array[String]) -> bool:
 			return true
 		seen[instance_id] = true
 	return false
+
+
+## 現在ランクのRankMasterを返す。_rank_mastersに_current_rank_idが存在しない場合は
+## push_error()した上で、特性未解禁・ノルマ0・制限ターン0の安全側フォールバックを返す（🔴 FR-114, CON-008）。
+## マスターデータ未ロード時でも調合・納品が例外なく成立することを優先し、null返却は行わない
+func _get_current_rank_master_or_fallback() -> RankMaster:
+	var master: RankMaster = _rank_masters.get(_current_rank_id)
+	if master != null:
+		return master
+
+	push_error("現在ランクのマスターデータが見つかりません: %s" % _current_rank_id)
+	var fallback := RankMaster.new()
+	fallback.id = String(_current_rank_id)
+	fallback.traits_unlocked = false
+	fallback.quota_max = 0.0
+	fallback.limit_turn = 0
+	return fallback
+
+
+## 🔴 CON-009。現在のRankState/RankMasterからランク結果を算出して返す（FR-109）。
+## 副作用を持たない問い合わせ専用。UIの先出し表示と、commit_rank_outcome()の実行直前再評価の両方から使う
+func evaluate_rank_outcome() -> RankOutcome.Value:
+	var rank_master := _get_current_rank_master_or_fallback()
+	var quota_cleared := RankQuotaResolver.is_rank_cleared(_rank_state.quota)
+	var turn_limit_reached := TurnLimitResolver.is_turn_limit_reached(
+		_rank_state.elapsed_turn, rank_master.limit_turn
+	)
+	return TurnLimitResolver.resolve_rank_outcome(quota_cleared, turn_limit_reached)
+
+
+## 🔴 CON-009。evaluate_rank_outcome()を実行直前に再評価して状態へ確定反映する（FR-110）。
+## DEMOTIONなら降格回数を加算し、RankStateを再挑戦用に差し替える。
+## ゲームオーバー成立時のみgame_over(_demotion_count)を発行する（FR-113）。
+## PROMOTION_ELIGIBLEでは次ランクへ進めない（FR-404、promotion-exam planの責務）。
+## 既にゲームオーバー確定済みなら状態を変更せず直近の確定結果を返す（FR-202、冪等性）
+func commit_rank_outcome() -> Result:
+	if is_game_over():
+		return Result.ok(_last_rank_outcome)
+
+	var outcome := evaluate_rank_outcome()
+	_last_rank_outcome = outcome
+	rank_outcome_confirmed.emit(outcome)  # 🔴 FR-112
+
+	if outcome == RankOutcome.Value.DEMOTION:
+		_demotion_count += 1
+		_rank_state = RankQuotaResolver.reset_for_retry(_get_current_rank_master_or_fallback())
+		if is_game_over():
+			game_over.emit(_demotion_count)
+
+	return Result.ok(outcome)
+
+
+## 🔵 FR-111。降格回数が上限に達しているか
+func is_game_over() -> bool:
+	return _demotion_count >= GameBalance.MAX_DEMOTION_COUNT
 
 
 ## テスト専用。実.tresロードを介さずSeedMaster/MaterialMasterを直接注入する（🟡 CON-005対応）
@@ -397,15 +464,45 @@ func _set_alchemy_slot_count_for_test(count: int) -> void:
 	_alchemy_slot_count = count
 
 
-## 🔴 テスト専用。traits_unlockedをランク進行を介さず直接注入する（AC-011検証用）
-func _set_traits_unlocked_for_test(value: bool) -> void:
+## 🟡 テスト専用。実.tresロードを介さずRankMasterを直接注入する（FR-301、_set_recipe_masters_for_testと同型）
+func _set_rank_masters_for_test(masters: Dictionary) -> void:
+	assert(OS.is_debug_build(), "_set_rank_masters_for_test() must not be called in release builds")
+	if not OS.is_debug_build():
+		push_error("_set_rank_masters_for_test() must not be called in release builds")
+		return
+	_rank_masters = masters
+
+
+## 🟡 テスト専用。current_rank_idを昇格・降格を介さず直接注入する（FR-301）
+func _set_current_rank_id_for_test(rank_id: StringName) -> void:
 	assert(
-		OS.is_debug_build(), "_set_traits_unlocked_for_test() must not be called in release builds"
+		OS.is_debug_build(), "_set_current_rank_id_for_test() must not be called in release builds"
 	)
 	if not OS.is_debug_build():
-		push_error("_set_traits_unlocked_for_test() must not be called in release builds")
+		push_error("_set_current_rank_id_for_test() must not be called in release builds")
 		return
-	_traits_unlocked = value
+	_current_rank_id = rank_id
+
+
+## 🟡 テスト専用。rank_stateをターン進行を介さず直接注入する（FR-301）。
+## 内部正本は独立コピーとして保持し、呼び出し元が注入後に引数を変更しても汚染されないようにする
+func _set_rank_state_for_test(state: RankState) -> void:
+	assert(OS.is_debug_build(), "_set_rank_state_for_test() must not be called in release builds")
+	if not OS.is_debug_build():
+		push_error("_set_rank_state_for_test() must not be called in release builds")
+		return
+	_rank_state = state.clone()
+
+
+## 🟡 テスト専用。demotion_countを降格処理を介さず直接注入する（FR-301）
+func _set_demotion_count_for_test(count: int) -> void:
+	assert(
+		OS.is_debug_build(), "_set_demotion_count_for_test() must not be called in release builds"
+	)
+	if not OS.is_debug_build():
+		push_error("_set_demotion_count_for_test() must not be called in release builds")
+		return
+	_demotion_count = count
 
 
 ## 🔴 テスト専用。deliver_pending_products()を経由せず本日の指定調合物を直接注入する（FR-301, AC-008）。
@@ -469,6 +566,9 @@ func reset_for_test() -> void:
 	_unlocked_recipe_ids = [GameBalance.INITIAL_RECIPE_ID]
 	_pending_products = []
 	_alchemy_slot_count = GameBalance.ALCHEMY_SLOT_COUNT_DEFAULT
-	_traits_unlocked = false
-	_accumulated_contribution = 0.0
 	_current_daily_order = null
+	_current_rank_id = GameBalance.INITIAL_RANK_ID
+	_rank_masters = {}
+	_rank_state = RankState.new()
+	_demotion_count = 0
+	_last_rank_outcome = RankOutcome.Value.CONTINUE

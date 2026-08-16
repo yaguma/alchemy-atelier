@@ -1,7 +1,7 @@
 ---
 id: "006"
 title: "TurnLimitResolverを実装する"
-status: pending
+status: done
 priority: 2
 dependencies: ["001"]
 estimated_complexity: medium

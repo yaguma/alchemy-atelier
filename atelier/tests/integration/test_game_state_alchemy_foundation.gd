@@ -24,7 +24,6 @@ func test_reset_for_test直後は調合関連フィールドが初期値であ�
 	)
 	assert_int(GameState._pending_products.size()).is_equal(0)
 	assert_int(GameState._alchemy_slot_count).is_equal(GameBalance.ALCHEMY_SLOT_COUNT_DEFAULT)
-	assert_bool(GameState._traits_unlocked).is_false()
 
 
 func test_load_alchemy_master_dataで実データからrecipe_healing_potionがロードされる() -> void:
@@ -66,7 +65,6 @@ func test_テスト専用APIで注入した調合関連フィールドが状態�
 	GameState._set_recipe_masters_for_test({&"recipe_test": _make_recipe(&"recipe_test")})
 	GameState._set_unlocked_recipe_ids_for_test([&"recipe_a", &"recipe_b"] as Array[StringName])
 	GameState._set_alchemy_slot_count_for_test(6)
-	GameState._set_traits_unlocked_for_test(true)
 
 	var state := GameState.get_state()
 	assert_bool(GameState._recipe_masters.has(&"recipe_test")).is_true()
@@ -74,7 +72,6 @@ func test_テスト専用APIで注入した調合関連フィールドが状態�
 		[&"recipe_a", &"recipe_b"] as Array[StringName]
 	)
 	assert_int(GameState._alchemy_slot_count).is_equal(6)
-	assert_bool(GameState._traits_unlocked).is_true()
 
 
 # 異常系（防御的コピー）
@@ -107,14 +104,12 @@ func test_get_state戻り値のunlocked_recipe_idsを変更しても内部状態
 
 func test_reset_for_testを複数回呼んでも調合関連フィールドが初期状態に戻り続ける() -> void:
 	GameState._set_alchemy_slot_count_for_test(99)
-	GameState._set_traits_unlocked_for_test(true)
 	GameState._set_unlocked_recipe_ids_for_test([&"recipe_a"] as Array[StringName])
 
 	GameState.reset_for_test()
 	GameState.reset_for_test()
 
 	assert_int(GameState._alchemy_slot_count).is_equal(GameBalance.ALCHEMY_SLOT_COUNT_DEFAULT)
-	assert_bool(GameState._traits_unlocked).is_false()
 	assert_array(GameState._unlocked_recipe_ids).contains_exactly(
 		[GameBalance.INITIAL_RECIPE_ID] as Array[StringName]
 	)

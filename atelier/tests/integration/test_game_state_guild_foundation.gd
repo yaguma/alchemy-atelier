@@ -18,15 +18,14 @@ func _make_daily_order(id: String) -> DailyOrderMaster:
 
 
 func test_reset_for_test直後はギルド納品関連フィールドが初期値である() -> void:
-	assert_float(GameState._accumulated_contribution).is_equal(0.0)
 	assert_object(GameState._current_daily_order).is_null()
 
 
-func test_get_stateがaccumulated_contributionを含み内部値と一致する() -> void:
+## FR-408: 貢献度はランクノルマ（_rank_state.quota）へ直接反映されるため、暫定フィールドは削除済み
+func test_get_stateがaccumulated_contributionを含まない() -> void:
 	var state := GameState.get_state()
 
-	assert_bool(state.has("accumulated_contribution")).is_true()
-	assert_float(state["accumulated_contribution"]).is_equal(GameState._accumulated_contribution)
+	assert_bool(state.has("accumulated_contribution")).is_false()
 
 
 func test_get_stateがcurrent_daily_orderを含む() -> void:
@@ -105,5 +104,4 @@ func test_reset_for_testでギルド納品関連フィールドが初期状態�
 
 	GameState.reset_for_test()
 
-	assert_float(GameState._accumulated_contribution).is_equal(0.0)
 	assert_object(GameState._current_daily_order).is_null()
