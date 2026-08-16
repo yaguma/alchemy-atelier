@@ -1,7 +1,7 @@
 ---
 id: "005"
 title: "RankQuotaResolverを実装する"
-status: pending
+status: done
 priority: 2
 dependencies: ["002", "004"]
 estimated_complexity: medium

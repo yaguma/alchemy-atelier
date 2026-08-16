@@ -1,7 +1,7 @@
 ---
 id: "007"
 title: "GameStateにランク関連フィールドを追加しtraits_unlockedをランク由来に置き換える"
-status: pending
+status: done
 priority: 3
 dependencies: ["002", "003", "004"]
 estimated_complexity: high

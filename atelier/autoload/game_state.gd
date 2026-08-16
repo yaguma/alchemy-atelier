@@ -12,6 +12,8 @@ signal delivered(results: Array[DeliveryResult])  # 🔴 FR-108
 # 🔴 state-management.mdが定義するゴールド変動通知。deliver_pending_products()が
 # _goldを変更する最初の経路のため、ここで初めて発行する
 signal gold_changed(previous_amount: int, new_amount: int, delta: int)
+signal rank_outcome_confirmed(outcome: RankOutcome.Value)  # 🔴 FR-112
+signal game_over(demotion_count: int)  # 🔴 FR-113
 
 var _current_phase: StringName = &"garden"
 var _gold: int = 0
@@ -34,14 +36,27 @@ var _unlocked_recipe_ids: Array[StringName] = [GameBalance.INITIAL_RECIPE_ID]  #
 var _pending_products: Array[ProductInstance] = []  # 🔴 FR-008 ギルド納品待ちキュー
 # 🔵 FR-006「実行時権威」の暫定置き場（_garden_slot_countと同様、本plan内ではGameStateが仮に保持する）
 var _alchemy_slot_count: int = GameBalance.ALCHEMY_SLOT_COUNT_DEFAULT
-# 🔴 CON-007。特性解禁はRankMaster側で管理する想定だが未実装のため暫定フィールドとして持つ
-var _traits_unlocked: bool = false
 
 # --- ギルド納品（guild）関連フィールド ---
-# 🔴 FR-006, CON-004。RankSystem未実装のため、ランクノルマへの反映は行わず累積値のみ保持する
-var _accumulated_contribution: float = 0.0
 # 🔴 CON-010。日替わり指定調合物の再抽選ロジックは別planのため、既定値nullでも納品が成立する
 var _current_daily_order: DailyOrderMaster = null
+
+# --- ランク進行（rank）関連フィールド ---
+var _current_rank_id: StringName = GameBalance.INITIAL_RANK_ID  # 🔵 FR-006
+var _rank_masters: Dictionary = {}  # 🔵 FR-006。Dictionary[StringName, RankMaster]
+var _rank_state: RankState = RankState.new()  # 🔵 FR-006
+var _demotion_count: int = 0  # 🔵 FR-006
+# 🔴 FR-202。ゲームオーバー確定後にcommit_rank_outcome()が冪等に返すための直近確定結果
+var _last_rank_outcome: RankOutcome.Value = RankOutcome.Value.CONTINUE
+# 🔴 コードレビュー指摘対応。_rank_state.quotaは現状どの本番コードパスからもquota_maxから
+# 初期化されない（ランクマスターロード自体がCON-006で本plan外）ため、「まだ本物のノルマ値が
+# セットされていない」ことを明示的に区別するフラグ。falseの間はevaluate_rank_outcome()が
+# 常にCONTINUEを返し、quota=0.0の既定値が「ノルマ達成済み」と誤認されることを防ぐ
+var _rank_state_initialized: bool = false
+# 🔴 コードレビュー指摘対応。_get_current_rank_master_or_fallback()のpush_error()が
+# ランクマスター未登録の間、呼び出しのたびに多重発生しコンソールを埋めるのを防ぐため、
+# 一度警告済みのランクIDを記録する（reset_for_test()で初期化）
+var _warned_missing_rank_master_ids: Dictionary = {}
 
 
 # 内部Dictionary/Arrayフィールドを直接返すと呼び出し元が改変できてしまうため、
@@ -69,11 +84,13 @@ func get_state() -> Dictionary:
 		# 🔴 要素がStringName（値型相当）のため浅い複製で十分（FR-403）
 		"unlocked_recipe_ids": _unlocked_recipe_ids.duplicate(),
 		"pending_products": cloned_pending_products,
-		# 🔴 floatは値型のため複製不要（FR-403）
-		"accumulated_contribution": _accumulated_contribution,
 		# 🔴 DailyOrderMasterは@export var（プリミティブ）のみで構成されるが、Resource自体は
 		# 参照型のため他フィールドと同様clone()してから返す（state-management.md防御的コピー要件）
 		"current_daily_order": _current_daily_order.clone() if _current_daily_order else null,
+		# 🔵 FR-006。StringName/intは値型のため複製不要。RankStateは参照型のためclone()する（FR-410）
+		"current_rank_id": _current_rank_id,
+		"demotion_count": _demotion_count,
+		"rank_state": _rank_state.clone(),
 	}
 
 
@@ -223,10 +240,11 @@ func execute_alchemy(recipe_id: StringName, material_instance_ids: Array[String]
 		execute_alchemy_failed.emit(recipe_id, &"slot_execution_invalid")
 		return Result.fail(&"slot_execution_invalid")
 
-	# 🔵 FR-104。品質判定と特性発現判定には同一の_traits_unlockedを渡す
-	var quality := QualityCalculator.calculate_quality(materials, _traits_unlocked)
+	# 🔵 FR-104/FR-201。品質判定と特性発現判定には現在ランク由来の同一のtraits_unlockedを渡す
+	var traits_unlocked := _get_current_rank_master_or_fallback().traits_unlocked
+	var quality := QualityCalculator.calculate_quality(materials, traits_unlocked)
 	var quality_mult := QualityCalculator.quality_multiplier(quality)
-	var activated_traits := TraitActivation.resolve_traits(materials, _traits_unlocked)
+	var activated_traits := TraitActivation.resolve_traits(materials, traits_unlocked)
 
 	var recipe: RecipeMaster = _recipe_masters[recipe_id]
 	var contribution := ProductValueCalculator.calculate_contribution(
@@ -258,7 +276,8 @@ func execute_alchemy(recipe_id: StringName, material_instance_ids: Array[String]
 ## 🔴 _pending_productsを先頭から全件消費し、各ProductInstanceについて
 ## DeliveryResolver.resolve(product, _current_daily_order)を呼び出す（FR-005, FR-105）。
 ## final_rewardはroundi()で丸めて_goldへ即時加算（FR-106, CON-007）、
-## final_contributionはfloatのまま_accumulated_contributionへ加算する（FR-107）。
+## final_contributionはRankQuotaResolver.apply_contributionで現在ランクのノルマ残量から
+## 減算する（🔵 FR-108, CON-004）。
 ## 全件処理後にキューを空にしdelivered(results)を発行する（FR-108）。
 ## キューが空の場合は状態を一切変更せずResult.ok([])を返す（FR-109, AC-012）
 func deliver_pending_products() -> Result:
@@ -270,7 +289,9 @@ func deliver_pending_products() -> Result:
 	for product in _pending_products:
 		var delivery_result := DeliveryResolver.resolve(product, _current_daily_order)
 		_gold += roundi(delivery_result.final_reward)
-		_accumulated_contribution += delivery_result.final_contribution
+		_rank_state.quota = RankQuotaResolver.apply_contribution(
+			_rank_state.quota, delivery_result.final_contribution
+		)
 		results.append(delivery_result)
 
 	# 🔴 走査中にclear()すると反復が壊れるため、キューの破棄はループ完了後に行う
@@ -330,128 +351,163 @@ func _has_duplicate_ids(ids: Array[String]) -> bool:
 	return false
 
 
+## _current_rank_idに対応するランクIDについて、まだ_warn_missing_rank_master()で
+## 警告していなければpush_error()する。同一ランクIDでの多重発生を防ぐ（🔴 コードレビュー指摘対応）
+func _warn_missing_rank_master() -> void:
+	if _warned_missing_rank_master_ids.has(_current_rank_id):
+		return
+	_warned_missing_rank_master_ids[_current_rank_id] = true
+	push_error("現在ランクのマスターデータが見つかりません: %s" % _current_rank_id)
+
+
+## 現在ランクのRankMasterを返す。_rank_mastersに_current_rank_idが存在しない場合は
+## _warn_missing_rank_master()した上で、特性未解禁・ノルマ0・制限ターン0の安全側フォールバックを返す
+## （🔴 FR-114, CON-008）。マスターデータ未ロード時でも調合・納品が例外なく成立することを優先し、
+## null返却は行わない。ランク結果評価（evaluate_rank_outcome）はこのフォールバックの
+## quota_max=0.0/limit_turn=0が誤ってPROMOTION_ELIGIBLEを誘発しないよう、あえてこの関数を
+## 経由せず_rank_mastersを直接参照する（コードレビュー指摘対応）
+func _get_current_rank_master_or_fallback() -> RankMaster:
+	var master: RankMaster = _rank_masters.get(_current_rank_id)
+	if master != null:
+		return master
+
+	_warn_missing_rank_master()
+	var fallback := RankMaster.new()
+	fallback.id = String(_current_rank_id)
+	fallback.traits_unlocked = false
+	fallback.quota_max = 0.0
+	fallback.limit_turn = 0
+	return fallback
+
+
+## 🔴 CON-009。現在のRankState/RankMasterからランク結果を算出して返す（FR-109）。
+## 副作用を持たない問い合わせ専用。UIの先出し表示と、commit_rank_outcome()の実行直前再評価の両方から使う。
+## 🔴 コードレビュー指摘対応。_rank_state_initializedがfalseの間（quota_maxからの初期化が
+## まだ行われていない、ランクマスターがロードされていない等）は常にCONTINUEを返す。
+## こうしないと_rank_state.quotaの既定値0.0が「ノルマ達成済み」と誤認され、
+## ランクの初回挑戦が常にPROMOTION_ELIGIBLE判定になってしまう
+func evaluate_rank_outcome() -> RankOutcome.Value:
+	if not _rank_state_initialized:
+		return RankOutcome.Value.CONTINUE
+
+	var rank_master: RankMaster = _rank_masters.get(_current_rank_id)
+	if rank_master == null:
+		_warn_missing_rank_master()
+		return RankOutcome.Value.CONTINUE
+
+	var quota_cleared := RankQuotaResolver.is_rank_cleared(_rank_state.quota)
+	var turn_limit_reached := TurnLimitResolver.is_turn_limit_reached(
+		_rank_state.elapsed_turn, rank_master.limit_turn
+	)
+	return TurnLimitResolver.resolve_rank_outcome(quota_cleared, turn_limit_reached)
+
+
+## 🔴 CON-009。evaluate_rank_outcome()を実行直前に再評価して状態へ確定反映する（FR-110）。
+## DEMOTIONなら降格回数を加算し、RankStateを再挑戦用に差し替える。
+## ゲームオーバー成立時のみgame_over(_demotion_count)を発行する（FR-113）。
+## PROMOTION_ELIGIBLEでは次ランクへ進めない（FR-404、promotion-exam planの責務）。
+## 既にゲームオーバー確定済みなら状態を変更せず直近の確定結果を返す（FR-202、冪等性）。
+## 🔴 コードレビュー指摘対応。DEMOTION側の状態更新（_demotion_count/_rank_state）は、
+## 他の全GameStateミューテータ（harvest/execute_alchemy/deliver_pending_products）と同様、
+## 必ずrank_outcome_confirmed発行より前に完了させる（同期リスナーが更新前の値を読むのを防ぐ）
+func commit_rank_outcome() -> Result:
+	if is_game_over():
+		return Result.ok(_last_rank_outcome)
+
+	var outcome := evaluate_rank_outcome()
+	_last_rank_outcome = outcome
+
+	if outcome == RankOutcome.Value.DEMOTION:
+		_demotion_count += 1
+		_rank_state = RankQuotaResolver.reset_for_retry(_get_current_rank_master_or_fallback())
+
+	rank_outcome_confirmed.emit(outcome)  # 🔴 FR-112
+
+	if outcome == RankOutcome.Value.DEMOTION and is_game_over():
+		game_over.emit(_demotion_count)
+
+	return Result.ok(outcome)
+
+
+## 🔵 FR-111。降格回数が上限に達しているか
+func is_game_over() -> bool:
+	return _demotion_count >= GameBalance.MAX_DEMOTION_COUNT
+
+
+## 🔴 500行ルール対応。以下のテスト専用API群は実装本体をgame_state_test_support.gd
+## （GameStateTestSupport）へ委譲する。公開シグネチャ・呼び出し方法はテストコード側から見て変更しない
+
+
 ## テスト専用。実.tresロードを介さずSeedMaster/MaterialMasterを直接注入する（🟡 CON-005対応）
 func _set_masters_for_test(seeds: Dictionary, materials: Dictionary) -> void:
-	assert(OS.is_debug_build(), "_set_masters_for_test() must not be called in release builds")
-	if not OS.is_debug_build():
-		push_error("_set_masters_for_test() must not be called in release builds")
-		return
-	_seed_masters = seeds
-	_material_masters = materials
+	GameStateTestSupport.set_masters(self, seeds, materials)
 
 
 ## 🔴 テスト専用。seed_inventoryを実プレイの操作を介さず直接注入する
-## （テストコードが非公開フィールドへ直接書き込むことを避けるための正規API、コードレビュー指摘対応）
 func _set_seed_inventory_for_test(seed_inventory: Array[Dictionary]) -> void:
-	assert(
-		OS.is_debug_build(), "_set_seed_inventory_for_test() must not be called in release builds"
-	)
-	if not OS.is_debug_build():
-		push_error("_set_seed_inventory_for_test() must not be called in release builds")
-		return
-	_seed_inventory = seed_inventory
+	GameStateTestSupport.set_seed_inventory(self, seed_inventory)
 
 
 ## 🔴 テスト専用。plant_seed()を経由せずgarden_state.plantsへ株を直接追加する
-## （生育経過済み・枯死済みなど、通常操作では到達しづらい状態を作るための正規API、コードレビュー指摘対応）
 func _inject_plant_for_test(plant_state: PlantState) -> void:
-	assert(OS.is_debug_build(), "_inject_plant_for_test() must not be called in release builds")
-	if not OS.is_debug_build():
-		push_error("_inject_plant_for_test() must not be called in release builds")
-		return
-	_garden_state.plants.append(plant_state)
+	GameStateTestSupport.inject_plant(self, plant_state)
 
 
-## 🟡 テスト専用。実.tresロードを介さずRecipeMasterを直接注入する（CON-005対応、_set_masters_for_testと同型）
+## 🟡 テスト専用。実.tresロードを介さずRecipeMasterを直接注入する（CON-005対応）
 func _set_recipe_masters_for_test(masters: Dictionary) -> void:
-	assert(
-		OS.is_debug_build(), "_set_recipe_masters_for_test() must not be called in release builds"
-	)
-	if not OS.is_debug_build():
-		push_error("_set_recipe_masters_for_test() must not be called in release builds")
-		return
-	_recipe_masters = masters
+	GameStateTestSupport.set_recipe_masters(self, masters)
 
 
 ## 🔴 テスト専用。unlocked_recipe_idsをランク進行を介さず直接注入する（AC-009検証用）
 func _set_unlocked_recipe_ids_for_test(ids: Array[StringName]) -> void:
-	assert(
-		OS.is_debug_build(),
-		"_set_unlocked_recipe_ids_for_test() must not be called in release builds"
-	)
-	if not OS.is_debug_build():
-		push_error("_set_unlocked_recipe_ids_for_test() must not be called in release builds")
-		return
-	_unlocked_recipe_ids = ids.duplicate()
+	GameStateTestSupport.set_unlocked_recipe_ids(self, ids)
 
 
 ## 🔴 テスト専用。alchemy_slot_countを工房強化を介さず直接注入する（AC-007境界値検証用）
 func _set_alchemy_slot_count_for_test(count: int) -> void:
-	assert(
-		OS.is_debug_build(),
-		"_set_alchemy_slot_count_for_test() must not be called in release builds"
-	)
-	if not OS.is_debug_build():
-		push_error("_set_alchemy_slot_count_for_test() must not be called in release builds")
-		return
-	_alchemy_slot_count = count
+	GameStateTestSupport.set_alchemy_slot_count(self, count)
 
 
-## 🔴 テスト専用。traits_unlockedをランク進行を介さず直接注入する（AC-011検証用）
-func _set_traits_unlocked_for_test(value: bool) -> void:
-	assert(
-		OS.is_debug_build(), "_set_traits_unlocked_for_test() must not be called in release builds"
-	)
-	if not OS.is_debug_build():
-		push_error("_set_traits_unlocked_for_test() must not be called in release builds")
-		return
-	_traits_unlocked = value
+## 🟡 テスト専用。実.tresロードを介さずRankMasterを直接注入する（FR-301）
+func _set_rank_masters_for_test(masters: Dictionary) -> void:
+	GameStateTestSupport.set_rank_masters(self, masters)
 
 
-## 🔴 テスト専用。deliver_pending_products()を経由せず本日の指定調合物を直接注入する（FR-301, AC-008）。
-## 内部正本は独立コピーとして保持し、呼び出し元が注入後に引数を変更しても汚染されないようにする
-## （_inject_material_for_test/_inject_pending_product_for_testと同じ方針）
+## 🟡 テスト専用。current_rank_idを昇格・降格を介さず直接注入する（FR-301）
+func _set_current_rank_id_for_test(rank_id: StringName) -> void:
+	GameStateTestSupport.set_current_rank_id(self, rank_id)
+
+
+## 🟡 テスト専用。rank_stateをターン進行を介さず直接注入する（FR-301）
+func _set_rank_state_for_test(state: RankState) -> void:
+	GameStateTestSupport.set_rank_state(self, state)
+
+
+## 🟡 テスト専用。demotion_countを降格処理を介さず直接注入する（FR-301）
+func _set_demotion_count_for_test(count: int) -> void:
+	GameStateTestSupport.set_demotion_count(self, count)
+
+
+## 🔴 テスト専用。deliver_pending_products()を経由せず本日の指定調合物を直接注入する（FR-301, AC-008）
 func _set_current_daily_order_for_test(order: DailyOrderMaster) -> void:
-	assert(
-		OS.is_debug_build(),
-		"_set_current_daily_order_for_test() must not be called in release builds"
-	)
-	if not OS.is_debug_build():
-		push_error("_set_current_daily_order_for_test() must not be called in release builds")
-		return
-	_current_daily_order = order.clone() if order else null
+	GameStateTestSupport.set_current_daily_order(self, order)
 
 
-## 🔴 テスト専用。harvest()/execute_alchemy()を経由せずinventoryへ素材を直接注入する。
-## 内部正本は独立コピーとして保持し、呼び出し元が注入後に引数を変更しても汚染されないようにする
-## （harvest()の_inventory.append(material.clone())と同じ方針）
+## 🔴 テスト専用。harvest()/execute_alchemy()を経由せずinventoryへ素材を直接注入する
 func _inject_material_for_test(material: MaterialInstance) -> void:
-	assert(OS.is_debug_build(), "_inject_material_for_test() must not be called in release builds")
-	if not OS.is_debug_build():
-		push_error("_inject_material_for_test() must not be called in release builds")
-		return
-	_inventory.append(material.clone())
+	GameStateTestSupport.inject_material(self, material)
 
 
-## 🔴 テスト専用。execute_alchemy()を経由せず納品待ちキューへ調合物を直接注入する。
-## 内部正本は独立コピーとして保持する（_inject_material_for_testと同じ方針）
+## 🔴 テスト専用。execute_alchemy()を経由せず納品待ちキューへ調合物を直接注入する
 func _inject_pending_product_for_test(product: ProductInstance) -> void:
-	assert(
-		OS.is_debug_build(),
-		"_inject_pending_product_for_test() must not be called in release builds"
-	)
-	if not OS.is_debug_build():
-		push_error("_inject_pending_product_for_test() must not be called in release builds")
-		return
-	_pending_products.append(product.clone())
+	GameStateTestSupport.inject_pending_product(self, product)
 
 
-# テスト分離専用。assert()はリリースビルドで除去されるため、
-# push_error+returnを併用して本番コードパスからの実行を確実に止める
+# テスト分離専用。デバッグビルドガードは他のテスト専用API群と同じくGameStateTestSupport.guard()
+# へ一元化する（🔴 コードレビュー指摘対応。以前は本関数だけ独自にassert+push_error+returnを
+# 重複実装していた）
 func reset_for_test() -> void:
-	assert(OS.is_debug_build(), "reset_for_test() must not be called in release builds")
-	if not OS.is_debug_build():
-		push_error("reset_for_test() must not be called in release builds")
+	if not GameStateTestSupport.guard("reset_for_test"):
 		return
 	_current_phase = &"garden"
 	_gold = 0
@@ -469,6 +525,11 @@ func reset_for_test() -> void:
 	_unlocked_recipe_ids = [GameBalance.INITIAL_RECIPE_ID]
 	_pending_products = []
 	_alchemy_slot_count = GameBalance.ALCHEMY_SLOT_COUNT_DEFAULT
-	_traits_unlocked = false
-	_accumulated_contribution = 0.0
 	_current_daily_order = null
+	_current_rank_id = GameBalance.INITIAL_RANK_ID
+	_rank_masters = {}
+	_rank_state = RankState.new()
+	_demotion_count = 0
+	_last_rank_outcome = RankOutcome.Value.CONTINUE
+	_rank_state_initialized = false
+	_warned_missing_rank_master_ids = {}

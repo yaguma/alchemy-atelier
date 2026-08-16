@@ -1,7 +1,7 @@
 ---
 id: "008"
 title: "GameStateにランク結果評価・確定処理を実装し納品時のノルマ消費を統合する"
-status: pending
+status: done
 priority: 3
 dependencies: ["005", "006", "007"]
 estimated_complexity: high

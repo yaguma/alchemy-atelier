@@ -1,6 +1,7 @@
 extends GdUnitTestSuite
 
 const RECIPE_ID := &"recipe_test"
+const RANK_ID: StringName = &"rank_test"
 const BASE_CONTRIBUTION := 10.0
 const BASE_REWARD := 5.0
 const FLOAT_TOLERANCE := 0.0001
@@ -13,6 +14,8 @@ func before_test() -> void:
 	GameState.reset_for_test()
 	GameState._set_recipe_masters_for_test({RECIPE_ID: _make_recipe(RECIPE_ID)})
 	GameState._set_unlocked_recipe_ids_for_test([RECIPE_ID] as Array[StringName])
+	# 特性解禁は現在ランクのRankMaster由来（rank plan FR-201）。既定は未解禁ランクを注入する
+	_set_rank(false)
 	_crafted_products = []
 	_failed_error_codes = []
 	GameState.product_crafted.connect(_on_product_crafted)
@@ -42,6 +45,15 @@ func _make_recipe(id: StringName) -> RecipeMaster:
 	recipe.base_contribution = BASE_CONTRIBUTION
 	recipe.base_reward = BASE_REWARD
 	return recipe
+
+
+## traits_unlockedを指定したRankMasterを現在ランクとして注入する
+func _set_rank(traits_unlocked: bool) -> void:
+	var rank := RankMaster.new()
+	rank.id = String(RANK_ID)
+	rank.traits_unlocked = traits_unlocked
+	GameState._set_rank_masters_for_test({RANK_ID: rank})
+	GameState._set_current_rank_id_for_test(RANK_ID)
 
 
 func _inject_material(instance_id: String, quality: int, tags: Array[StringName]) -> void:
@@ -112,7 +124,7 @@ func test_生成されたProductInstanceのrecipe_idが投入したrecipe_idと�
 
 
 func test_特性未解禁では触媒と特性の両ボーナスが無効になる() -> void:
-	GameState._set_traits_unlocked_for_test(false)
+	_set_rank(false)
 	_inject_material("mat_1", 3, [&"catalyst", &"heal"] as Array[StringName])
 	_inject_material("mat_2", 3, [&"heal"] as Array[StringName])
 
@@ -125,7 +137,7 @@ func test_特性未解禁では触媒と特性の両ボーナスが無効にな�
 
 
 func test_特性解禁後は同じ素材構成で触媒と特性の両ボーナスが有効になる() -> void:
-	GameState._set_traits_unlocked_for_test(true)
+	_set_rank(true)
 	_inject_material("mat_1", 3, [&"catalyst", &"heal"] as Array[StringName])
 	_inject_material("mat_2", 3, [&"heal"] as Array[StringName])
 

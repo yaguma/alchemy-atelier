@@ -40,6 +40,16 @@ func _gold() -> int:
 	return GameState.get_state()["gold"]
 
 
+func _rank_quota() -> float:
+	return (GameState.get_state()["rank_state"] as RankState).quota
+
+
+func _set_rank_quota(quota: float) -> void:
+	var rank_state := RankState.new()
+	rank_state.quota = quota
+	GameState._set_rank_state_for_test(rank_state)
+
+
 ## RECIPE_IDに合致する日替わり指定調合物を設定する（合致時に倍率が掛かる状況を作る）
 func _set_matching_order(multiplier: float) -> void:
 	var order := DailyOrderMaster.new()
@@ -98,26 +108,25 @@ func test_加算前のgoldが0でない場合も上書きされず加算され�
 	assert_int(_gold()).is_equal(14)
 
 
-func test_納品1件分の貢献度がaccumulated_contributionへ加算される() -> void:
+## FR-108: 貢献度は暫定フィールドではなく現在ランクのノルマ残量から直接減算される
+func test_納品1件分の貢献度がランクノルマから減算される() -> void:
+	_set_rank_quota(100.0)
 	_inject_product(_make_product(RECIPE_ID, 10.0, 0.0))
 
 	GameState.deliver_pending_products()
 
-	assert_float(GameState.get_state()["accumulated_contribution"]).is_equal_approx(
-		10.0, FLOAT_TOLERANCE
-	)
+	assert_float(_rank_quota()).is_equal_approx(90.0, FLOAT_TOLERANCE)
 
 
-func test_納品を複数回実行すると貢献度がリセットされず累積する() -> void:
+func test_納品を複数回実行すると貢献度がリセットされず累積して減算される() -> void:
+	_set_rank_quota(100.0)
 	_inject_product(_make_product(RECIPE_ID, 10.0, 0.0))
 	GameState.deliver_pending_products()
 
 	_inject_product(_make_product(RECIPE_ID, 25.0, 0.0))
 	GameState.deliver_pending_products()
 
-	assert_float(GameState.get_state()["accumulated_contribution"]).is_equal_approx(
-		35.0, FLOAT_TOLERANCE
-	)
+	assert_float(_rank_quota()).is_equal_approx(65.0, FLOAT_TOLERANCE)
 
 
 func test_deliveredシグナルが1回だけ発行され件別のorder_matchedが正しい() -> void:
@@ -184,12 +193,14 @@ func test_goldに変化がない場合はgold_changedシグナルが発行され
 
 
 func test_キューが空の状態で呼ぶと状態を一切変更せず成功を返す() -> void:
+	_set_rank_quota(50.0)
+
 	var result := GameState.deliver_pending_products()
 
 	assert_bool(result.success).is_true()
 	assert_int((result.value as Array[DeliveryResult]).size()).is_equal(0)
 	assert_int(_gold()).is_equal(0)
-	assert_float(GameState.get_state()["accumulated_contribution"]).is_equal(0.0)
+	assert_float(_rank_quota()).is_equal_approx(50.0, FLOAT_TOLERANCE)
 	assert_int(_pending_count()).is_equal(0)
 	assert_int(_delivered_payloads.size()).is_equal(0)
 
