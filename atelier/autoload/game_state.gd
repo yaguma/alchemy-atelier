@@ -1,3 +1,6 @@
+# 🔴 500行ルール対応。テスト専用API委譲先(game_state_test_support.gd)からの型注釈用の別名。
+# Autoload名"GameState"とは独立しており、既存の参照方法（GameState.xxx）に影響しない
+class_name GameStateAutoload
 extends Node
 
 signal phase_changed(previous: StringName, next: StringName)
@@ -397,150 +400,73 @@ func is_game_over() -> bool:
 	return _demotion_count >= GameBalance.MAX_DEMOTION_COUNT
 
 
+## 🔴 500行ルール対応。以下のテスト専用API群は実装本体をgame_state_test_support.gd
+## （GameStateTestSupport）へ委譲する。公開シグネチャ・呼び出し方法はテストコード側から見て変更しない
+
+
 ## テスト専用。実.tresロードを介さずSeedMaster/MaterialMasterを直接注入する（🟡 CON-005対応）
 func _set_masters_for_test(seeds: Dictionary, materials: Dictionary) -> void:
-	assert(OS.is_debug_build(), "_set_masters_for_test() must not be called in release builds")
-	if not OS.is_debug_build():
-		push_error("_set_masters_for_test() must not be called in release builds")
-		return
-	_seed_masters = seeds
-	_material_masters = materials
+	GameStateTestSupport.set_masters(self, seeds, materials)
 
 
 ## 🔴 テスト専用。seed_inventoryを実プレイの操作を介さず直接注入する
-## （テストコードが非公開フィールドへ直接書き込むことを避けるための正規API、コードレビュー指摘対応）
 func _set_seed_inventory_for_test(seed_inventory: Array[Dictionary]) -> void:
-	assert(
-		OS.is_debug_build(), "_set_seed_inventory_for_test() must not be called in release builds"
-	)
-	if not OS.is_debug_build():
-		push_error("_set_seed_inventory_for_test() must not be called in release builds")
-		return
-	_seed_inventory = seed_inventory
+	GameStateTestSupport.set_seed_inventory(self, seed_inventory)
 
 
 ## 🔴 テスト専用。plant_seed()を経由せずgarden_state.plantsへ株を直接追加する
-## （生育経過済み・枯死済みなど、通常操作では到達しづらい状態を作るための正規API、コードレビュー指摘対応）
 func _inject_plant_for_test(plant_state: PlantState) -> void:
-	assert(OS.is_debug_build(), "_inject_plant_for_test() must not be called in release builds")
-	if not OS.is_debug_build():
-		push_error("_inject_plant_for_test() must not be called in release builds")
-		return
-	_garden_state.plants.append(plant_state)
+	GameStateTestSupport.inject_plant(self, plant_state)
 
 
-## 🟡 テスト専用。実.tresロードを介さずRecipeMasterを直接注入する（CON-005対応、_set_masters_for_testと同型）
+## 🟡 テスト専用。実.tresロードを介さずRecipeMasterを直接注入する（CON-005対応）
 func _set_recipe_masters_for_test(masters: Dictionary) -> void:
-	assert(
-		OS.is_debug_build(), "_set_recipe_masters_for_test() must not be called in release builds"
-	)
-	if not OS.is_debug_build():
-		push_error("_set_recipe_masters_for_test() must not be called in release builds")
-		return
-	_recipe_masters = masters
+	GameStateTestSupport.set_recipe_masters(self, masters)
 
 
 ## 🔴 テスト専用。unlocked_recipe_idsをランク進行を介さず直接注入する（AC-009検証用）
 func _set_unlocked_recipe_ids_for_test(ids: Array[StringName]) -> void:
-	assert(
-		OS.is_debug_build(),
-		"_set_unlocked_recipe_ids_for_test() must not be called in release builds"
-	)
-	if not OS.is_debug_build():
-		push_error("_set_unlocked_recipe_ids_for_test() must not be called in release builds")
-		return
-	_unlocked_recipe_ids = ids.duplicate()
+	GameStateTestSupport.set_unlocked_recipe_ids(self, ids)
 
 
 ## 🔴 テスト専用。alchemy_slot_countを工房強化を介さず直接注入する（AC-007境界値検証用）
 func _set_alchemy_slot_count_for_test(count: int) -> void:
-	assert(
-		OS.is_debug_build(),
-		"_set_alchemy_slot_count_for_test() must not be called in release builds"
-	)
-	if not OS.is_debug_build():
-		push_error("_set_alchemy_slot_count_for_test() must not be called in release builds")
-		return
-	_alchemy_slot_count = count
+	GameStateTestSupport.set_alchemy_slot_count(self, count)
 
 
-## 🟡 テスト専用。実.tresロードを介さずRankMasterを直接注入する（FR-301、_set_recipe_masters_for_testと同型）
+## 🟡 テスト専用。実.tresロードを介さずRankMasterを直接注入する（FR-301）
 func _set_rank_masters_for_test(masters: Dictionary) -> void:
-	assert(OS.is_debug_build(), "_set_rank_masters_for_test() must not be called in release builds")
-	if not OS.is_debug_build():
-		push_error("_set_rank_masters_for_test() must not be called in release builds")
-		return
-	_rank_masters = masters
+	GameStateTestSupport.set_rank_masters(self, masters)
 
 
 ## 🟡 テスト専用。current_rank_idを昇格・降格を介さず直接注入する（FR-301）
 func _set_current_rank_id_for_test(rank_id: StringName) -> void:
-	assert(
-		OS.is_debug_build(), "_set_current_rank_id_for_test() must not be called in release builds"
-	)
-	if not OS.is_debug_build():
-		push_error("_set_current_rank_id_for_test() must not be called in release builds")
-		return
-	_current_rank_id = rank_id
+	GameStateTestSupport.set_current_rank_id(self, rank_id)
 
 
-## 🟡 テスト専用。rank_stateをターン進行を介さず直接注入する（FR-301）。
-## 内部正本は独立コピーとして保持し、呼び出し元が注入後に引数を変更しても汚染されないようにする
+## 🟡 テスト専用。rank_stateをターン進行を介さず直接注入する（FR-301）
 func _set_rank_state_for_test(state: RankState) -> void:
-	assert(OS.is_debug_build(), "_set_rank_state_for_test() must not be called in release builds")
-	if not OS.is_debug_build():
-		push_error("_set_rank_state_for_test() must not be called in release builds")
-		return
-	_rank_state = state.clone()
+	GameStateTestSupport.set_rank_state(self, state)
 
 
 ## 🟡 テスト専用。demotion_countを降格処理を介さず直接注入する（FR-301）
 func _set_demotion_count_for_test(count: int) -> void:
-	assert(
-		OS.is_debug_build(), "_set_demotion_count_for_test() must not be called in release builds"
-	)
-	if not OS.is_debug_build():
-		push_error("_set_demotion_count_for_test() must not be called in release builds")
-		return
-	_demotion_count = count
+	GameStateTestSupport.set_demotion_count(self, count)
 
 
-## 🔴 テスト専用。deliver_pending_products()を経由せず本日の指定調合物を直接注入する（FR-301, AC-008）。
-## 内部正本は独立コピーとして保持し、呼び出し元が注入後に引数を変更しても汚染されないようにする
-## （_inject_material_for_test/_inject_pending_product_for_testと同じ方針）
+## 🔴 テスト専用。deliver_pending_products()を経由せず本日の指定調合物を直接注入する（FR-301, AC-008）
 func _set_current_daily_order_for_test(order: DailyOrderMaster) -> void:
-	assert(
-		OS.is_debug_build(),
-		"_set_current_daily_order_for_test() must not be called in release builds"
-	)
-	if not OS.is_debug_build():
-		push_error("_set_current_daily_order_for_test() must not be called in release builds")
-		return
-	_current_daily_order = order.clone() if order else null
+	GameStateTestSupport.set_current_daily_order(self, order)
 
 
-## 🔴 テスト専用。harvest()/execute_alchemy()を経由せずinventoryへ素材を直接注入する。
-## 内部正本は独立コピーとして保持し、呼び出し元が注入後に引数を変更しても汚染されないようにする
-## （harvest()の_inventory.append(material.clone())と同じ方針）
+## 🔴 テスト専用。harvest()/execute_alchemy()を経由せずinventoryへ素材を直接注入する
 func _inject_material_for_test(material: MaterialInstance) -> void:
-	assert(OS.is_debug_build(), "_inject_material_for_test() must not be called in release builds")
-	if not OS.is_debug_build():
-		push_error("_inject_material_for_test() must not be called in release builds")
-		return
-	_inventory.append(material.clone())
+	GameStateTestSupport.inject_material(self, material)
 
 
-## 🔴 テスト専用。execute_alchemy()を経由せず納品待ちキューへ調合物を直接注入する。
-## 内部正本は独立コピーとして保持する（_inject_material_for_testと同じ方針）
+## 🔴 テスト専用。execute_alchemy()を経由せず納品待ちキューへ調合物を直接注入する
 func _inject_pending_product_for_test(product: ProductInstance) -> void:
-	assert(
-		OS.is_debug_build(),
-		"_inject_pending_product_for_test() must not be called in release builds"
-	)
-	if not OS.is_debug_build():
-		push_error("_inject_pending_product_for_test() must not be called in release builds")
-		return
-	_pending_products.append(product.clone())
+	GameStateTestSupport.inject_pending_product(self, product)
 
 
 # テスト分離専用。assert()はリリースビルドで除去されるため、
