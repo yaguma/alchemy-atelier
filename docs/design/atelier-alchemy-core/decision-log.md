@@ -52,6 +52,20 @@
 | 🔵 ランクノルマが制限ターンより先に0になっても、試験への移行は制限ターン到達まで待つ | [`core-systems.md`](./core-systems.md)§RankSystem、2026-08-05ヒアリング | 早期クリア後の残りターンは通常プレイを継続できる意図的なボーナスとする |
 | 🔴 シーン遷移図の`WorkshopScreen`配置を修正（`MainScene`の子Controlとして再配置） | [`architecture.md`](./architecture.md)L188、実装レディネス監査対応（2026-08-06） | 旧版は「シーン構成」表の記述と矛盾し、庭/調合画面からのオーバーレイ遷移経路も欠落していた |
 
+### 3.1 rank plan実装フェーズでの新規決定（2026-08-17、PR #20）
+
+`docs/dev/plans/rank/`の実装完了時、検証レポート（[`verify-2026-08-17.md`](../../dev/plans/rank/reports/verify-2026-08-17.md)）が「設計文書に典拠がなく本plan内で新規決定した箇所」として7項目を🔴要判断としてリストした。以下は各項目についてユーザーへ個別に案を提示し、全項目で承認（現状維持）を得た記録である。
+
+| 決定 | 一次ソース | 備考 |
+|---|---|---|
+| 🔴 `INITIAL_RANK_ID`（`&"rank_g"`）を新規補完。対応する`.tres`実データは今回作成しない | `shared/constants/game_balance.gd` | `INITIAL_SEED_ID`/`INITIAL_RECIPE_ID`と同型パターン。CON-006「本plan内では`.tres`実データを作らない」方針を維持し、実データ投入は別planで行う。2026-08-17ユーザー承認 |
+| 🔴 `RankOutcome`を`features/rank/logic/`に単独配置 | `features/rank/logic/rank_outcome.gd`、CON-003 | `TurnLimitResolver`と`GameState`の両方から参照するため`state/`（GameState専用）には置けない。2026-08-17ユーザー承認 |
+| 🔴 `_get_current_rank_master_or_fallback()`のフォールバック具体値（`traits_unlocked=false`・`quota_max=0.0`・`limit_turn=0`） | `autoload/game_state.gd`、CON-008 | マスターデータ未ロード時でも調合・納品が例外なく成立することを安全側の値で優先する。2026-08-17ユーザー承認 |
+| 🔴 `evaluate_rank_outcome()`（副作用なし）/`commit_rank_outcome()`（副作用あり）の2メソッド分離 | `autoload/game_state.gd`、CON-009 | UIの先出し判定と実際の確定処理を分離する設計。[`architecture.md`](./architecture.md)「検証責務のレイヤー配置原則」に準拠。2026-08-17ユーザー承認 |
+| 🔴 `rank_outcome_confirmed`/`game_over`シグナルの引数は現状のまま（`outcome`/`demotion_count`のみ、追加引数なし） | `autoload/game_state.gd` | 詳細情報（現在ランク等）は`GameState.get_state()`経由で取得する設計に統一し、シグナルはイベント通知に徹する（[`state-management.md`](../../../.claude/rules/state-management.md)方針と一致）。UI実装は本plan外のため、実装着手時に不足が判明すれば再検討。2026-08-17ユーザー承認 |
+| 🔴 `_last_rank_outcome`フィールドを追加（ゲームオーバー確定後の`commit_rank_outcome()`冪等返却用） | `autoload/game_state.gd`、FR-202 | タスク定義に明記のなかった補完。FR-202が要求する冪等性を満たすための実装判断。2026-08-17ユーザー承認 |
+| 🔴 `RankQuotaResolver.is_rank_cleared`の負値ノルマ防御的仕様（`is_rank_cleared(-1.0)`→`true`）、`TurnLimitResolver.resolve_rank_outcome`の早期リターン構造（FR-411早期クリアボーナス） | `features/rank/logic/rank_quota_resolver.gd`、`turn_limit_resolver.gd` | 前者は`apply_contribution`が0未満にクランプするため理論上到達しないコードパスだが将来の呼び出し元変更・バグへの防御として維持。後者は`core-systems.md`L333の仕様通り。2026-08-17ユーザー承認 |
+
 ---
 
 ## 4. 用語統一（HP→ノルマ）
