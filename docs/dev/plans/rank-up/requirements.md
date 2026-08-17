@@ -64,7 +64,7 @@
   - 関連: US-101, US-102, AC-002
 - **FR-004**: `PromotionExamResolver.resolve_outcome(exam_state: ExamState) -> ExamOutcome.Value`は、`exam_quota <= 0`なら`SUCCESS`、`exam_elapsed_turn >= exam_turn_limit`かつ`exam_quota > 0`なら`FAILURE`、それ以外は`CONTINUE`を返さなければならない 🔵 *[core-systems.md L336]*
   - 関連: US-201, US-203, AC-003
-- **FR-005**: システムは`ExamOutcome`を`CONTINUE`・`SUCCESS`・`FAILURE`の3値を持つ`enum`として`features/rank/logic/exam_outcome.gd`に定義しなければならない（`RankOutcome`が`PromotionExamResolver`と`GameState`の双方から参照されるため`state/`ではなく`logic/`に配置された既存の配置根拠を踏襲する） 🟡 *[core-systems.md L306-311 / rank/requirements.md CON-003の配置根拠]*
+- **FR-005**: システムは`ExamOutcome`を`CONTINUE`・`SUCCESS`・`FAILURE`の3値を持つ`enum`として`features/rank/logic/exam_outcome.gd`に定義しなければならない（`RankOutcome`が`TurnLimitResolver`と`GameState`の双方から参照されるため`state/`ではなく`logic/`に配置された既存の配置根拠を踏襲する） 🟡 *[core-systems.md L306-311 / rank/requirements.md CON-003の配置根拠]*
   - 関連: US-201, US-203, AC-003
 - **FR-006**: システムは`ExamState`を`features/rank/state/exam_state.gd`に`RefCounted`継承のランタイム状態型として定義し、`exam_quota: float`・`exam_quota_max: float`・`exam_elapsed_turn: int`・`exam_turn_limit: int`の4フィールドと、独立コピーを返す`clone()`メソッドを持たせなければならない 🔵 *[core-systems.md L300-305クラス図 / data-schema.md L63-69 / `RankState.clone()`と同じ防御的コピーパターン]*
   - 関連: US-001, AC-004

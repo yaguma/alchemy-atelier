@@ -7,7 +7,7 @@
 **スコープに含む**: `features/rank/logic/`（`PromotionExamResolver`/`ExamOutcome`/`RankProgression`）・`features/rank/state/`（`ExamState`）・`shared/constants/game_balance.gd`への`RANK_ORDER`定数追加・`GameState`統合（試験開始トリガー、`execute_alchemy()`/`deliver_pending_products()`への試験対応差分、`advance_exam_turn()`、`evaluate_exam_outcome()`/`commit_exam_outcome()`、成功時の実ランク遷移・ゲームクリア判定、失敗時の再挑戦・ゲームオーバー判定）。
 **スコープに含まない**: `features/rank/ui/`・`PromotionExamScene`等のUI一式・アニメーション演出・エラーメッセージ文言（別task）、`res://data/ranks/*.tres`実データ作成（別plan、コンテンツ作成）、`exam_turn_limit`/`exam_difficulty_coefficient`の具体的バランス数値確定（既存`RankMaster`フィールドをそのまま使い🟡TBDのまま追跡継続）、`atelier/autoload/game_state.gd`の500行超過リファクタリング（rank plan踏襲で今回も受容し、別Issueとして起票する）。
 
-詳細: [requirements.md](requirements.md)（FR39件+NFR8件+CON8件、全件🔵/🟡、赤信号はヒアリングで解消済み） | [user-stories.md](user-stories.md)（US-001〜US-205） | [acceptance-criteria.md](acceptance-criteria.md)（AC-001〜AC-020）
+詳細: [requirements.md](requirements.md)（FR30件+NFR4件+CON8件、全件🔵/🟡、赤信号はヒアリングで解消済み） | [user-stories.md](user-stories.md)（US-001〜US-205） | [acceptance-criteria.md](acceptance-criteria.md)（AC-001〜AC-020）
 
 ## Design Overview
 
