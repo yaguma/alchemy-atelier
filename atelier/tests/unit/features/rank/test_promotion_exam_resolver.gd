@@ -97,6 +97,29 @@ func test_難度係数が0なら試験ノルマ上限が0になる() -> void:
 	assert_int(exam_state.exam_turn_limit).is_equal(3)
 
 
+# 異常系: NFR-101 exam_turn_limit=0（未設定マスターデータ）でもゼロ値のExamStateを返す
+# exam_turn_limit=0だとquota_maxが0になり、resolve_outcome()が0ターン目で即SUCCESSを
+# 返してしまう（未達成のまま昇格試験に合格する）ため、start_exam()側でガードする。
+func test_試験制限ターンが0でもゼロ値のExamStateを返す() -> void:
+	var rank_master := _make_rank_master(100.0, 10, 0, 1.5)
+
+	var exam_state := PromotionExamResolver.start_exam(rank_master)
+
+	assert_float(exam_state.exam_quota_max).is_equal_approx(0.0, 0.0001)
+	assert_float(exam_state.exam_quota).is_equal_approx(0.0, 0.0001)
+	assert_int(exam_state.exam_turn_limit).is_equal(0)
+
+
+# 異常系: NFR-101 exam_turn_limitが負値でもゼロ値のExamStateを返す
+func test_試験制限ターンが負値でもゼロ値のExamStateを返す() -> void:
+	var rank_master := _make_rank_master(100.0, 10, -1, 1.5)
+
+	var exam_state := PromotionExamResolver.start_exam(rank_master)
+
+	assert_float(exam_state.exam_quota_max).is_equal_approx(0.0, 0.0001)
+	assert_int(exam_state.exam_turn_limit).is_equal(0)
+
+
 # 異常系: FR-401 引数のRankMasterはin-placeで書き換えられない
 func test_試験開始は引数のランクマスターを書き換えない() -> void:
 	var rank_master := _make_rank_master(100.0, 10, 3, 1.5)

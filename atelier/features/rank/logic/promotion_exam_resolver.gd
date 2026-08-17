@@ -5,7 +5,8 @@ class_name PromotionExamResolver
 
 ## 🔵 昇格試験を開始し、初期状態のExamStateを返す（FR-002）。
 ## 試験ノルマ上限は「ランクのノルマ上限 × 難度係数 × (試験制限ターン / ランク制限ターン)」で算出する。
-## 🔵 NFR-101: rank_master欠落・limit_turn<=0（ゼロ除算）時もクラッシュさせずゼロ値のExamStateを返す。
+## 🔵 NFR-101: rank_master欠落・limit_turn<=0（ゼロ除算）・exam_turn_limit<=0（未設定データ）時も
+## クラッシュさせず、resolve_outcome()が即SUCCESS判定してしまわないようゼロ値のExamStateを返す。
 static func start_exam(rank_master: RankMaster) -> ExamState:
 	var exam_state := ExamState.new()
 
@@ -15,6 +16,10 @@ static func start_exam(rank_master: RankMaster) -> ExamState:
 
 	if rank_master.limit_turn <= 0:
 		push_error("PromotionExamResolver.start_exam(): limit_turn must be positive")
+		return exam_state
+
+	if rank_master.exam_turn_limit <= 0:
+		push_error("PromotionExamResolver.start_exam(): exam_turn_limit must be positive")
 		return exam_state
 
 	var quota_max := (
