@@ -1,7 +1,7 @@
 ---
 id: "003"
 title: "GameBalanceにRANK_ORDER定数を追加する"
-status: pending
+status: done
 priority: 1
 dependencies: []
 estimated_complexity: low
