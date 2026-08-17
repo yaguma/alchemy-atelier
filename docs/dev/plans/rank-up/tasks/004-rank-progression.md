@@ -1,7 +1,7 @@
 ---
 id: "004"
 title: "RankProgressionを実装する"
-status: pending
+status: done
 priority: 1
 dependencies: ["003"]
 estimated_complexity: low

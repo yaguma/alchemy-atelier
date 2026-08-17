@@ -1,7 +1,7 @@
 ---
 id: "005"
 title: "PromotionExamResolverを実装する"
-status: pending
+status: done
 priority: 1
 dependencies: ["001", "002"]
 estimated_complexity: medium

@@ -62,3 +62,15 @@ const MAX_DEMOTION_COUNT := 3  # 🟡 FR-007/CON-007, requirements.md §7
 
 # ゲーム開始時のランク。対応する.tresは未作成（CON-006）のため、テストではフィクスチャを注入する
 const INITIAL_RANK_ID: StringName = &"rank_g"  # 🔴 新規補完（INITIAL_SEED_ID/INITIAL_RECIPE_ID同型）
+
+# ランクIDの昇格順序。次ランク判定はこの配列のindex+1で解決するため、G→Sの昇順を崩さないこと
+const RANK_ORDER: Array[StringName] = [  # 🔵 FR-007
+	&"rank_g",
+	&"rank_f",
+	&"rank_e",
+	&"rank_d",
+	&"rank_c",
+	&"rank_b",
+	&"rank_a",
+	&"rank_s",
+]
