@@ -289,3 +289,108 @@ func test_報酬の四捨五入境界で切り捨てと切り上げが分かれ�
 	GameState.deliver_pending_products()
 
 	assert_int(_gold()).is_equal(expected_gold)
+
+
+# 試験中の納品分岐（タスク009: FR-105, FR-106, FR-401）
+# 🔴 内部テストクラスによるグルーピング（testing.md/tdd-implementation.md記載パターン）を
+# 一度試したが、`runtest.sh -a <file>`単体実行では内部クラスのテストケースが検出・実行されず
+# サイレントに0件実行になる不具合を確認したため採用しない（テストが実行されないのはlint警告より
+# 重大な欠陥のため）。gdlintのmax-public-methodsは本タスクの静的解析対象パス
+# （atelier/features/ atelier/shared/ atelier/autoload/）にtests/が含まれないため許容する
+
+
+func _exam_quota() -> float:
+	return GameState.get_state()["exam_quota"]
+
+
+## 試験中状態をセットアップする（exam_quota_max等の付随フィールドはテストの関心事ではないため既定値のまま）
+func _set_exam_state(quota: float, in_exam: bool = true) -> void:
+	var exam_state := ExamState.new()
+	exam_state.exam_quota = quota
+	GameState._set_exam_state_for_test(exam_state, in_exam)
+
+
+## 正常系: in_exam=trueの間はexam_quotaのみ減算され、rank_state.quotaは変化しない
+func test_試験中は貢献度がexam_quotaへ適用されrank_quotaは変化しない() -> void:
+	_set_rank_quota(100.0)
+	_set_exam_state(50.0)
+	_set_matching_order(1.3)  # daily_orderが非nullでも試験中は無視されることの確認を兼ねる
+	_inject_product(_make_product(RECIPE_ID, 10.0, 5.0))
+
+	GameState.deliver_pending_products()
+
+	assert_float(_exam_quota()).is_equal_approx(40.0, FLOAT_TOLERANCE)
+	assert_float(_rank_quota()).is_equal_approx(100.0, FLOAT_TOLERANCE)
+
+
+## 正常系(FR-106): daily_order非設定時は試験中/非試験中でgold加算量が完全に一致する
+## （試験中はdaily_orderがnull扱いになる差分が生じるため、この差分の影響を受けない
+## 合致条件なしの構成でgold加算の計算式自体が試験フラグの影響を受けないことを検証する）
+func test_日替わり指定なしなら試験中と非試験中でgold加算量が一致する() -> void:
+	_inject_product(_make_product(RECIPE_ID, 10.0, 5.0))
+	GameState.deliver_pending_products()
+	var gold_without_exam := _gold()
+
+	GameState.reset_for_test()
+	_set_exam_state(50.0)
+	_inject_product(_make_product(RECIPE_ID, 10.0, 5.0))
+	GameState.deliver_pending_products()
+	var gold_with_exam := _gold()
+
+	assert_int(gold_without_exam).is_equal(gold_with_exam)
+
+
+## 正常系(FR-401): in_exam=true時、指定調合物と一致するProductInstanceでも合致ボーナスが適用されない
+func test_試験中は指定調合物と一致しても合致ボーナスが適用されない() -> void:
+	_set_exam_state(50.0)
+	_set_matching_order(1.3)
+	_inject_product(_make_product(RECIPE_ID, 10.0, 5.0))
+
+	var results: Array[DeliveryResult] = GameState.deliver_pending_products().value
+
+	assert_bool(results[0].order_matched).is_false()
+	assert_float(results[0].final_contribution).is_equal_approx(10.0, FLOAT_TOLERANCE)
+	assert_float(results[0].final_reward).is_equal_approx(5.0, FLOAT_TOLERANCE)
+
+
+## 異常系（回帰確認）: in_exam=false時は従来通りrank_state.quotaが減算されexam_quotaは変化しない
+func test_非試験中は従来通りrank_quotaが減算されexam_quotaは変化しない() -> void:
+	_set_rank_quota(100.0)
+	_set_exam_state(50.0, false)
+	_inject_product(_make_product(RECIPE_ID, 10.0, 0.0))
+
+	GameState.deliver_pending_products()
+
+	assert_float(_rank_quota()).is_equal_approx(90.0, FLOAT_TOLERANCE)
+	assert_float(_exam_quota()).is_equal_approx(50.0, FLOAT_TOLERANCE)
+
+
+## 境界値: exam_quota以上の貢献度を適用しても負値にならず0にクランプされる
+## （ちょうど貢献度と同値になる境界と、貢献度が上回り超過するケースの両方を1本にまとめる）
+func test_exam_quotaを貢献度が上回っても負値にならずクランプされる(
+	exam_quota_before: float,
+	contribution: float,
+	_test_parameters := [
+		[10.0, 10.0],  # ちょうど0になる境界
+		[5.0, 10.0],  # 貢献度が上回り超過するケース
+	]
+) -> void:
+	_set_exam_state(exam_quota_before)
+	_inject_product(_make_product(RECIPE_ID, contribution, 0.0))
+
+	GameState.deliver_pending_products()
+
+	assert_float(_exam_quota()).is_equal_approx(0.0, FLOAT_TOLERANCE)
+
+
+## 異常系: 保留中の調合物が0件の場合、in_examの値に関わらず空配列のResultが返り状態が変化しない
+func test_試験中でもキューが空なら状態を一切変更せず成功を返す() -> void:
+	_set_exam_state(50.0)
+
+	var result := GameState.deliver_pending_products()
+
+	assert_bool(result.success).is_true()
+	assert_int((result.value as Array[DeliveryResult]).size()).is_equal(0)
+	assert_int(_gold()).is_equal(0)
+	assert_float(_exam_quota()).is_equal_approx(50.0, FLOAT_TOLERANCE)
+	assert_int(_pending_count()).is_equal(0)

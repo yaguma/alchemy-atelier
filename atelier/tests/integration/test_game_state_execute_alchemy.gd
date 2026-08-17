@@ -258,3 +258,57 @@ func test_失敗時はproduct_craftedシグナルが発行されない() -> void
 
 	assert_array(_crafted_products).is_empty()
 	assert_int(_failed_error_codes.size()).is_equal(3)
+
+
+# 試験中ターン消費（task 008, FR-102）
+
+
+func _make_exam_state(elapsed_turn: int, turn_limit: int = 5) -> ExamState:
+	var exam_state := ExamState.new()
+	exam_state.exam_quota = 100.0
+	exam_state.exam_quota_max = 100.0
+	exam_state.exam_elapsed_turn = elapsed_turn
+	exam_state.exam_turn_limit = turn_limit
+	return exam_state
+
+
+func test_試験中に調合が成功するとexam_elapsed_turnが1増える() -> void:
+	GameState._set_exam_state_for_test(_make_exam_state(0), true)
+	_inject_material("mat_1", 3, [] as Array[StringName])
+
+	var result := GameState.execute_alchemy(RECIPE_ID, ["mat_1"] as Array[String])
+
+	assert_bool(result.success).is_true()
+	assert_int(GameState.get_state()["exam_elapsed_turn"]).is_equal(1)
+
+
+func test_試験中でない場合は調合成功後もexam_elapsed_turnが変化しない() -> void:
+	GameState._set_exam_state_for_test(_make_exam_state(0), false)
+	_inject_material("mat_1", 3, [] as Array[StringName])
+
+	var result := GameState.execute_alchemy(RECIPE_ID, ["mat_1"] as Array[String])
+
+	assert_bool(result.success).is_true()
+	assert_int(GameState.get_state()["exam_elapsed_turn"]).is_equal(0)
+
+
+func test_試験中に調合が失敗するとexam_elapsed_turnは加算されない() -> void:
+	GameState._set_exam_state_for_test(_make_exam_state(0), true)
+	_inject_material("mat_1", 3, [] as Array[StringName])
+
+	var result := GameState.execute_alchemy(&"recipe_unknown", ["mat_1"] as Array[String])
+
+	assert_bool(result.success).is_false()
+	assert_int(GameState.get_state()["exam_elapsed_turn"]).is_equal(0)
+
+
+func test_試験中にexam_turn_limitの1つ手前から実行するとちょうど上限に到達する() -> void:
+	GameState._set_exam_state_for_test(_make_exam_state(4, 5), true)
+	_inject_material("mat_1", 3, [] as Array[StringName])
+
+	var result := GameState.execute_alchemy(RECIPE_ID, ["mat_1"] as Array[String])
+
+	assert_bool(result.success).is_true()
+	var state := GameState.get_state()
+	assert_int(state["exam_elapsed_turn"]).is_equal(5)
+	assert_int(state["exam_turn_limit"]).is_equal(5)

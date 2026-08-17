@@ -1,7 +1,7 @@
 ---
 id: "006"
 title: "GameStateに試験状態の基盤フィールド・シグナル・テストAPIを追加する"
-status: pending
+status: done
 priority: 1
 dependencies: ["001", "002"]
 estimated_complexity: medium

@@ -1,7 +1,7 @@
 ---
 id: "011"
 title: "GameStateに試験結果の評価・確定処理を実装する"
-status: pending
+status: done
 priority: 2
 dependencies: ["004", "006"]
 estimated_complexity: high

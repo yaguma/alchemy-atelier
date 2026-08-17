@@ -14,6 +14,8 @@ signal delivered(results: Array[DeliveryResult])  # 🔴 FR-108
 signal gold_changed(previous_amount: int, new_amount: int, delta: int)
 signal rank_outcome_confirmed(outcome: RankOutcome.Value)  # 🔴 FR-112
 signal game_over(demotion_count: int)  # 🔴 FR-113
+signal exam_started  # 🟡 FR-302（任意要件）。開始ロジック自体は後続task（007〜011）で実装する
+signal exam_outcome_confirmed(outcome: ExamOutcome.Value)  # 🟡 FR-301（任意要件）
 
 var _current_phase: StringName = &"garden"
 var _gold: int = 0
@@ -58,6 +60,16 @@ var _rank_state_initialized: bool = false
 # 一度警告済みのランクIDを記録する（reset_for_test()で初期化）
 var _warned_missing_rank_master_ids: Dictionary = {}
 
+# --- 昇格試験（rank/exam）関連フィールド ---
+# 🔵 FR-008。試験の開始/進行/結果確定ロジック自体は後続task（007〜011）で実装する
+var _in_exam: bool = false
+# 🟡 design phase確定。_rank_stateと同型パターンだが、ExamStateはRankMasterを再参照せず
+# start_exam()時点で計算済みのexam_quota_maxを自身のフィールドとして保持する自己完結型
+var _exam_state: ExamState = ExamState.new()
+# 🔵 FR-113（_last_rank_outcomeと同型）。試験結果確定後にcommit_exam_outcome()が
+# 冪等に返すための直近確定結果（後続taskで使用）
+var _last_exam_outcome: ExamOutcome.Value = ExamOutcome.Value.CONTINUE
+
 
 # 内部Dictionary/Arrayフィールドを直接返すと呼び出し元が改変できてしまうため、
 # 辞書リテラルを都度生成しduplicate(true)でディープコピーを保証する（state-management.md）。
@@ -91,6 +103,13 @@ func get_state() -> Dictionary:
 		"current_rank_id": _current_rank_id,
 		"demotion_count": _demotion_count,
 		"rank_state": _rank_state.clone(),
+		# 🔵 FR-009, AC-018。試験ビュー5フィールドはすべて値型のため、_exam_state.clone()のような
+		# 明示的コピー呼び出しは不要（値型コピーで防御性が保たれる、design phase確定）
+		"in_exam": _in_exam,
+		"exam_quota": _exam_state.exam_quota,
+		"exam_quota_max": _exam_state.exam_quota_max,
+		"exam_elapsed_turn": _exam_state.exam_elapsed_turn,
+		"exam_turn_limit": _exam_state.exam_turn_limit,
 	}
 
 
@@ -269,6 +288,13 @@ func execute_alchemy(recipe_id: StringName, material_instance_ids: Array[String]
 	# シグナル購読側・戻り値の受け取り側による事後変更から守る
 	_pending_products.append(product.clone())
 
+	# 🔵 FR-102。試験中は調合成功1回につき試験内ターンを1消費する。advance_turn()は
+	# 新規ExamStateを返す純粋関数（in-place書き換えではない）ため、戻り値で明示的に置き換える。
+	# 同期リスナーが更新前の値を読むのを防ぐため、product_crafted.emit()より前に状態更新を完了させる
+	# （commit_rank_outcome()のシグナル発行順序と同方針）
+	if _in_exam:
+		_exam_state = PromotionExamResolver.advance_turn(_exam_state)
+
 	product_crafted.emit(product)
 	return Result.ok(product)
 
@@ -286,12 +312,23 @@ func deliver_pending_products() -> Result:
 		return Result.ok(results)
 
 	var gold_before := _gold
+	# 🔵 FR-105, FR-106, FR-401。試験中(_in_exam)はdaily_orderをnullに切り替え、
+	# 指定合致ボーナス（DeliveryResolver.matches_orderはdaily_order=nullで常にfalse）を不適用にする。
+	# 報酬(gold)加算はこの分岐と無関係に常時行う（FR-106: 試験中/非試験中でgold加算量は変わらない）
+	var order_for_delivery: DailyOrderMaster = null if _in_exam else _current_daily_order
 	for product in _pending_products:
-		var delivery_result := DeliveryResolver.resolve(product, _current_daily_order)
+		var delivery_result := DeliveryResolver.resolve(product, order_for_delivery)
 		_gold += roundi(delivery_result.final_reward)
-		_rank_state.quota = RankQuotaResolver.apply_contribution(
-			_rank_state.quota, delivery_result.final_contribution
-		)
+		# 🔵 貢献度の適用先を試験中/非試験中で切り替える。RankQuotaResolver.apply_contribution自体は
+		# ノルマの入れ物がRankState.quotaかExamState.exam_quotaかを問わない汎用のfloatクランプ関数のため無変更で流用する
+		if _in_exam:
+			_exam_state.exam_quota = RankQuotaResolver.apply_contribution(
+				_exam_state.exam_quota, delivery_result.final_contribution
+			)
+		else:
+			_rank_state.quota = RankQuotaResolver.apply_contribution(
+				_rank_state.quota, delivery_result.final_contribution
+			)
 		results.append(delivery_result)
 
 	# 🔴 走査中にclear()すると反復が壊れるため、キューの破棄はループ完了後に行う
@@ -410,6 +447,8 @@ func evaluate_rank_outcome() -> RankOutcome.Value:
 ## 🔴 コードレビュー指摘対応。DEMOTION側の状態更新（_demotion_count/_rank_state）は、
 ## 他の全GameStateミューテータ（harvest/execute_alchemy/deliver_pending_products）と同様、
 ## 必ずrank_outcome_confirmed発行より前に完了させる（同期リスナーが更新前の値を読むのを防ぐ）
+## 🔵 FR-101。PROMOTION_ELIGIBLE確定時、not _in_examの場合のみ_start_exam()を呼ぶ
+## （二重開始防止、FR-201）。既存のDEMOTION/game_over処理・シグナル発行順序は変更しない
 func commit_rank_outcome() -> Result:
 	if is_game_over():
 		return Result.ok(_last_rank_outcome)
@@ -420,6 +459,8 @@ func commit_rank_outcome() -> Result:
 	if outcome == RankOutcome.Value.DEMOTION:
 		_demotion_count += 1
 		_rank_state = RankQuotaResolver.reset_for_retry(_get_current_rank_master_or_fallback())
+	elif outcome == RankOutcome.Value.PROMOTION_ELIGIBLE and not _in_exam:
+		_start_exam()
 
 	rank_outcome_confirmed.emit(outcome)  # 🔴 FR-112
 
@@ -432,6 +473,112 @@ func commit_rank_outcome() -> Result:
 ## 🔵 FR-111。降格回数が上限に達しているか
 func is_game_over() -> bool:
 	return _demotion_count >= GameBalance.MAX_DEMOTION_COUNT
+
+
+## 🔵 FR-101。PromotionExamResolver.start_examで現在ランクのExamStateを生成しin_examをtrueにする。
+## 🔴 NFR-101。現在ランクのRankMasterが不正（null/limit_turn<=0）な場合は試験を開始せずpush_error()する。
+## 🔴 evaluate_rank_outcome()と同様、_get_current_rank_master_or_fallback()は経由せず
+## _rank_mastersを直接参照する（フォールバックのlimit_turn=0を「正当な0値」と誤認しないため）。
+## この関数自身がnull/limit_turn<=0を弾くことで、PromotionExamResolver.start_exam内部の
+## 同種ガードは呼び出し元からは実質到達しない（design phase確認済みの意図的な二重構造）
+func _start_exam() -> void:
+	var rank_master: RankMaster = _rank_masters.get(_current_rank_id)
+	if rank_master == null:
+		_warn_missing_rank_master()
+		return
+	if rank_master.limit_turn <= 0:
+		push_error("現在ランクのlimit_turnが不正なため試験を開始できません: %s" % _current_rank_id)
+		return
+
+	_exam_state = PromotionExamResolver.start_exam(rank_master)
+	_in_exam = true
+	exam_started.emit()  # 🟡 FR-302
+
+
+## 🔵 FR-103, FR-104。試験中(_in_exam=true)に調合を実行せず試験ターンだけ進める。
+## 在庫切れ・解禁レシピ切れ等で調合が実行不能になったデッドロックからの回避手段。
+## PromotionExamResolver.advance_turnは新規ExamStateを返す純粋関数（in-place書き換えではない）ため、
+## execute_alchemy()の試験中ターン消費と同様に戻り値で明示的に置き換える。
+## 🟡 in_exam=falseの場合は状態を一切変更せず失敗のResultを返す（FR-104）。
+## エラーコード&"not_in_exam"はexecute_alchemy_failed等の既存命名規則(snake_case)から推定した新規コード
+## （design phaseで明示要件なし）。resolve_outcomeの呼び出しは行わない（結果確定はcommit_exam_outcome()の責務）
+func advance_exam_turn() -> Result:
+	if not _in_exam:
+		return Result.fail(&"not_in_exam")
+
+	_exam_state = PromotionExamResolver.advance_turn(_exam_state)
+	return Result.ok()
+
+
+## 🟡 FR-107。in_exam=falseの場合は常にCONTINUEを返す（_rank_state_initializedガードと同型の
+## 安全策）。副作用を持たない問い合わせ専用。UIの先出し表示と、commit_exam_outcome()の
+## 実行直前再評価の両方から使う。判定ロジック自体はPromotionExamResolver.resolve_outcome
+## （ノルマ達成を制限ターン到達より優先する）にそのまま委譲する
+func evaluate_exam_outcome() -> ExamOutcome.Value:
+	if not _in_exam:
+		return ExamOutcome.Value.CONTINUE
+
+	return PromotionExamResolver.resolve_outcome(_exam_state)
+
+
+## 🔵 FR-108〜113。evaluate_exam_outcome()を実行直前に再評価してから状態へ確定反映する。
+## SUCCESSなら次ランクへの実遷移またはゲームクリア判定、FAILUREなら同ランク再挑戦のリセット処理へ
+## それぞれ委譲する。既にゲームオーバー確定済みなら状態を変更せず直近の確定結果を冪等に返す
+## （FR-113、commit_rank_outcome()と同型）。
+## 🔴 _commit_exam_success()/_commit_exam_failure()での状態更新は、他の全GameStateミューテータと
+## 同様に必ずexam_outcome_confirmed発行より前に完了させる（同期リスナーが更新前の値を読むのを防ぐ）
+func commit_exam_outcome() -> Result:
+	if is_game_over():
+		return Result.ok(_last_exam_outcome)
+
+	var outcome := evaluate_exam_outcome()
+	_last_exam_outcome = outcome
+
+	if outcome == ExamOutcome.Value.SUCCESS:
+		_commit_exam_success()
+	elif outcome == ExamOutcome.Value.FAILURE:
+		_commit_exam_failure()
+
+	exam_outcome_confirmed.emit(outcome)  # 🟡 FR-301
+
+	if outcome == ExamOutcome.Value.FAILURE and is_game_over():
+		# 🔴 FR-113。新規シグナルは作らず、既存のrank plan実装のgame_over(demotion_count)を再利用する
+		game_over.emit(_demotion_count)
+
+	return Result.ok(outcome)
+
+
+## 🔵 SUCCESS確定時の内部処理（FR-108, FR-109, FR-404）。次ランクがあれば昇格しrank_stateを
+## 次ランクのquota_maxで再初期化する。次ランクなし（RANK_ORDER末尾）ならゲームクリアとして
+## current_rank_id・rank_stateは不変のままin_examのみ終了させる。
+## 🔴 NFR-101。次ランクのRankMasterが_rank_mastersに未登録の場合は、_start_exam()のガード
+## パターンに合わせ、確認が取れるまで一切の状態を変更せずpush_error()のみ行う
+func _commit_exam_success() -> void:
+	var next_rank_id := RankProgression.get_next_rank_id(_current_rank_id)
+
+	if next_rank_id == &"":
+		_in_exam = false
+		return
+
+	var next_rank_master: RankMaster = _rank_masters.get(next_rank_id)
+	if next_rank_master == null:
+		push_error("次ランクのマスターデータが見つかりません: %s" % next_rank_id)
+		return
+
+	_current_rank_id = next_rank_id
+	# 🟡 design phase確認済み。RankQuotaResolver.reset_for_retryは「同ランク再挑戦専用」ではなく
+	# 「RankMasterのquota_maxからRankStateを初期化する」汎用関数のため、次ランク初期化にも流用する
+	_rank_state = RankQuotaResolver.reset_for_retry(next_rank_master)
+	_rank_state_initialized = true
+	_in_exam = false
+
+
+## 🔵 FAILURE確定時の内部処理（FR-110, FR-111）。同ランクをreset_for_retryでリセットし、
+## demotion_countを+1する（commit_rank_outcome()のDEMOTION分岐と同型）
+func _commit_exam_failure() -> void:
+	_demotion_count += 1
+	_rank_state = RankQuotaResolver.reset_for_retry(_get_current_rank_master_or_fallback())
+	_in_exam = false
 
 
 ## 🔴 500行ルール対応。以下のテスト専用API群は実装本体をgame_state_test_support.gd
@@ -503,6 +650,11 @@ func _inject_pending_product_for_test(product: ProductInstance) -> void:
 	GameStateTestSupport.inject_pending_product(self, product)
 
 
+## 🟡 テスト専用。試験開始処理（後続task）を経由せずexam_state/in_examを直接注入する（CON-008委譲パターン）
+func _set_exam_state_for_test(exam_state: ExamState, in_exam: bool = true) -> void:
+	GameStateTestSupport.set_exam_state(self, exam_state, in_exam)
+
+
 # テスト分離専用。デバッグビルドガードは他のテスト専用API群と同じくGameStateTestSupport.guard()
 # へ一元化する（🔴 コードレビュー指摘対応。以前は本関数だけ独自にassert+push_error+returnを
 # 重複実装していた）
@@ -533,3 +685,6 @@ func reset_for_test() -> void:
 	_last_rank_outcome = RankOutcome.Value.CONTINUE
 	_rank_state_initialized = false
 	_warned_missing_rank_master_ids = {}
+	_in_exam = false
+	_exam_state = ExamState.new()
+	_last_exam_outcome = ExamOutcome.Value.CONTINUE
