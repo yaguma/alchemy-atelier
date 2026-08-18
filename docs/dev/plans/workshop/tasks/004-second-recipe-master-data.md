@@ -1,7 +1,7 @@
 ---
 id: "004"
 title: "レシピ解禁対象となる第2レシピのマスターデータを新規作成する"
-status: pending
+status: done
 priority: 2
 dependencies: []
 estimated_complexity: low
