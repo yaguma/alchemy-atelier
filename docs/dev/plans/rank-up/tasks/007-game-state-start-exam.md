@@ -1,7 +1,7 @@
 ---
 id: "007"
 title: "GameState.commit_rank_outcome()に試験開始トリガーを統合する"
-status: pending
+status: done
 priority: 2
 dependencies: ["005", "006"]
 estimated_complexity: medium

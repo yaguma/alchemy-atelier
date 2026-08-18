@@ -1,7 +1,7 @@
 ---
 id: "009"
 title: "GameState.deliver_pending_products()に試験中の納品分岐を統合する"
-status: pending
+status: done
 priority: 2
 dependencies: ["006"]
 estimated_complexity: medium

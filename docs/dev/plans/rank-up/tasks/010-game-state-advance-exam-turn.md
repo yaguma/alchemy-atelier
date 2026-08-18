@@ -1,7 +1,7 @@
 ---
 id: "010"
 title: "GameState.advance_exam_turn()を実装する"
-status: pending
+status: done
 priority: 2
 dependencies: ["005", "006"]
 estimated_complexity: low

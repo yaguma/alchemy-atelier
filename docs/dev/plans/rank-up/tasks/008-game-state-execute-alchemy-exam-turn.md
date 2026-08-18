@@ -1,7 +1,7 @@
 ---
 id: "008"
 title: "GameState.execute_alchemy()に試験中ターン消費を統合する"
-status: pending
+status: done
 priority: 2
 dependencies: ["005", "006"]
 estimated_complexity: low

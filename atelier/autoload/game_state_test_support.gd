@@ -103,3 +103,11 @@ static func inject_pending_product(state: GameStateScript, product: ProductInsta
 	if not guard("_inject_pending_product_for_test"):
 		return
 	state._pending_products.append(product.clone())
+
+
+## 内部正本は独立コピーとして保持し、呼び出し元が注入後に引数を変更しても汚染されないようにする
+static func set_exam_state(state: GameStateScript, exam_state: ExamState, in_exam: bool) -> void:
+	if not guard("_set_exam_state_for_test"):
+		return
+	state._exam_state = exam_state.clone()
+	state._in_exam = in_exam
