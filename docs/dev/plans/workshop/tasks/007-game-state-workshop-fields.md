@@ -1,7 +1,7 @@
 ---
 id: "007"
 title: "GameStateに工房強化フィールドとテスト専用APIを追加する"
-status: pending
+status: done
 priority: 1
 dependencies: ["001"]
 estimated_complexity: medium

@@ -111,3 +111,16 @@ static func set_exam_state(state: GameStateScript, exam_state: ExamState, in_exa
 		return
 	state._exam_state = exam_state.clone()
 	state._in_exam = in_exam
+
+
+static func set_can_purchase_permanent(state: GameStateScript, value: bool) -> void:
+	if not guard("_set_can_purchase_permanent_for_test"):
+		return
+	state._can_purchase_permanent = value
+
+
+## 内部正本は独立コピーとして保持する（既存set_current_daily_order()等と同方針）
+static func set_purchased_upgrade_counts(state: GameStateScript, counts: Dictionary) -> void:
+	if not guard("_set_purchased_upgrade_counts_for_test"):
+		return
+	state._purchased_upgrade_counts = counts.duplicate()

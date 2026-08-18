@@ -70,6 +70,11 @@ var _exam_state: ExamState = ExamState.new()
 # 冪等に返すための直近確定結果（後続taskで使用）
 var _last_exam_outcome: ExamOutcome.Value = ExamOutcome.Value.CONTINUE
 
+# --- 工房強化・ショップ（workshop）関連フィールド ---
+var _can_purchase_permanent: bool = false  # 🔵 FR-009
+var _purchased_upgrade_counts: Dictionary = {}  # 🔵 FR-010 Dictionary[StringName, int]
+var _upgrade_masters: Dictionary = {}  # 🔵 FR-011 Dictionary[StringName, UpgradeMaster]
+
 
 # 内部Dictionary/Arrayフィールドを直接返すと呼び出し元が改変できてしまうため、
 # 辞書リテラルを都度生成しduplicate(true)でディープコピーを保証する（state-management.md）。
@@ -110,6 +115,7 @@ func get_state() -> Dictionary:
 		"exam_quota_max": _exam_state.exam_quota_max,
 		"exam_elapsed_turn": _exam_state.exam_elapsed_turn,
 		"exam_turn_limit": _exam_state.exam_turn_limit,
+		"can_purchase_permanent": _can_purchase_permanent,  # 🔵 FR-017
 	}
 
 
@@ -675,6 +681,16 @@ func _set_exam_state_for_test(exam_state: ExamState, in_exam: bool = true) -> vo
 	GameStateTestSupport.set_exam_state(self, exam_state, in_exam)
 
 
+## 🔵 テスト専用。can_purchase_permanentを工房強化画面の開閉操作を介さず直接注入する（FR-012）
+func _set_can_purchase_permanent_for_test(value: bool) -> void:
+	GameStateTestSupport.set_can_purchase_permanent(self, value)
+
+
+## 🔵 テスト専用。purchased_upgrade_countsをapply_upgrade()を介さず直接注入する（FR-013）
+func _set_purchased_upgrade_counts_for_test(counts: Dictionary) -> void:
+	GameStateTestSupport.set_purchased_upgrade_counts(self, counts)
+
+
 # テスト分離専用。デバッグビルドガードは他のテスト専用API群と同じくGameStateTestSupport.guard()
 # へ一元化する（🔴 コードレビュー指摘対応。以前は本関数だけ独自にassert+push_error+returnを
 # 重複実装していた）
@@ -708,3 +724,6 @@ func reset_for_test() -> void:
 	_in_exam = false
 	_exam_state = ExamState.new()
 	_last_exam_outcome = ExamOutcome.Value.CONTINUE
+	_can_purchase_permanent = false
+	_purchased_upgrade_counts = {}
+	_upgrade_masters = {}
