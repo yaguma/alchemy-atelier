@@ -1,7 +1,7 @@
 ---
 id: "001"
 title: "UpgradeMasterリソース型を定義する"
-status: pending
+status: done
 priority: 1
 dependencies: []
 estimated_complexity: low
