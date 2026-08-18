@@ -164,6 +164,25 @@ func test_次ランクのマスターデータが未登録ならcurrent_rank_id�
 	assert_float(GameState._rank_state.quota).is_equal_approx(100.0, FLOAT_TOLERANCE)
 
 
+## 🔴 コードレビュー指摘対応。以前は次ランクのマスターデータ未登録時にin_examがtrueのまま
+## 残り続け、以降のcommit_exam_outcome()呼び出しのたびに同じSUCCESS判定・push_errorが
+## 無限に繰り返される「解決不能な幽霊試験状態」になっていた。in_examが必ずfalseへ戻り、
+## 以降の呼び出しではCONTINUE（試験外の既定値）が返ることを確認する
+func test_次ランクのマスターデータが未登録ならin_examがfalseに戻り再呼び出しでもSUCCESSが繰り返されない() -> void:
+	GameState._set_rank_masters_for_test({RANK_ID: _make_rank(RANK_ID, 100.0, 30)})
+	GameState._set_current_rank_id_for_test(RANK_ID)
+	_set_rank_state(100.0, 0)
+	_set_exam_state(0.0, 50.0, 5, 20)
+
+	var first_result := GameState.commit_exam_outcome()
+	assert_bool(GameState._in_exam).is_false()
+
+	var second_result := GameState.commit_exam_outcome()
+
+	assert_int(first_result.value).is_equal(ExamOutcome.Value.SUCCESS)
+	assert_int(second_result.value).is_equal(ExamOutcome.Value.CONTINUE)
+
+
 # 境界値・異常系（FR-404）: commit_exam_outcome の SUCCESS（次ランクなし＝ゲームクリア）確定処理
 
 

@@ -114,6 +114,23 @@ func test_RankMasterのlimit_turnが不正な場合は試験を開始せずin_ex
 	assert_int(_exam_started_count).is_equal(0)
 
 
+## 🔴 コードレビュー指摘対応（NFR-101）。exam_turn_limit<=0（未設定マスターデータ）の場合、
+## PromotionExamResolver.start_exam()自体はexam_quota=0の壊れたExamStateを例外なく返すため、
+## それを検知せずin_exam=trueにしてしまうと次のcommit_exam_outcome()でexam_quota<=0により
+## 即SUCCESS判定され、試験を一切プレイせず昇格してしまう。_start_exam()側でexam_turn_limitも
+## 事前検証し、試験自体を開始しないことを確認する
+func test_RankMasterのexam_turn_limitが不正な場合は試験を開始せずin_examがfalseのまま() -> void:
+	GameState._set_rank_masters_for_test({RANK_ID: _make_valid_rank(100.0, 30, 0, 0.5)})
+	GameState._set_current_rank_id_for_test(RANK_ID)
+	_set_rank_state(0.0, 30)
+
+	var result := GameState.commit_rank_outcome()
+
+	assert_int(result.value).is_equal(RankOutcome.Value.PROMOTION_ELIGIBLE)
+	assert_bool(GameState.get_state().in_exam).is_false()
+	assert_int(_exam_started_count).is_equal(0)
+
+
 # 二重開始防止（FR-201）
 
 
