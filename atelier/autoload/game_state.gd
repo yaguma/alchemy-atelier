@@ -397,6 +397,16 @@ func _warn_missing_rank_master() -> void:
 	push_error("現在ランクのマスターデータが見つかりません: %s" % _current_rank_id)
 
 
+## _commit_exam_success()専用。次ランクのマスターデータが見つからない場合の警告を、
+## _warn_missing_rank_master()と同じ_warned_missing_rank_master_idsで多重発生を防ぎつつ出す
+## （🔴 コードレビュー指摘対応。next_rank_idは_current_rank_idとは別IDのため専用関数にする）
+func _warn_missing_next_rank_master(next_rank_id: StringName) -> void:
+	if _warned_missing_rank_master_ids.has(next_rank_id):
+		return
+	_warned_missing_rank_master_ids[next_rank_id] = true
+	push_error("次ランクのマスターデータが見つかりません: %s" % next_rank_id)
+
+
 ## 現在ランクのRankMasterを返す。_rank_mastersに_current_rank_idが存在しない場合は
 ## _warn_missing_rank_master()した上で、特性未解禁・ノルマ0・制限ターン0の安全側フォールバックを返す
 ## （🔴 FR-114, CON-008）。マスターデータ未ロード時でも調合・納品が例外なく成立することを優先し、
@@ -476,11 +486,14 @@ func is_game_over() -> bool:
 
 
 ## 🔵 FR-101。PromotionExamResolver.start_examで現在ランクのExamStateを生成しin_examをtrueにする。
-## 🔴 NFR-101。現在ランクのRankMasterが不正（null/limit_turn<=0）な場合は試験を開始せずpush_error()する。
+## 🔴 NFR-101。現在ランクのRankMasterが不正（null/limit_turn<=0/exam_turn_limit<=0）な場合は
+## 試験を開始せずpush_error()する。
 ## 🔴 evaluate_rank_outcome()と同様、_get_current_rank_master_or_fallback()は経由せず
 ## _rank_mastersを直接参照する（フォールバックのlimit_turn=0を「正当な0値」と誤認しないため）。
-## この関数自身がnull/limit_turn<=0を弾くことで、PromotionExamResolver.start_exam内部の
-## 同種ガードは呼び出し元からは実質到達しない（design phase確認済みの意図的な二重構造）
+## 🔴 exam_turn_limit<=0もここで弾く。PromotionExamResolver.start_exam内部にも同種ガードがあるが、
+## そちらは失敗時にexam_quota=0のExamStateを返すだけで例外を投げないため、ここで検知しないと
+## _in_exam=trueのまま試験が始まり、次のcommit_exam_outcome()でexam_quota<=0により即SUCCESS
+## 判定されてしまう（試験を一切プレイせず昇格するバグ）
 func _start_exam() -> void:
 	var rank_master: RankMaster = _rank_masters.get(_current_rank_id)
 	if rank_master == null:
@@ -488,6 +501,9 @@ func _start_exam() -> void:
 		return
 	if rank_master.limit_turn <= 0:
 		push_error("現在ランクのlimit_turnが不正なため試験を開始できません: %s" % _current_rank_id)
+		return
+	if rank_master.exam_turn_limit <= 0:
+		push_error("現在ランクのexam_turn_limitが不正なため試験を開始できません: %s" % _current_rank_id)
 		return
 
 	_exam_state = PromotionExamResolver.start_exam(rank_master)
@@ -551,8 +567,11 @@ func commit_exam_outcome() -> Result:
 ## 🔵 SUCCESS確定時の内部処理（FR-108, FR-109, FR-404）。次ランクがあれば昇格しrank_stateを
 ## 次ランクのquota_maxで再初期化する。次ランクなし（RANK_ORDER末尾）ならゲームクリアとして
 ## current_rank_id・rank_stateは不変のままin_examのみ終了させる。
-## 🔴 NFR-101。次ランクのRankMasterが_rank_mastersに未登録の場合は、_start_exam()のガード
-## パターンに合わせ、確認が取れるまで一切の状態を変更せずpush_error()のみ行う
+## 🔴 NFR-101。次ランクのRankMasterが_rank_mastersに未登録の場合は、_rank_state・_current_rank_idは
+## 変更せず_warn_missing_next_rank_master()で警告するが、_in_examは必ずfalseへ戻す。
+## 🔴 コードレビュー指摘対応。以前は_in_examをtrueのまま残していたため、次のcommit_exam_outcome()
+## 呼び出しでもexam_quotaが>0のままSUCCESS判定が再評価されこの分岐に無限に入り直し、
+## push_errorが呼び出しのたびに連呼される「解決不能な幽霊試験状態」に陥っていた
 func _commit_exam_success() -> void:
 	var next_rank_id := RankProgression.get_next_rank_id(_current_rank_id)
 
@@ -562,7 +581,8 @@ func _commit_exam_success() -> void:
 
 	var next_rank_master: RankMaster = _rank_masters.get(next_rank_id)
 	if next_rank_master == null:
-		push_error("次ランクのマスターデータが見つかりません: %s" % next_rank_id)
+		_warn_missing_next_rank_master(next_rank_id)
+		_in_exam = false
 		return
 
 	_current_rank_id = next_rank_id
