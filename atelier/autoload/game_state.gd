@@ -607,6 +607,44 @@ func _commit_exam_failure() -> void:
 	_in_exam = false
 
 
+## 🔵 検証(1)null(2)恒久フラグ(3)can_purchase再評価の順に行い、全て通過した場合のみ
+## 状態変更（ゴールド減算・effect反映・購入回数カウント更新）をすべて完了させてからgold_changedを
+## 発行する（FR-101〜104, FR-112〜114, FR-401〜402）。いずれかの検証に失敗した場合は
+## いかなる状態も変更しない（execute_alchemy()と同型のアトミック性パターン）。
+## effect_type別の状態反映は_apply_upgrade_effect()に委譲する（別taskでno-op実装から差し替え予定）
+func apply_upgrade(upgrade: UpgradeMaster) -> Result:
+	if upgrade == null:
+		return Result.fail(&"invalid_upgrade")
+
+	if PurchaseValidator.is_permanent_upgrade(upgrade) and not _can_purchase_permanent:
+		return Result.fail(&"workshop_closed")
+
+	# 🔵 UIの先出し判定を信頼せず、状態変更の直前にDomain層の実行可否を再評価する
+	var already_purchased_count: int = _purchased_upgrade_counts.get(upgrade.id, 0)
+	if not PurchaseValidator.can_purchase(
+		_gold, upgrade.price, already_purchased_count, upgrade.max_purchase_count
+	):
+		return Result.fail(&"cannot_purchase")
+
+	# --- 状態変更フェーズ（全て完了するまでシグナル発行しない） ---
+	var previous_gold := _gold
+	_gold -= upgrade.price
+
+	_apply_upgrade_effect(upgrade)  # 別taskで実装。本taskではno-op
+
+	_purchased_upgrade_counts[upgrade.id] = already_purchased_count + 1
+
+	gold_changed.emit(previous_gold, _gold, _gold - previous_gold)
+
+	return Result.ok(upgrade)
+
+
+## 🔴 本taskではno-op。別taskでeffect_type別（alchemy_slot_increase/garden_slot_increase/
+## recipe_unlock/catalyst_stock/seed_name_purchase）の5分岐を実装する
+func _apply_upgrade_effect(_upgrade: UpgradeMaster) -> void:
+	pass
+
+
 ## 🔴 500行ルール対応。以下のテスト専用API群は実装本体をgame_state_test_support.gd
 ## （GameStateTestSupport）へ委譲する。公開シグネチャ・呼び出し方法はテストコード側から見て変更しない
 
@@ -689,6 +727,12 @@ func _set_can_purchase_permanent_for_test(value: bool) -> void:
 ## 🔵 テスト専用。purchased_upgrade_countsをapply_upgrade()を介さず直接注入する（FR-013）
 func _set_purchased_upgrade_counts_for_test(counts: Dictionary) -> void:
 	GameStateTestSupport.set_purchased_upgrade_counts(self, counts)
+
+
+## 🔴 テスト専用。goldをdeliver_pending_products()を介さず直接注入する
+## （apply_upgrade()の所持ゴールド境界値テスト用の新規補完）
+func _set_gold_for_test(gold: int) -> void:
+	GameStateTestSupport.set_gold(self, gold)
 
 
 # テスト分離専用。デバッグビルドガードは他のテスト専用API群と同じくGameStateTestSupport.guard()

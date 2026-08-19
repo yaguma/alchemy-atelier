@@ -124,3 +124,10 @@ static func set_purchased_upgrade_counts(state: GameStateScript, counts: Diction
 	if not guard("_set_purchased_upgrade_counts_for_test"):
 		return
 	state._purchased_upgrade_counts = counts.duplicate()
+
+
+## apply_upgrade()の所持ゴールド境界値テスト用の新規補完
+static func set_gold(state: GameStateScript, gold: int) -> void:
+	if not guard("_set_gold_for_test"):
+		return
+	state._gold = gold

@@ -1,7 +1,7 @@
 ---
 id: "008"
 title: "GameState.apply_upgrade()の共通検証・ゴールド減算・シグナル発行を実装する"
-status: pending
+status: done
 priority: 2
 dependencies: ["003", "007"]
 estimated_complexity: medium
