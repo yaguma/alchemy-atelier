@@ -1,10 +1,11 @@
 extends GdUnitTestSuite
 
 ## GameState.apply_upgrade()の共通検証パイプライン（null検証・恒久フラグ検証・
-## PurchaseValidator.can_purchase実行直前再評価・ゴールド減算・購入回数カウント更新・
-## gold_changedシグナル発行）を検証する（FR-101〜104, FR-112〜114, FR-401〜402）。
-## effect_type別の状態反映（_apply_upgrade_effect）は別taskでno-op実装から差し替え予定のため、
-## 本テストではeffect_typeの具体的な値に依存しないダミー値で構成する
+## PurchaseValidator.can_purchase実行直前再評価・PurchaseValidator.is_valid_effect実行直前再評価・
+## ゴールド減算・購入回数カウント更新・gold_changedシグナル発行）を検証する
+## （FR-101〜104, FR-112〜114, FR-401〜402）。本テストのeffect_type別の状態反映結果自体は
+## test_game_state_apply_upgrade_effects.gdの担当のため、ここではeffect_valueを要求しない
+## catalyst_stockを既知の有効なeffect_typeとして使い、共通検証パイプラインのみを対象にする
 
 
 func before_test() -> void:
@@ -19,7 +20,7 @@ func _make_upgrade(
 	upgrade.is_permanent = is_permanent
 	upgrade.price = price
 	upgrade.max_purchase_count = max_purchase_count
-	upgrade.effect_type = &"dummy_effect"
+	upgrade.effect_type = &"catalyst_stock"
 	return upgrade
 
 
@@ -109,6 +110,32 @@ func test_購入が拒否された場合はgold_changedシグナルが発行さ�
 
 	GameState.gold_changed.disconnect(handler)
 	assert_int(emit_count).is_equal(0)
+
+
+func test_未知のeffect_typeなら購入が拒否されgoldとcountsが変化しない() -> void:
+	GameState._set_gold_for_test(200)
+	var upgrade := _make_upgrade(false, 100)
+	upgrade.effect_type = &"unknown_effect"
+
+	var result := GameState.apply_upgrade(upgrade)
+
+	assert_bool(result.success).is_false()
+	assert_str(result.error_code).is_equal(&"invalid_effect")
+	assert_int(GameState.get_state()["gold"]).is_equal(200)
+	assert_int(GameState._purchased_upgrade_counts.size()).is_equal(0)
+
+
+func test_effect_valueの型が不一致なら購入が拒否されgoldが変化しない() -> void:
+	GameState._set_gold_for_test(200)
+	var upgrade := _make_upgrade(false, 100)
+	upgrade.effect_type = &"alchemy_slot_increase"
+	upgrade.effect_value = &"not_an_int"  # 本来int必須のところにStringNameを誤設定
+
+	var result := GameState.apply_upgrade(upgrade)
+
+	assert_bool(result.success).is_false()
+	assert_str(result.error_code).is_equal(&"invalid_effect")
+	assert_int(GameState.get_state()["gold"]).is_equal(200)
 
 
 func test_apply_upgradeにnullを渡すとクラッシュせず失敗Resultが返り状態が変化しない() -> void:

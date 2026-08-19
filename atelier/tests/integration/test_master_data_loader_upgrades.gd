@@ -32,49 +32,62 @@ func test_ロードしたUpgradeMasterのフィールドが実データと一致
 	for u in upgrades:
 		by_id[(u as UpgradeMaster).id] = u
 
+	# .tresのリテラル値はGameBalance.WORKSHOP_*定数と同じ値を直接記述する意図的な重複
+	# （.tresからGDScript定数を参照する仕組みがGodotにないため）。ここでGameBalance定数と
+	# 突き合わせることで、片方だけ値を変更した場合のドリフトを検知する（コードレビュー指摘対応）
 	var alchemy_slot: UpgradeMaster = by_id.get(&"upgrade_alchemy_slot")
 	assert_object(alchemy_slot).is_not_null()
 	assert_str(alchemy_slot.name).is_equal("投入枠+1")
 	assert_bool(alchemy_slot.is_permanent).is_true()
-	assert_int(alchemy_slot.price).is_equal(2000)
+	assert_int(alchemy_slot.price).is_equal(GameBalance.WORKSHOP_ALCHEMY_SLOT_PRICE)
 	assert_that(alchemy_slot.effect_type).is_equal(&"alchemy_slot_increase")
-	assert_int(alchemy_slot.effect_value).is_equal(1)
-	assert_int(alchemy_slot.max_purchase_count).is_equal(1)
+	assert_int(alchemy_slot.effect_value).is_equal(GameBalance.WORKSHOP_ALCHEMY_SLOT_EFFECT_VALUE)
+	assert_int(alchemy_slot.max_purchase_count).is_equal(
+		GameBalance.WORKSHOP_ALCHEMY_SLOT_MAX_PURCHASE_COUNT
+	)
 
 	var garden_slot: UpgradeMaster = by_id.get(&"upgrade_garden_slot")
 	assert_object(garden_slot).is_not_null()
 	assert_str(garden_slot.name).is_equal("庭拡張")
 	assert_bool(garden_slot.is_permanent).is_true()
-	assert_int(garden_slot.price).is_equal(800)
+	assert_int(garden_slot.price).is_equal(GameBalance.WORKSHOP_GARDEN_SLOT_PRICE)
 	assert_that(garden_slot.effect_type).is_equal(&"garden_slot_increase")
-	assert_int(garden_slot.effect_value).is_equal(1)
-	assert_int(garden_slot.max_purchase_count).is_equal(3)
+	assert_int(garden_slot.effect_value).is_equal(GameBalance.WORKSHOP_GARDEN_SLOT_EFFECT_VALUE)
+	assert_int(garden_slot.max_purchase_count).is_equal(
+		GameBalance.WORKSHOP_GARDEN_SLOT_MAX_PURCHASE_COUNT
+	)
 
 	var recipe_unlock: UpgradeMaster = by_id.get(&"upgrade_recipe_unlock_mana_tonic")
 	assert_object(recipe_unlock).is_not_null()
 	assert_str(recipe_unlock.name).is_equal("レシピ解禁：魔力秘薬")
 	assert_bool(recipe_unlock.is_permanent).is_true()
-	assert_int(recipe_unlock.price).is_equal(800)
+	assert_int(recipe_unlock.price).is_equal(GameBalance.WORKSHOP_RECIPE_UNLOCK_PRICE)
 	assert_that(recipe_unlock.effect_type).is_equal(&"recipe_unlock")
-	assert_that(recipe_unlock.effect_value).is_equal(&"recipe_mana_tonic")
-	assert_int(recipe_unlock.max_purchase_count).is_equal(1)
+	assert_that(recipe_unlock.effect_value).is_equal(GameBalance.SECOND_RECIPE_ID)
+	assert_int(recipe_unlock.max_purchase_count).is_equal(
+		GameBalance.WORKSHOP_RECIPE_UNLOCK_MAX_PURCHASE_COUNT
+	)
 
 	var catalyst: UpgradeMaster = by_id.get(&"upgrade_catalyst")
 	assert_object(catalyst).is_not_null()
 	assert_str(catalyst.name).is_equal("触媒常備")
 	assert_bool(catalyst.is_permanent).is_false()
-	assert_int(catalyst.price).is_equal(150)
+	assert_int(catalyst.price).is_equal(GameBalance.WORKSHOP_CATALYST_STOCK_PRICE)
 	assert_that(catalyst.effect_type).is_equal(&"catalyst_stock")
-	assert_int(catalyst.max_purchase_count).is_equal(999)
+	assert_int(catalyst.max_purchase_count).is_equal(
+		GameBalance.WORKSHOP_CATALYST_STOCK_MAX_PURCHASE_COUNT
+	)
 
 	var seed_name_purchase: UpgradeMaster = by_id.get(&"upgrade_seed_name_purchase_ore")
 	assert_object(seed_name_purchase).is_not_null()
 	assert_str(seed_name_purchase.name).is_equal("種の指名買い：鉱石の種")
 	assert_bool(seed_name_purchase.is_permanent).is_false()
-	assert_int(seed_name_purchase.price).is_equal(50)
+	assert_int(seed_name_purchase.price).is_equal(GameBalance.WORKSHOP_SEED_NAME_PURCHASE_PRICE)
 	assert_that(seed_name_purchase.effect_type).is_equal(&"seed_name_purchase")
 	assert_that(seed_name_purchase.effect_value).is_equal(&"seed_ore")
-	assert_int(seed_name_purchase.max_purchase_count).is_equal(999)
+	assert_int(seed_name_purchase.max_purchase_count).is_equal(
+		GameBalance.WORKSHOP_SEED_NAME_PURCHASE_MAX_PURCHASE_COUNT
+	)
 
 
 func test_materialsカテゴリのロードが既存どおり動作する() -> void:

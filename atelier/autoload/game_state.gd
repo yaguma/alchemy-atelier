@@ -211,6 +211,15 @@ func _find_seed_inventory_index(seed_id: StringName) -> int:
 	return -1
 
 
+## 🔵 素材インスタンスの連番IDを払い出す（"mat_0000"形式）。harvest()と
+## apply_upgrade()のcatalyst_stock分岐が共有する採番カウンタ（instance_id衝突防止のため
+## 別カウンタに分離しない、コードレビュー指摘対応で共通ヘルパーへ抽出）
+func _next_material_instance_id() -> String:
+	var id := "mat_%04d" % _material_instance_seq
+	_material_instance_seq += 1
+	return id
+
+
 ## RngServiceから品質用・特性用の乱数を個別に払い出し、Harvest.harvestへ渡す（🔵 FR-104, FR-402）。
 ## 成功時: MaterialInstanceにinstance_idを採番して確定し、inventoryへ追加、該当スロットをgarden_state.plantsから除去
 func harvest(slot_index: int) -> Result:
@@ -236,8 +245,7 @@ func harvest(slot_index: int) -> Result:
 		return result
 
 	var material: MaterialInstance = result.value
-	material.instance_id = "mat_%04d" % _material_instance_seq
-	_material_instance_seq += 1
+	material.instance_id = _next_material_instance_id()
 
 	_garden_state.plants.remove_at(plant_index)
 	# 🔴 _inventoryへはclone()した独立コピーを格納する。material_harvestedシグナル・戻り値のResult.valueは
@@ -646,6 +654,13 @@ func apply_upgrade(upgrade: UpgradeMaster) -> Result:
 	):
 		return Result.fail(&"cannot_purchase")
 
+	# 🔴 未知のeffect_typeや型不一致のeffect_valueを持つUpgradeMasterは、状態変更フェーズに
+	# 入る前にここで弾く。これにより_apply_upgrade_effect()に到達する時点でeffect_typeが
+	# 既知の5種類・effect_valueが正しい型であることが保証され、_apply_upgrade_effect()内の
+	# 素朴なasキャストが安全になる（コードレビュー指摘対応）
+	if not PurchaseValidator.is_valid_effect(upgrade):
+		return Result.fail(&"invalid_effect")
+
 	# --- 状態変更フェーズ（全て完了するまでシグナル発行しない） ---
 	var previous_gold := _gold
 	_gold -= upgrade.price
@@ -660,8 +675,10 @@ func apply_upgrade(upgrade: UpgradeMaster) -> Result:
 
 
 ## 🔵 upgrade.effect_typeに応じてGameStateの各状態を更新する（FR-105〜FR-109）。
-## 呼び出し元のapply_upgrade()が既に検証済み（購入可能）であることを前提とし、
-## ここでは検証を行わない。反映先はすべてGameState自身のフィールドに限定する
+## 呼び出し元のapply_upgrade()が既にPurchaseValidator.is_valid_effect()で
+## effect_type・effect_valueの型を検証済みであることを前提とする（コードレビュー指摘対応で
+## 事前検証を追加済み）。そのため以下のasキャストは全て型保証済みの安全なキャストであり、
+## ここで改めて型ガードを重複させない。反映先はすべてGameState自身のフィールドに限定する
 func _apply_upgrade_effect(upgrade: UpgradeMaster) -> void:
 	match upgrade.effect_type:
 		&"alchemy_slot_increase":
@@ -672,12 +689,11 @@ func _apply_upgrade_effect(upgrade: UpgradeMaster) -> void:
 			_unlocked_recipe_ids.append(upgrade.effect_value as StringName)
 		&"catalyst_stock":
 			var material := MaterialInstance.new(
-				"mat_%04d" % _material_instance_seq,
+				_next_material_instance_id(),
 				GameBalance.CATALYST_MATERIAL_ID,
 				GameBalance.CATALYST_BASE_QUALITY_SCORE,
 				[&"catalyst"]
 			)
-			_material_instance_seq += 1
 			_inventory.append(material)
 		&"seed_name_purchase":
 			var seed_id := upgrade.effect_value as StringName

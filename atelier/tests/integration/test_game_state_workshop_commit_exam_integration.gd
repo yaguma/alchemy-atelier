@@ -27,7 +27,7 @@ func _make_upgrade(
 	upgrade.is_permanent = is_permanent
 	upgrade.price = price
 	upgrade.max_purchase_count = max_purchase_count
-	upgrade.effect_type = &"dummy_effect"
+	upgrade.effect_type = &"catalyst_stock"
 	return upgrade
 
 
