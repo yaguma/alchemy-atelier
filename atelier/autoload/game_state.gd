@@ -639,10 +639,35 @@ func apply_upgrade(upgrade: UpgradeMaster) -> Result:
 	return Result.ok(upgrade)
 
 
-## 🔴 本taskではno-op。別taskでeffect_type別（alchemy_slot_increase/garden_slot_increase/
-## recipe_unlock/catalyst_stock/seed_name_purchase）の5分岐を実装する
-func _apply_upgrade_effect(_upgrade: UpgradeMaster) -> void:
-	pass
+## 🔵 upgrade.effect_typeに応じてGameStateの各状態を更新する（FR-105〜FR-109）。
+## 呼び出し元のapply_upgrade()が既に検証済み（購入可能）であることを前提とし、
+## ここでは検証を行わない。反映先はすべてGameState自身のフィールドに限定する
+func _apply_upgrade_effect(upgrade: UpgradeMaster) -> void:
+	match upgrade.effect_type:
+		&"alchemy_slot_increase":
+			_alchemy_slot_count += (upgrade.effect_value as int)
+		&"garden_slot_increase":
+			_garden_slot_count += (upgrade.effect_value as int)
+		&"recipe_unlock":
+			_unlocked_recipe_ids.append(upgrade.effect_value as StringName)
+		&"catalyst_stock":
+			var material := MaterialInstance.new(
+				"mat_%04d" % _material_instance_seq,
+				GameBalance.CATALYST_MATERIAL_ID,
+				GameBalance.CATALYST_BASE_QUALITY_SCORE,
+				[&"catalyst"]
+			)
+			_material_instance_seq += 1
+			_inventory.append(material)
+		&"seed_name_purchase":
+			var seed_id := upgrade.effect_value as StringName
+			var index := _find_seed_inventory_index(seed_id)
+			if index == -1:
+				_seed_inventory.append({"seed_id": seed_id, "count": 1})
+			else:
+				_seed_inventory[index]["count"] = ((_seed_inventory[index]["count"] as int) + 1)
+		_:
+			push_error("未知のeffect_typeです: %s" % upgrade.effect_type)  # 🟡 防御的分岐
 
 
 ## 🔴 500行ルール対応。以下のテスト専用API群は実装本体をgame_state_test_support.gd

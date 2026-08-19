@@ -1,7 +1,7 @@
 ---
 id: "009"
 title: "GameState.apply_upgrade()にeffect_type別の状態反映5種を実装する"
-status: pending
+status: done
 priority: 2
 dependencies: ["008"]
 estimated_complexity: high
