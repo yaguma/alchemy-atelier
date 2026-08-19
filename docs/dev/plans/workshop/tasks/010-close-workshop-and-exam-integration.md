@@ -1,7 +1,7 @@
 ---
 id: "010"
 title: "close_workshop/get_purchased_count/load_workshop_master_dataを実装し昇格試験成功パスに統合する"
-status: pending
+status: done
 priority: 3
 dependencies: ["006", "007"]
 estimated_complexity: medium

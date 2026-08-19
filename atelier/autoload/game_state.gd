@@ -159,6 +159,22 @@ func load_alchemy_master_data() -> void:
 	_recipe_masters = recipe_masters
 
 
+## res://data/upgrades/ から UpgradeMaster をロードし _upgrade_masters に格納する（🔵 FR-005, FR-011）。
+## 重複ID検知パターンはload_alchemy_master_data()を踏襲する。
+## 🔴 BootSceneからの呼び出し配線自体は本plan外。GameState側にAPIとして用意するのみ
+func load_workshop_master_data() -> void:
+	var upgrades := MasterDataLoader.load_all(&"upgrades")
+
+	var upgrade_masters: Dictionary = {}
+	for u in upgrades:
+		var upgrade := u as UpgradeMaster
+		if upgrade_masters.has(upgrade.id):
+			push_error("工房強化アップグレードのIDが重複しています: %s" % upgrade.id)
+			return
+		upgrade_masters[upgrade.id] = upgrade
+	_upgrade_masters = upgrade_masters
+
+
 ## (1) seed_inventoryの対象countを確認 (2) Planting.plantを実行 (3) 両方成功時のみcountを1減算
 ## 🔵 FR-101（3ステップ順序が確定設計。在庫確認をPlanting.plant呼び出しより必ず先に行う、FR-110）
 func plant_seed(seed_id: StringName) -> Result:
@@ -578,7 +594,11 @@ func commit_exam_outcome() -> Result:
 ## 🔴 コードレビュー指摘対応。以前は_in_examをtrueのまま残していたため、次のcommit_exam_outcome()
 ## 呼び出しでもexam_quotaが>0のままSUCCESS判定が再評価されこの分岐に無限に入り直し、
 ## push_errorが呼び出しのたびに連呼される「解決不能な幽霊試験状態」に陥っていた
+## 🔵 FR-110。関数冒頭で_can_purchase_permanentをtrueにし、昇格試験成功と工房強化の恒久投資
+## 購入可否フラグを接続する。FR-110は「昇格試験が成功した場合」とのみ規定し分岐を限定していない
+## ため、以下3分岐すべてに一律適用されるようあえて分岐前（関数冒頭）に置く
 func _commit_exam_success() -> void:
+	_can_purchase_permanent = true  # 🔵 FR-110。既存3分岐すべてに一律適用される位置
 	var next_rank_id := RankProgression.get_next_rank_id(_current_rank_id)
 
 	if next_rank_id == &"":
@@ -643,6 +663,16 @@ func apply_upgrade(upgrade: UpgradeMaster) -> Result:
 ## recipe_unlock/catalyst_stock/seed_name_purchase）の5分岐を実装する
 func _apply_upgrade_effect(_upgrade: UpgradeMaster) -> void:
 	pass
+
+
+## 🔵 恒久投資購入可否フラグを閉じる（FR-015, FR-018）
+func close_workshop() -> void:
+	_can_purchase_permanent = false
+
+
+## 🔵 未購入（キー未登録）の場合は0を返す（FR-018）
+func get_purchased_count(upgrade_id: StringName) -> int:
+	return _purchased_upgrade_counts.get(upgrade_id, 0)
 
 
 ## 🔴 500行ルール対応。以下のテスト専用API群は実装本体をgame_state_test_support.gd
