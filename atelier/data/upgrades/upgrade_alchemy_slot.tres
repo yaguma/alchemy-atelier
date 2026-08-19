@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="UpgradeMaster" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://features/workshop/resources/upgrade_master.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"upgrade_alchemy_slot"
+name = "投入枠+1"
+is_permanent = true
+price = 2000
+effect_type = &"alchemy_slot_increase"
+effect_value = 1
+max_purchase_count = 1

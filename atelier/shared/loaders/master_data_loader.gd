@@ -2,6 +2,7 @@ class_name MasterDataLoader
 
 const MATERIALS_DIR := "res://data/materials/"
 const RECIPES_DIR := "res://data/recipes/"
+const UPGRADES_DIR := "res://data/upgrades/"
 const TRES_EXTENSION := ".tres"
 
 
@@ -52,6 +53,8 @@ static func _resolve_dir_path(category: StringName) -> String:
 			return MATERIALS_DIR
 		&"recipes":
 			return RECIPES_DIR
+		&"upgrades":
+			return UPGRADES_DIR
 		_:
 			return ""
 
@@ -63,5 +66,7 @@ static func _is_allowed_type(category: StringName, resource: Resource) -> bool:
 			return resource is SeedMaster or resource is MaterialMaster
 		&"recipes":
 			return resource is RecipeMaster
+		&"upgrades":
+			return resource is UpgradeMaster
 		_:
 			return false
