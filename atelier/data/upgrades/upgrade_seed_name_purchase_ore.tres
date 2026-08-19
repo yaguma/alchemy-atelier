@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="UpgradeMaster" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://features/workshop/resources/upgrade_master.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"upgrade_seed_name_purchase_ore"
+name = "種の指名買い：鉱石の種"
+is_permanent = false
+price = 50
+effect_type = &"seed_name_purchase"
+effect_value = &"seed_ore"
+max_purchase_count = 999

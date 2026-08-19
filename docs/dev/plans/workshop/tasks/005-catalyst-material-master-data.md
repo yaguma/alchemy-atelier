@@ -1,7 +1,7 @@
 ---
 id: "005"
 title: "触媒常備の対象となるmaterial_catalystマスターデータを新規作成する"
-status: pending
+status: done
 priority: 2
 dependencies: []
 estimated_complexity: low

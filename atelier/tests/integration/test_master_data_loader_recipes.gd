@@ -52,7 +52,7 @@ func test_materialsカテゴリのロードが既存どおり動作する() -> v
 			material_count += 1
 
 	assert_int(seed_count).is_equal(2)
-	assert_int(material_count).is_equal(2)
+	assert_int(material_count).is_equal(3)
 	assert_int(materials.size()).is_equal(seed_count + material_count)
 	assert_bool(MasterDataLoader.validate_references(materials)).is_true()
 

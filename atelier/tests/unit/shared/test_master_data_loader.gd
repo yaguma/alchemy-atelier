@@ -15,7 +15,7 @@ func test_materialsカテゴリで実データの全件をロードする() -> v
 			material_count += 1
 
 	assert_int(seed_count).is_equal(2)
-	assert_int(material_count).is_equal(2)
+	assert_int(material_count).is_equal(3)
 
 
 func test_ロードしたSeedMasterのフィールドが実データと一致する() -> void:

@@ -1,7 +1,7 @@
 ---
 id: "006"
 title: "MasterDataLoaderにupgradesカテゴリを追加し5件のUpgradeMasterを新規作成する"
-status: pending
+status: done
 priority: 2
 dependencies: ["001", "002", "004"]
 estimated_complexity: medium

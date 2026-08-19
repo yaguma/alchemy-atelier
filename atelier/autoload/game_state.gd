@@ -70,6 +70,11 @@ var _exam_state: ExamState = ExamState.new()
 # 冪等に返すための直近確定結果（後続taskで使用）
 var _last_exam_outcome: ExamOutcome.Value = ExamOutcome.Value.CONTINUE
 
+# --- 工房強化・ショップ（workshop）関連フィールド ---
+var _can_purchase_permanent: bool = false  # 🔵 FR-009
+var _purchased_upgrade_counts: Dictionary = {}  # 🔵 FR-010 Dictionary[StringName, int]
+var _upgrade_masters: Dictionary = {}  # 🔵 FR-011 Dictionary[StringName, UpgradeMaster]
+
 
 # 内部Dictionary/Arrayフィールドを直接返すと呼び出し元が改変できてしまうため、
 # 辞書リテラルを都度生成しduplicate(true)でディープコピーを保証する（state-management.md）。
@@ -110,6 +115,7 @@ func get_state() -> Dictionary:
 		"exam_quota_max": _exam_state.exam_quota_max,
 		"exam_elapsed_turn": _exam_state.exam_elapsed_turn,
 		"exam_turn_limit": _exam_state.exam_turn_limit,
+		"can_purchase_permanent": _can_purchase_permanent,  # 🔵 FR-017
 	}
 
 
@@ -153,6 +159,22 @@ func load_alchemy_master_data() -> void:
 	_recipe_masters = recipe_masters
 
 
+## res://data/upgrades/ から UpgradeMaster をロードし _upgrade_masters に格納する（🔵 FR-005, FR-011）。
+## 重複ID検知パターンはload_alchemy_master_data()を踏襲する。
+## 🔴 BootSceneからの呼び出し配線自体は本plan外。GameState側にAPIとして用意するのみ
+func load_workshop_master_data() -> void:
+	var upgrades := MasterDataLoader.load_all(&"upgrades")
+
+	var upgrade_masters: Dictionary = {}
+	for u in upgrades:
+		var upgrade := u as UpgradeMaster
+		if upgrade_masters.has(upgrade.id):
+			push_error("工房強化アップグレードのIDが重複しています: %s" % upgrade.id)
+			return
+		upgrade_masters[upgrade.id] = upgrade
+	_upgrade_masters = upgrade_masters
+
+
 ## (1) seed_inventoryの対象countを確認 (2) Planting.plantを実行 (3) 両方成功時のみcountを1減算
 ## 🔵 FR-101（3ステップ順序が確定設計。在庫確認をPlanting.plant呼び出しより必ず先に行う、FR-110）
 func plant_seed(seed_id: StringName) -> Result:
@@ -189,6 +211,15 @@ func _find_seed_inventory_index(seed_id: StringName) -> int:
 	return -1
 
 
+## 🔵 素材インスタンスの連番IDを払い出す（"mat_0000"形式）。harvest()と
+## apply_upgrade()のcatalyst_stock分岐が共有する採番カウンタ（instance_id衝突防止のため
+## 別カウンタに分離しない、コードレビュー指摘対応で共通ヘルパーへ抽出）
+func _next_material_instance_id() -> String:
+	var id := "mat_%04d" % _material_instance_seq
+	_material_instance_seq += 1
+	return id
+
+
 ## RngServiceから品質用・特性用の乱数を個別に払い出し、Harvest.harvestへ渡す（🔵 FR-104, FR-402）。
 ## 成功時: MaterialInstanceにinstance_idを採番して確定し、inventoryへ追加、該当スロットをgarden_state.plantsから除去
 func harvest(slot_index: int) -> Result:
@@ -214,8 +245,7 @@ func harvest(slot_index: int) -> Result:
 		return result
 
 	var material: MaterialInstance = result.value
-	material.instance_id = "mat_%04d" % _material_instance_seq
-	_material_instance_seq += 1
+	material.instance_id = _next_material_instance_id()
 
 	_garden_state.plants.remove_at(plant_index)
 	# 🔴 _inventoryへはclone()した独立コピーを格納する。material_harvestedシグナル・戻り値のResult.valueは
@@ -572,7 +602,11 @@ func commit_exam_outcome() -> Result:
 ## 🔴 コードレビュー指摘対応。以前は_in_examをtrueのまま残していたため、次のcommit_exam_outcome()
 ## 呼び出しでもexam_quotaが>0のままSUCCESS判定が再評価されこの分岐に無限に入り直し、
 ## push_errorが呼び出しのたびに連呼される「解決不能な幽霊試験状態」に陥っていた
+## 🔵 FR-110。関数冒頭で_can_purchase_permanentをtrueにし、昇格試験成功と工房強化の恒久投資
+## 購入可否フラグを接続する。FR-110は「昇格試験が成功した場合」とのみ規定し分岐を限定していない
+## ため、以下3分岐すべてに一律適用されるようあえて分岐前（関数冒頭）に置く
 func _commit_exam_success() -> void:
+	_can_purchase_permanent = true  # 🔵 FR-110。既存3分岐すべてに一律適用される位置
 	var next_rank_id := RankProgression.get_next_rank_id(_current_rank_id)
 
 	if next_rank_id == &"":
@@ -599,6 +633,87 @@ func _commit_exam_failure() -> void:
 	_demotion_count += 1
 	_rank_state = RankQuotaResolver.reset_for_retry(_get_current_rank_master_or_fallback())
 	_in_exam = false
+
+
+## 🔵 検証(1)null(2)恒久フラグ(3)can_purchase再評価の順に行い、全て通過した場合のみ
+## 状態変更（ゴールド減算・effect反映・購入回数カウント更新）をすべて完了させてからgold_changedを
+## 発行する（FR-101〜104, FR-112〜114, FR-401〜402）。いずれかの検証に失敗した場合は
+## いかなる状態も変更しない（execute_alchemy()と同型のアトミック性パターン）。
+## effect_type別の状態反映は_apply_upgrade_effect()に委譲する（別taskでno-op実装から差し替え予定）
+func apply_upgrade(upgrade: UpgradeMaster) -> Result:
+	if upgrade == null:
+		return Result.fail(&"invalid_upgrade")
+
+	if PurchaseValidator.is_permanent_upgrade(upgrade) and not _can_purchase_permanent:
+		return Result.fail(&"workshop_closed")
+
+	# 🔵 UIの先出し判定を信頼せず、状態変更の直前にDomain層の実行可否を再評価する
+	var already_purchased_count: int = _purchased_upgrade_counts.get(upgrade.id, 0)
+	if not PurchaseValidator.can_purchase(
+		_gold, upgrade.price, already_purchased_count, upgrade.max_purchase_count
+	):
+		return Result.fail(&"cannot_purchase")
+
+	# 🔴 未知のeffect_typeや型不一致のeffect_valueを持つUpgradeMasterは、状態変更フェーズに
+	# 入る前にここで弾く。これにより_apply_upgrade_effect()に到達する時点でeffect_typeが
+	# 既知の5種類・effect_valueが正しい型であることが保証され、_apply_upgrade_effect()内の
+	# 素朴なasキャストが安全になる（コードレビュー指摘対応）
+	if not PurchaseValidator.is_valid_effect(upgrade):
+		return Result.fail(&"invalid_effect")
+
+	# --- 状態変更フェーズ（全て完了するまでシグナル発行しない） ---
+	var previous_gold := _gold
+	_gold -= upgrade.price
+
+	_apply_upgrade_effect(upgrade)  # 別taskで実装。本taskではno-op
+
+	_purchased_upgrade_counts[upgrade.id] = already_purchased_count + 1
+
+	gold_changed.emit(previous_gold, _gold, _gold - previous_gold)
+
+	return Result.ok(upgrade)
+
+
+## 🔵 upgrade.effect_typeに応じてGameStateの各状態を更新する（FR-105〜FR-109）。
+## 呼び出し元のapply_upgrade()が既にPurchaseValidator.is_valid_effect()で
+## effect_type・effect_valueの型を検証済みであることを前提とする（コードレビュー指摘対応で
+## 事前検証を追加済み）。そのため以下のasキャストは全て型保証済みの安全なキャストであり、
+## ここで改めて型ガードを重複させない。反映先はすべてGameState自身のフィールドに限定する
+func _apply_upgrade_effect(upgrade: UpgradeMaster) -> void:
+	match upgrade.effect_type:
+		&"alchemy_slot_increase":
+			_alchemy_slot_count += (upgrade.effect_value as int)
+		&"garden_slot_increase":
+			_garden_slot_count += (upgrade.effect_value as int)
+		&"recipe_unlock":
+			_unlocked_recipe_ids.append(upgrade.effect_value as StringName)
+		&"catalyst_stock":
+			var material := MaterialInstance.new(
+				_next_material_instance_id(),
+				GameBalance.CATALYST_MATERIAL_ID,
+				GameBalance.CATALYST_BASE_QUALITY_SCORE,
+				[&"catalyst"]
+			)
+			_inventory.append(material)
+		&"seed_name_purchase":
+			var seed_id := upgrade.effect_value as StringName
+			var index := _find_seed_inventory_index(seed_id)
+			if index == -1:
+				_seed_inventory.append({"seed_id": seed_id, "count": 1})
+			else:
+				_seed_inventory[index]["count"] = ((_seed_inventory[index]["count"] as int) + 1)
+		_:
+			push_error("未知のeffect_typeです: %s" % upgrade.effect_type)  # 🟡 防御的分岐
+
+
+## 🔵 恒久投資購入可否フラグを閉じる（FR-015, FR-018）
+func close_workshop() -> void:
+	_can_purchase_permanent = false
+
+
+## 🔵 未購入（キー未登録）の場合は0を返す（FR-018）
+func get_purchased_count(upgrade_id: StringName) -> int:
+	return _purchased_upgrade_counts.get(upgrade_id, 0)
 
 
 ## 🔴 500行ルール対応。以下のテスト専用API群は実装本体をgame_state_test_support.gd
@@ -675,6 +790,22 @@ func _set_exam_state_for_test(exam_state: ExamState, in_exam: bool = true) -> vo
 	GameStateTestSupport.set_exam_state(self, exam_state, in_exam)
 
 
+## 🔵 テスト専用。can_purchase_permanentを工房強化画面の開閉操作を介さず直接注入する（FR-012）
+func _set_can_purchase_permanent_for_test(value: bool) -> void:
+	GameStateTestSupport.set_can_purchase_permanent(self, value)
+
+
+## 🔵 テスト専用。purchased_upgrade_countsをapply_upgrade()を介さず直接注入する（FR-013）
+func _set_purchased_upgrade_counts_for_test(counts: Dictionary) -> void:
+	GameStateTestSupport.set_purchased_upgrade_counts(self, counts)
+
+
+## 🔴 テスト専用。goldをdeliver_pending_products()を介さず直接注入する
+## （apply_upgrade()の所持ゴールド境界値テスト用の新規補完）
+func _set_gold_for_test(gold: int) -> void:
+	GameStateTestSupport.set_gold(self, gold)
+
+
 # テスト分離専用。デバッグビルドガードは他のテスト専用API群と同じくGameStateTestSupport.guard()
 # へ一元化する（🔴 コードレビュー指摘対応。以前は本関数だけ独自にassert+push_error+returnを
 # 重複実装していた）
@@ -708,3 +839,6 @@ func reset_for_test() -> void:
 	_in_exam = false
 	_exam_state = ExamState.new()
 	_last_exam_outcome = ExamOutcome.Value.CONTINUE
+	_can_purchase_permanent = false
+	_purchased_upgrade_counts = {}
+	_upgrade_masters = {}

@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="UpgradeMaster" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://features/workshop/resources/upgrade_master.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"upgrade_catalyst"
+name = "触媒常備"
+is_permanent = false
+price = 150
+effect_type = &"catalyst_stock"
+effect_value = null
+max_purchase_count = 999

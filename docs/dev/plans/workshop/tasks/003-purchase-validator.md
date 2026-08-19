@@ -1,7 +1,7 @@
 ---
 id: "003"
 title: "PurchaseValidatorを実装する"
-status: pending
+status: done
 priority: 1
 dependencies: ["001"]
 estimated_complexity: medium

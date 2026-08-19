@@ -1,7 +1,7 @@
 ---
 id: "002"
 title: "GameBalanceに工房強化・ショップ関連定数を追加する"
-status: pending
+status: done
 priority: 1
 dependencies: []
 estimated_complexity: low

@@ -37,7 +37,7 @@ const QUALITY_MULTIPLIER_TABLE := {1: 1.0, 2: 1.25, 3: 1.5, 4: 1.75, 5: 2.0}  # 
 # 同一特性タグが投入素材中にこの本数以上あると特性が発現する
 const TRAIT_ACTIVATION_THRESHOLD := 2  # 🔴 FR-005, core-systems.md AlchemySystem
 
-# 触媒効果の基準となる品質スコア。本plan内では未消費でWorkshopSystem側で参照する前方定義のため削除しない
+# 触媒効果の基準となる品質スコア。タスク009のWorkshopSystem.apply_upgrade()で実消費する
 const CATALYST_BASE_QUALITY_SCORE := 3  # 🔴 FR-005
 
 # 貢献度向き特性の倍率。報酬向きとキーが重複しないことが「真のトレードオフ」の前提（atelier-concept.md v7.0）
@@ -74,3 +74,29 @@ const RANK_ORDER: Array[StringName] = [  # 🔵 FR-007
 	&"rank_a",
 	&"rank_s",
 ]
+
+# --- 工房強化（workshop）関連定数 ---
+# CON-006: 以下は全て仮値。balance-tuning-cycleスキルによる後日再調整を前提とする
+
+const WORKSHOP_ALCHEMY_SLOT_PRICE := 2000  # 🟡 FR-008。序列上最高額
+const WORKSHOP_ALCHEMY_SLOT_EFFECT_VALUE := 1  # 🟡 FR-008
+const WORKSHOP_ALCHEMY_SLOT_MAX_PURCHASE_COUNT := 1  # 🟡 FR-008
+
+const WORKSHOP_GARDEN_SLOT_PRICE := 800  # 🟡 FR-008
+const WORKSHOP_GARDEN_SLOT_EFFECT_VALUE := 1  # 🟡 FR-008
+const WORKSHOP_GARDEN_SLOT_MAX_PURCHASE_COUNT := 3  # 🔴→🟡 要件に上限指定なし、仮値として3を採用
+
+const WORKSHOP_RECIPE_UNLOCK_PRICE := 800  # 🟡 FR-008
+const WORKSHOP_RECIPE_UNLOCK_MAX_PURCHASE_COUNT := 1  # 🔵 effect_valueが単一レシピID固定のため1が論理的必然
+
+const WORKSHOP_CATALYST_STOCK_PRICE := 150  # 🟡 FR-008
+const WORKSHOP_CATALYST_STOCK_MAX_PURCHASE_COUNT := 999  # 🔵 AC-001「実質無制限」要件に対応
+
+const WORKSHOP_SEED_NAME_PURCHASE_PRICE := 50  # 🟡 FR-008
+const WORKSHOP_SEED_NAME_PURCHASE_MAX_PURCHASE_COUNT := 999  # 🔵 AC-001「実質無制限」要件に対応
+
+# FR-007: recipe_unlock購入対象となる第2レシピのID（既存INITIAL_RECIPE_IDと対の定数）
+const SECOND_RECIPE_ID: StringName = &"recipe_mana_tonic"  # 🔵 タスク004と対応
+
+# FR-016: catalyst_stock購入で生成するMaterialInstanceのmaterial_id
+const CATALYST_MATERIAL_ID: StringName = &"material_catalyst"  # 🔵 タスク005と対応

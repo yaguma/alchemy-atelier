@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="MaterialMaster" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://features/garden/resources/material_master.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"material_catalyst"
+name = "触媒"
+icon_path = "res://assets/icons/material_catalyst.png"
+shop_purchasable = true
+shop_base_quality = 3
