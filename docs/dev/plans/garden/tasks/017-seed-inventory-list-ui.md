@@ -1,7 +1,7 @@
 ---
 id: "017"
 title: "SeedInventoryList（手持ち種一覧コンポーネント）を実装する"
-status: pending
+status: done
 priority: 4
 dependencies: ["004"]
 estimated_complexity: low

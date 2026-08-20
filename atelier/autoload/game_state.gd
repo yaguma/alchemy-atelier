@@ -5,6 +5,9 @@ signal seed_planted(slot_index: int, seed_id: StringName)  # 🔵 FR-101
 signal plant_seed_failed(seed_id: StringName, error_code: StringName)  # 🔴 UI側トースト表示(NFR-202)用の新規補完
 signal material_harvested(material: MaterialInstance, slot_index: int)  # 🔵 FR-105
 signal harvest_failed(slot_index: int, error_code: StringName)  # 🔴 UI側フィードバック用の新規補完
+# 🔵 FR-111。Array[int]相当だが、GDScriptのsignal引数型注釈の制約に合わせてArrayとする
+signal plants_withered(slot_indices: Array)
+signal turn_growth_advanced(turn: int)  # 🔴 UI再描画トリガ用の新規補完
 signal product_crafted(product: ProductInstance)  # 🔵 FR-112
 # 🔴 garden の plant_seed_failed/harvest_failed パターン踏襲（FR-113）
 signal execute_alchemy_failed(recipe_id: StringName, error_code: StringName)
@@ -97,6 +100,13 @@ func get_state() -> Dictionary:
 		"current_turn": _current_turn,
 		"garden_state": _garden_state.clone(),
 		"seed_inventory": _seed_inventory.duplicate(true),
+		# 🔴 タスク018（GardenScreen）実装のための新規補完。PlantSlotView.setup()/SeedInventoryList.setup()
+		# がSeedMasterを必要とするため公開する。マスターデータ（Infrastructure層、Resourceは不変前提）の
+		# ためDictionary自体の浅いduplicate()のみで防御的コピー要件を満たす
+		"seed_masters": _seed_masters.duplicate(),
+		# 🔴 GardenState.plantsは埋まっているスロットのみを保持し空きスロットを表現しないため、
+		# GardenScreenが全スロット（空き含む）を描画するには庭の総スロット数が別途必要
+		"garden_slot_count": _garden_slot_count,
 		"inventory": cloned_inventory,
 		# 🔴 要素がStringName（値型相当）のため浅い複製で十分（FR-403）
 		"unlocked_recipe_ids": _unlocked_recipe_ids.duplicate(),
@@ -255,6 +265,47 @@ func harvest(slot_index: int) -> Result:
 
 	material_harvested.emit(material, slot_index)
 	return result
+
+
+## 🔵 FR-103, FR-111。庭にある全スロットにHarvest.advance_growthを適用し、その直後に必ず
+## Harvest.resolve_witheringを呼ぶ（core-systems.md L65の順序厳守）。枯死除去が発生した場合のみ
+## plants_witheredを発行し、最後にターンを1進めてturn_growth_advancedを発行する。
+## 🔴 対象範囲は「庭にある全スロット」（成熟後の待機中も含む）とする。
+## 理由: 品質上昇判定・枯死判定にはis_matured後もgrown_turnsの継続加算が必要なため（ヒアリング結果でユーザー確認済み）
+## 🔴 is_maturedの再計算はHarvest.advance_growthのスコープ外（タスク008方針）のためここで行う。
+## SeedMasterが欠落した株はフラグを再計算せずgrown_turnsのみ進める（Harvest.resolve_witheringの
+## 「マスター欠落株は安全側に倒して除去しない」方針と揃える）
+func advance_turn_growth() -> void:
+	var grown_plants: Array[PlantState] = []
+	var slot_indices_before: Array[int] = []
+	for plant in _garden_state.plants:
+		var advanced := Harvest.advance_growth(plant, 1)
+		var master: SeedMaster = _seed_masters.get(advanced.seed_id)
+		if master != null:
+			advanced.is_matured = Harvest.is_matured(advanced, master)
+		grown_plants.append(advanced)
+		slot_indices_before.append(advanced.slot_index)
+	_garden_state.plants = grown_plants
+
+	_garden_state = Harvest.resolve_withering(_garden_state, _seed_masters)
+
+	var surviving_slot_indices: Array[int] = []
+	for plant in _garden_state.plants:
+		surviving_slot_indices.append(plant.slot_index)
+	# 🔴 除去株の検出はresolve_withering前後のslot_index集合の差分で行う（タスク015実装ノート）。
+	# シグナル引数の宣言型（Array）に合わせ、型付き配列にはしない
+	var withered_slot_indices: Array = []
+	for slot_index in slot_indices_before:
+		if not surviving_slot_indices.has(slot_index):
+			withered_slot_indices.append(slot_index)
+
+	# 🔴 他の全GameStateミューテータと同様、状態更新はシグナル発行より前に完了させる
+	# （同期リスナーが更新前の値を読むのを防ぐ）
+	_current_turn += 1
+
+	if not withered_slot_indices.is_empty():
+		plants_withered.emit(withered_slot_indices)
+	turn_growth_advanced.emit(_current_turn)
 
 
 ## _garden_state.plants内でslot_indexが一致する要素のインデックスを返す。見つからない場合は-1

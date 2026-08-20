@@ -1,7 +1,7 @@
 ---
 id: "016"
 title: "PlantSlotView（庭スロット表示コンポーネント）を実装する"
-status: pending
+status: done
 priority: 4
 dependencies: ["003", "004", "005", "008"]
 estimated_complexity: medium
