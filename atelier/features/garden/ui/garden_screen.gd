@@ -85,7 +85,9 @@ func _refresh() -> void:
 			if master is SeedMaster:
 				slot_view.setup(plant as PlantState, master as SeedMaster)
 			else:
-				slot_view.setup_empty(slot_index)
+				# 🔴 コードレビュー指摘対応。株は存在するがSeedMasterが解決できない状態を
+				# 空き扱いにすると植付可能に見えてしまうため、専用のデータ異常表示にする
+				slot_view.setup_data_error(slot_index)
 		else:
 			slot_view.setup_empty(slot_index)
 		_slot_views.append(slot_view)
@@ -126,8 +128,10 @@ func _on_harvest_failed(_slot_index: int, error_code: StringName) -> void:
 	_show_toast("収穫できませんでした（%s）" % error_code)
 
 
+## 🔴 コードレビュー指摘対応。advance_turn_growth()はplants_withered直後に必ずturn_growth_advancedを
+## 発行するため、表示の再構築は_on_turn_growth_advanced()側の_refresh()一回に任せ、ここでは
+## トースト表示のみ行う（1回のターン終了操作でGardenScreen全体を二重に再構築しないため）
 func _on_plants_withered(slot_indices: Array) -> void:
-	_refresh()
 	_show_toast("スロット%sの株が枯れてしまいました" % [slot_indices])
 
 

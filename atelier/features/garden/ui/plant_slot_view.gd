@@ -8,13 +8,15 @@ extends Control
 signal harvest_pressed(slot_index: int)  # 🔵 US-004
 signal wait_pressed(slot_index: int)  # 🟡 FR-302（任意要件、実質何もしない操作の明示ボタン）
 
-enum Status { EMPTY, GROWING, HARVESTABLE, WITHER_WARNING }  # 🔵 FR-201〜204の4状態
+# 🔵 FR-201〜204の4状態 + 🔴 DATA_ERRORはコードレビュー指摘対応で新規追加
+enum Status { EMPTY, GROWING, HARVESTABLE, WITHER_WARNING, DATA_ERROR }
 
 const STATUS_TEXTS := {
 	Status.EMPTY: "空き",
 	Status.GROWING: "生育中",
 	Status.HARVESTABLE: "収穫可能",
 	Status.WITHER_WARNING: "枯死警告",
+	Status.DATA_ERROR: "データ異常",
 }  # 🟡 ui-design/screens/garden.mdが未作成のため、FR-201〜204の状態名から妥当な推測で新規決定
 
 const STATUS_ICONS := {
@@ -22,6 +24,7 @@ const STATUS_ICONS := {
 	Status.GROWING: "🌱",
 	Status.HARVESTABLE: "🌾",
 	Status.WITHER_WARNING: "⚠",
+	Status.DATA_ERROR: "❓",
 }  # 🟡 NFR-201（色以外でも判別可能）を満たすためのアイコン割り当て、具体的な絵柄は暫定案
 
 var _slot_index: int = -1
@@ -44,6 +47,17 @@ func _ready() -> void:
 func setup_empty(slot_index: int) -> void:
 	_slot_index = slot_index
 	_status = Status.EMPTY
+	_harvest_enabled = false
+	_apply_display()
+
+
+## SeedMasterが欠落した占有スロットとして表示する（コードレビュー指摘対応で新規追加）。
+## 🔴 GameState.harvest()が同状況をmaster_data_missingという専用エラーで区別しているのに、
+## GardenScreen側がsetup_empty()で「空き」表示していたバグの修正。株は存在するが情報を
+## 解決できないため、植付可能な空きとは区別し収穫も待機も不可とする
+func setup_data_error(slot_index: int) -> void:
+	_slot_index = slot_index
+	_status = Status.DATA_ERROR
 	_harvest_enabled = false
 	_apply_display()
 
@@ -93,6 +107,8 @@ static func status_color(status: Status) -> Color:
 			return UiTheme.COLOR_SLOT_GROWING
 		Status.HARVESTABLE:
 			return UiTheme.COLOR_SLOT_HARVESTABLE
+		Status.DATA_ERROR:
+			return UiTheme.COLOR_SLOT_DATA_ERROR
 		_:
 			return UiTheme.COLOR_SLOT_WITHER_WARNING
 

@@ -11,3 +11,5 @@ const COLOR_SLOT_EMPTY := Color("#B0AFA8")
 const COLOR_SLOT_GROWING := Color("#8CC084")
 const COLOR_SLOT_HARVESTABLE := Color("#D4A76A")
 const COLOR_SLOT_WITHER_WARNING := Color("#E06C6C")
+# 🔴 コードレビュー指摘対応で新規追加（DATA_ERROR状態）。他4色と混同しない紫系の警告色
+const COLOR_SLOT_DATA_ERROR := Color("#9B7FC7")

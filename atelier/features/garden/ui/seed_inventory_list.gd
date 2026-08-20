@@ -7,7 +7,7 @@ extends Control
 
 signal seed_plant_requested(seed_id: StringName)  # 🔵 US-001
 
-const PLANT_BUTTON_TEXT := "植える"
+const SeedEntryRowScene = preload("res://features/garden/ui/seed_entry_row.tscn")
 const ENTRY_SEPARATION := 8
 
 var _seed_inventory: Array = []
@@ -48,35 +48,21 @@ func _rebuild() -> void:
 	for entry: Variant in _seed_inventory:
 		if not (entry is Dictionary):
 			continue
-		_entry_container.add_child(_create_entry_row(entry as Dictionary))
+		_add_entry_row(entry as Dictionary)
 
 
-func _create_entry_row(entry: Dictionary) -> HBoxContainer:
+## 🔴 コードレビュー指摘対応（.new()からのシーン化）で新規追加。SeedEntryRowの@onready変数は
+## add_child()によるシーンツリー追加後の_ready()で解決されるため、setup()は必ずadd_child()の
+## 後に呼ぶ（先に呼ぶとラベル参照がnullのままクラッシュする）
+func _add_entry_row(entry: Dictionary) -> void:
 	var seed_id := StringName(entry.get("seed_id", &""))
 	var count := int(entry.get("count", 0))
 
-	var row := HBoxContainer.new()
+	var row: SeedEntryRow = SeedEntryRowScene.instantiate()
 	row.name = "SeedEntry_%s" % seed_id
-
-	var name_label := Label.new()
-	name_label.name = "NameLabel"
-	name_label.text = _resolve_display_name(seed_id)
-	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(name_label)
-
-	var count_label := Label.new()
-	count_label.name = "CountLabel"
-	count_label.text = "x%d" % count
-	row.add_child(count_label)
-
-	var plant_button := Button.new()
-	plant_button.name = "PlantButton"
-	plant_button.text = PLANT_BUTTON_TEXT
-	plant_button.disabled = count <= 0
-	plant_button.pressed.connect(_on_plant_pressed.bind(seed_id))
-	row.add_child(plant_button)
-
-	return row
+	_entry_container.add_child(row)
+	row.setup(seed_id, _resolve_display_name(seed_id), count)
+	row.plant_pressed.connect(_on_plant_pressed)
 
 
 ## seed_mastersにseed_idが存在しない場合（マスター未ロード等）でもクラッシュさせず、

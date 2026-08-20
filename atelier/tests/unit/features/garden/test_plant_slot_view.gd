@@ -92,12 +92,13 @@ func test_待機ボタン押下でwait_pressedがスロット番号付きで発�
 	await assert_signal(view).is_emitted("wait_pressed", [4])
 
 
-func test_4状態それぞれに固有の色とアイコンとテキストが割り当てられている() -> void:
+func test_5状態それぞれに固有の色とアイコンとテキストが割り当てられている() -> void:
 	var statuses: Array[PlantSlotView.Status] = [
 		PlantSlotView.Status.EMPTY,
 		PlantSlotView.Status.GROWING,
 		PlantSlotView.Status.HARVESTABLE,
 		PlantSlotView.Status.WITHER_WARNING,
+		PlantSlotView.Status.DATA_ERROR,
 	]
 	var colors: Array[Color] = []
 	var icons: Array[String] = []
@@ -107,10 +108,24 @@ func test_4状態それぞれに固有の色とアイコンとテキストが割
 		icons.append(PlantSlotView.status_icon(status))
 		texts.append(PlantSlotView.status_text(status))
 
-	# NFR-201: 色だけに依存せずアイコン・テキストでも4状態を判別できること
-	assert_int(_unique_count(colors)).is_equal(4)
-	assert_int(_unique_count(icons)).is_equal(4)
-	assert_int(_unique_count(texts)).is_equal(4)
+	# NFR-201: 色だけに依存せずアイコン・テキストでも5状態を判別できること
+	assert_int(_unique_count(colors)).is_equal(5)
+	assert_int(_unique_count(icons)).is_equal(5)
+	assert_int(_unique_count(texts)).is_equal(5)
+
+
+func test_setup_data_errorでデータ異常状態が表示され収穫ボタンが無効化される() -> void:
+	var view := _make_view()
+
+	view.setup_data_error(2)
+
+	assert_int(view.get_status()).is_equal(PlantSlotView.Status.DATA_ERROR)
+	assert_int(view.get_slot_index()).is_equal(2)
+	assert_bool(view.is_harvest_enabled()).is_false()
+	assert_bool(_find_button(view, "HarvestButton").disabled).is_true()
+	assert_str(_find_label(view, "StatusLabel").text).is_equal(
+		PlantSlotView.status_text(PlantSlotView.Status.DATA_ERROR)
+	)
 
 
 # 異常系

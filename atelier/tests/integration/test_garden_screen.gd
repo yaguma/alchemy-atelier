@@ -113,6 +113,16 @@ func test_ショップボタン押下でshop_requestedが発行され状態が�
 # 異常系
 
 
+func test_SeedMaster欠落株はデータ異常表示になり空きスロットとして扱われない() -> void:
+	GameState._set_masters_for_test({}, {})
+	GameState._inject_plant_for_test(PlantState.new(0, &"seed_herb", 3, true))
+	var screen := _make_screen()
+
+	var slot_view := _find_slot_view(screen, 0)
+	assert_int(slot_view.get_status()).is_equal(PlantSlotView.Status.DATA_ERROR)
+	assert_bool(slot_view.is_harvest_enabled()).is_false()
+
+
 func test_種在庫切れで植え付け失敗するとトーストが表示される() -> void:
 	GameState._set_masters_for_test({&"seed_herb": _make_seed_master(&"seed_herb")}, {})
 	GameState._set_seed_inventory_for_test([{"seed_id": &"seed_herb", "count": 0}])
