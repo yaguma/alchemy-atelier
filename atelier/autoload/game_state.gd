@@ -135,342 +135,62 @@ func set_phase(next: StringName) -> void:
 	phase_changed.emit(previous, next)
 
 
-## res://data/materials/ から SeedMaster/MaterialMaster をロードし _seed_masters/_material_masters に格納する。
-## 🔴 BootSceneからの呼び出し配線自体は本plan外。GameState側にAPIとして用意するのみ
+# 🔴 500行ルール対応。以下、本番ロジックの実装本体は機能別のGameState*Delegateへ委譲する
+# （GameStateTestSupportと同じパターン）。GameState側は公開シグネチャの維持とフィールド保持のみ担う。
+
+
 func load_garden_master_data() -> void:
-	var materials := MasterDataLoader.load_all(&"materials")
-	if not MasterDataLoader.validate_references(materials):
-		push_error("庭マスターデータのID相互参照が解決できません")
-		return
-
-	var seeds: Dictionary = {}
-	var material_masters: Dictionary = {}
-	for m in materials:
-		if m is SeedMaster:
-			seeds[(m as SeedMaster).id] = m
-		elif m is MaterialMaster:
-			material_masters[(m as MaterialMaster).id] = m
-	_seed_masters = seeds
-	_material_masters = material_masters
+	GameStateGardenDelegate.load_garden_master_data(self)
 
 
-## res://data/recipes/ から RecipeMaster をロードし _recipe_masters に格納する（🔵 FR-301）。
-## 🔴 BootSceneからの呼び出し配線自体は本plan外。GameState側にAPIとして用意するのみ
 func load_alchemy_master_data() -> void:
-	var recipes := MasterDataLoader.load_all(&"recipes")
-
-	var recipe_masters: Dictionary = {}
-	for r in recipes:
-		var recipe := r as RecipeMaster
-		if recipe_masters.has(recipe.id):
-			push_error("調合レシピのIDが重複しています: %s" % recipe.id)
-			return
-		recipe_masters[recipe.id] = recipe
-	_recipe_masters = recipe_masters
+	GameStateAlchemyDelegate.load_alchemy_master_data(self)
 
 
-## res://data/upgrades/ から UpgradeMaster をロードし _upgrade_masters に格納する（🔵 FR-005, FR-011）。
-## 重複ID検知パターンはload_alchemy_master_data()を踏襲する。
-## 🔴 BootSceneからの呼び出し配線自体は本plan外。GameState側にAPIとして用意するのみ
 func load_workshop_master_data() -> void:
-	var upgrades := MasterDataLoader.load_all(&"upgrades")
-
-	var upgrade_masters: Dictionary = {}
-	for u in upgrades:
-		var upgrade := u as UpgradeMaster
-		if upgrade_masters.has(upgrade.id):
-			push_error("工房強化アップグレードのIDが重複しています: %s" % upgrade.id)
-			return
-		upgrade_masters[upgrade.id] = upgrade
-	_upgrade_masters = upgrade_masters
+	GameStateWorkshopDelegate.load_workshop_master_data(self)
 
 
-## (1) seed_inventoryの対象countを確認 (2) Planting.plantを実行 (3) 両方成功時のみcountを1減算
-## 🔵 FR-101（3ステップ順序が確定設計。在庫確認をPlanting.plant呼び出しより必ず先に行う、FR-110）
 func plant_seed(seed_id: StringName) -> Result:
-	if not _seed_masters.has(seed_id):
-		plant_seed_failed.emit(seed_id, &"unknown_seed_id")
-		return Result.fail(&"unknown_seed_id")
-
-	var inventory_index := _find_seed_inventory_index(seed_id)
-	if inventory_index == -1 or (_seed_inventory[inventory_index]["count"] as int) <= 0:
-		plant_seed_failed.emit(seed_id, &"seed_not_owned")
-		return Result.fail(&"seed_not_owned")
-
-	var master: SeedMaster = _seed_masters[seed_id]
-	var plant_result := Planting.plant(_garden_state, seed_id, master, _garden_slot_count)
-	if not plant_result.success:
-		plant_seed_failed.emit(seed_id, plant_result.error_code)
-		return plant_result
-
-	var plant_state: PlantState = plant_result.value
-	_garden_state.plants.append(plant_state)
-	_seed_inventory[inventory_index]["count"] = (
-		(_seed_inventory[inventory_index]["count"] as int) - 1
-	)
-
-	seed_planted.emit(plant_state.slot_index, seed_id)
-	return plant_result
+	return GameStateGardenDelegate.plant_seed(self, seed_id)
 
 
-## _seed_inventory内でseed_idが一致する要素のインデックスを返す。見つからない場合は-1
+## _seed_inventory内でseed_idが一致する要素のインデックスを返す。見つからない場合は-1。
+## 🔴 既存テスト（test_game_state_apply_upgrade_effects.gd）がプライベートメソッドとして
+## 直接呼び出しているため、GameState側の薄いラッパーとして維持する
 func _find_seed_inventory_index(seed_id: StringName) -> int:
-	for i in range(_seed_inventory.size()):
-		if _seed_inventory[i]["seed_id"] == seed_id:
-			return i
-	return -1
+	return GameStateGardenDelegate.find_seed_inventory_index(self, seed_id)
 
 
-## 🔵 素材インスタンスの連番IDを払い出す（"mat_0000"形式）。harvest()と
-## apply_upgrade()のcatalyst_stock分岐が共有する採番カウンタ（instance_id衝突防止のため
-## 別カウンタに分離しない、コードレビュー指摘対応で共通ヘルパーへ抽出）
+## 🔵 素材インスタンスの連番IDを払い出す("mat_0000"形式)。garden delegateのharvest()と
+## workshop delegateのapply_upgrade()のcatalyst_stock分岐が共有する採番カウンタ
+## （instance_id衝突防止のため別カウンタに分離しない、コードレビュー指摘対応で共通ヘルパーへ抽出）。
+## 複数delegateから横断的に使われる採番の正本のため、GameState自身に残す
 func _next_material_instance_id() -> String:
 	var id := "mat_%04d" % _material_instance_seq
 	_material_instance_seq += 1
 	return id
 
 
-## RngServiceから品質用・特性用の乱数を個別に払い出し、Harvest.harvestへ渡す（🔵 FR-104, FR-402）。
-## 成功時: MaterialInstanceにinstance_idを採番して確定し、inventoryへ追加、該当スロットをgarden_state.plantsから除去
 func harvest(slot_index: int) -> Result:
-	var plant_index := _find_plant_index(slot_index)
-	if plant_index == -1:
-		harvest_failed.emit(slot_index, &"slot_not_found")
-		return Result.fail(&"slot_not_found")
-
-	var plant_state: PlantState = _garden_state.plants[plant_index]
-	# 🔴 該当seed_idのSeedMasterが見つからない場合はスロット自体は存在するがマスターデータが
-	# 欠落している内部不整合のため、slot_not_foundとは区別した専用エラーコードで返す（コードレビュー指摘対応）
-	var master: SeedMaster = _seed_masters.get(plant_state.seed_id)
-	if master == null:
-		harvest_failed.emit(slot_index, &"master_data_missing")
-		return Result.fail(&"master_data_missing")
-
-	# 🔵 品質用・特性用の乱数はそれぞれ個別に払い出す（1回の呼び出し結果を使い回さない、FR-104）
-	var rng_roll_quality := RngService.randf()
-	var rng_roll_trait := RngService.randf()
-	var result := Harvest.harvest(plant_state, master, rng_roll_quality, rng_roll_trait)
-	if not result.success:
-		harvest_failed.emit(slot_index, result.error_code)
-		return result
-
-	var material: MaterialInstance = result.value
-	material.instance_id = _next_material_instance_id()
-
-	_garden_state.plants.remove_at(plant_index)
-	# 🔴 _inventoryへはclone()した独立コピーを格納する。material_harvestedシグナル・戻り値のResult.valueは
-	# 生成直後の同一参照のままのため、将来の購読側がin-place変更しても_inventoryの正本データは汚染されない
-	# （state-management.mdの防御的コピー方針に合わせる、コードレビュー指摘対応）
-	_inventory.append(material.clone())
-
-	material_harvested.emit(material, slot_index)
-	return result
+	return GameStateGardenDelegate.harvest(self, slot_index)
 
 
-## 🔵 FR-103, FR-111。庭にある全スロットにHarvest.advance_growthを適用し、その直後に必ず
-## Harvest.resolve_witheringを呼ぶ（core-systems.md L65の順序厳守）。枯死除去が発生した場合のみ
-## plants_witheredを発行し、最後にターンを1進めてturn_growth_advancedを発行する。
-## 🔴 対象範囲は「庭にある全スロット」（成熟後の待機中も含む）とする。
-## 理由: 品質上昇判定・枯死判定にはis_matured後もgrown_turnsの継続加算が必要なため（ヒアリング結果でユーザー確認済み）
-## 🔴 is_maturedの再計算はHarvest.advance_growthのスコープ外（タスク008方針）のためここで行う。
-## SeedMasterが欠落した株はフラグを再計算せずgrown_turnsのみ進める（Harvest.resolve_witheringの
-## 「マスター欠落株は安全側に倒して除去しない」方針と揃える）
 func advance_turn_growth() -> void:
-	var grown_plants: Array[PlantState] = []
-	var slot_indices_before: Array[int] = []
-	for plant in _garden_state.plants:
-		var advanced := Harvest.advance_growth(plant, 1)
-		var master: SeedMaster = _seed_masters.get(advanced.seed_id)
-		if master != null:
-			advanced.is_matured = Harvest.is_matured(advanced, master)
-		grown_plants.append(advanced)
-		slot_indices_before.append(advanced.slot_index)
-	_garden_state.plants = grown_plants
-
-	_garden_state = Harvest.resolve_withering(_garden_state, _seed_masters)
-
-	var surviving_slot_indices: Array[int] = []
-	for plant in _garden_state.plants:
-		surviving_slot_indices.append(plant.slot_index)
-	# 🔴 除去株の検出はresolve_withering前後のslot_index集合の差分で行う（タスク015実装ノート）。
-	# シグナル引数の宣言型（Array）に合わせ、型付き配列にはしない
-	var withered_slot_indices: Array = []
-	for slot_index in slot_indices_before:
-		if not surviving_slot_indices.has(slot_index):
-			withered_slot_indices.append(slot_index)
-
-	# 🔴 他の全GameStateミューテータと同様、状態更新はシグナル発行より前に完了させる
-	# （同期リスナーが更新前の値を読むのを防ぐ）
-	_current_turn += 1
-
-	if not withered_slot_indices.is_empty():
-		plants_withered.emit(withered_slot_indices)
-	turn_growth_advanced.emit(_current_turn)
+	GameStateGardenDelegate.advance_turn_growth(self)
 
 
-## _garden_state.plants内でslot_indexが一致する要素のインデックスを返す。見つからない場合は-1
-func _find_plant_index(slot_index: int) -> int:
-	for i in range(_garden_state.plants.size()):
-		if _garden_state.plants[i].slot_index == slot_index:
-			return i
-	return -1
-
-
-## 🔵 FR-102の順序で検証: (1)recipe_id実在 (2)unlocked (3)material実在 (4)投入枠内重複なし。
-## 通過後にFR-103でSlotState.can_execute()を実行直前に再評価する。
-## 成功時のみinventory除去→pending_products追加→product_crafted発行（FR-112）。
-## いずれかの段階の失敗はinventory/pending_productsを一切変更せずexecute_alchemy_failedを発行（FR-113）
 func execute_alchemy(recipe_id: StringName, material_instance_ids: Array[String]) -> Result:
-	var indices := _resolve_inventory_indices(material_instance_ids)
-	var error_code := _validate_alchemy_request(recipe_id, material_instance_ids, indices)
-	if error_code != &"":
-		execute_alchemy_failed.emit(recipe_id, error_code)
-		return Result.fail(error_code)
-
-	var materials: Array[MaterialInstance] = []
-	for index in indices:
-		materials.append(_inventory[index])
-
-	# 🔵 FR-103。UI側の先出し判定を信頼せず、状態変更の直前にDomain層の実行可否を再評価する
-	var slot_state := SlotState.new()
-	slot_state.selected_recipe_id = recipe_id
-	slot_state.max_slots = _alchemy_slot_count
-	slot_state.materials = materials
-	if not slot_state.can_execute():
-		execute_alchemy_failed.emit(recipe_id, &"slot_execution_invalid")
-		return Result.fail(&"slot_execution_invalid")
-
-	# 🔵 FR-104/FR-201。品質判定と特性発現判定には現在ランク由来の同一のtraits_unlockedを渡す
-	var traits_unlocked := _get_current_rank_master_or_fallback().traits_unlocked
-	var quality := QualityCalculator.calculate_quality(materials, traits_unlocked)
-	var quality_mult := QualityCalculator.quality_multiplier(quality)
-	var activated_traits := TraitActivation.resolve_traits(materials, traits_unlocked)
-
-	var recipe: RecipeMaster = _recipe_masters[recipe_id]
-	var contribution := ProductValueCalculator.calculate_contribution(
-		recipe.base_contribution,
-		quality_mult,
-		ProductValueCalculator.resolve_contribution_bonus(activated_traits)
-	)
-	var reward := ProductValueCalculator.calculate_reward(
-		recipe.base_reward,
-		quality_mult,
-		ProductValueCalculator.resolve_reward_bonus(activated_traits)
-	)
-	var product := ProductInstance.new(recipe_id, quality, activated_traits, contribution, reward)
-
-	# 🔵 副作用はすべての検証・計算が成功した後にのみ適用する（FR-113のアトミック性）。
-	# 🔴 remove_atのインデックスずれを避けるため降順に削除する
-	indices.sort()
-	indices.reverse()
-	for index in indices:
-		_inventory.remove_at(index)
-	# 🔴 harvest()の_inventory.append(material.clone())と同方針。正本は独立コピーとして保持し、
-	# シグナル購読側・戻り値の受け取り側による事後変更から守る
-	_pending_products.append(product.clone())
-
-	# 🔵 FR-102。試験中は調合成功1回につき試験内ターンを1消費する。advance_turn()は
-	# 新規ExamStateを返す純粋関数（in-place書き換えではない）ため、戻り値で明示的に置き換える。
-	# 同期リスナーが更新前の値を読むのを防ぐため、product_crafted.emit()より前に状態更新を完了させる
-	# （commit_rank_outcome()のシグナル発行順序と同方針）
-	if _in_exam:
-		_exam_state = PromotionExamResolver.advance_turn(_exam_state)
-
-	product_crafted.emit(product)
-	return Result.ok(product)
+	return GameStateAlchemyDelegate.execute_alchemy(self, recipe_id, material_instance_ids)
 
 
-## 🔴 _pending_productsを先頭から全件消費し、各ProductInstanceについて
-## DeliveryResolver.resolve(product, _current_daily_order)を呼び出す（FR-005, FR-105）。
-## final_rewardはroundi()で丸めて_goldへ即時加算（FR-106, CON-007）、
-## final_contributionはRankQuotaResolver.apply_contributionで現在ランクのノルマ残量から
-## 減算する（🔵 FR-108, CON-004）。
-## 全件処理後にキューを空にしdelivered(results)を発行する（FR-108）。
-## キューが空の場合は状態を一切変更せずResult.ok([])を返す（FR-109, AC-012）
 func deliver_pending_products() -> Result:
-	var results: Array[DeliveryResult] = []
-	if _pending_products.is_empty():
-		return Result.ok(results)
-
-	var gold_before := _gold
-	# 🔵 FR-105, FR-106, FR-401。試験中(_in_exam)はdaily_orderをnullに切り替え、
-	# 指定合致ボーナス（DeliveryResolver.matches_orderはdaily_order=nullで常にfalse）を不適用にする。
-	# 報酬(gold)加算はこの分岐と無関係に常時行う（FR-106: 試験中/非試験中でgold加算量は変わらない）
-	var order_for_delivery: DailyOrderMaster = null if _in_exam else _current_daily_order
-	for product in _pending_products:
-		var delivery_result := DeliveryResolver.resolve(product, order_for_delivery)
-		_gold += roundi(delivery_result.final_reward)
-		# 🔵 貢献度の適用先を試験中/非試験中で切り替える。RankQuotaResolver.apply_contribution自体は
-		# ノルマの入れ物がRankState.quotaかExamState.exam_quotaかを問わない汎用のfloatクランプ関数のため無変更で流用する
-		if _in_exam:
-			_exam_state.exam_quota = RankQuotaResolver.apply_contribution(
-				_exam_state.exam_quota, delivery_result.final_contribution
-			)
-		else:
-			_rank_state.quota = RankQuotaResolver.apply_contribution(
-				_rank_state.quota, delivery_result.final_contribution
-			)
-		results.append(delivery_result)
-
-	# 🔴 走査中にclear()すると反復が壊れるため、キューの破棄はループ完了後に行う
-	_pending_products.clear()
-
-	if _gold != gold_before:
-		gold_changed.emit(gold_before, _gold, _gold - gold_before)
-
-	# 🔴 emit直後にResult.ok(results)で同一配列を返すと、delivered購読側がその場で
-	# 配列を書き換え（clear/並べ替え等）た場合に戻り値まで汚染される。
-	# duplicate()でシグナル発行用の別配列を渡し、戻り値の配列とは独立させる
-	# （要素のDeliveryResultインスタンス自体はプリミティブ値型フィールドのみのため共有で問題ない）
-	delivered.emit(results.duplicate())
-	return Result.ok(results)
-
-
-## 🔵 FR-102の4段階検証。問題がなければ空のStringNameを返す。
-## 副作用を持たず、呼び出し元がシグナル発行とResult生成を担う
-func _validate_alchemy_request(
-	recipe_id: StringName, material_instance_ids: Array[String], indices: Array[int]
-) -> StringName:
-	if not _recipe_masters.has(recipe_id):
-		return &"unknown_recipe_id"
-	if not _unlocked_recipe_ids.has(recipe_id):
-		return &"recipe_not_unlocked"
-	if indices.has(-1):
-		return &"material_not_owned"
-	if _has_duplicate_ids(material_instance_ids):
-		return &"duplicate_material_in_slot"
-	return &""
-
-
-## 各instance_idに対応する_inventory上のインデックスを、引数と同じ並び順で返す。
-## 未所持のidは-1として保持し、検証側で一括判定できるようにする
-func _resolve_inventory_indices(material_instance_ids: Array[String]) -> Array[int]:
-	var indices: Array[int] = []
-	for instance_id in material_instance_ids:
-		indices.append(_find_inventory_index(instance_id))
-	return indices
-
-
-## _inventory内でinstance_idが一致する要素のインデックスを返す。見つからない場合は-1
-func _find_inventory_index(instance_id: String) -> int:
-	for i in range(_inventory.size()):
-		if _inventory[i].instance_id == instance_id:
-			return i
-	return -1
-
-
-## material_instance_ids内に重複が存在するか
-func _has_duplicate_ids(ids: Array[String]) -> bool:
-	var seen: Dictionary = {}
-	for instance_id in ids:
-		if seen.has(instance_id):
-			return true
-		seen[instance_id] = true
-	return false
+	return GameStateGuildDelegate.deliver_pending_products(self)
 
 
 ## _current_rank_idに対応するランクIDについて、まだ_warn_missing_rank_master()で
-## 警告していなければpush_error()する。同一ランクIDでの多重発生を防ぐ（🔴 コードレビュー指摘対応）
+## 警告していなければpush_error()する。同一ランクIDでの多重発生を防ぐ（🔴 コードレビュー指摘対応）。
+## rank delegate・_get_current_rank_master_or_fallback()の双方から横断的に使われるためGameState自身に残す
 func _warn_missing_rank_master() -> void:
 	if _warned_missing_rank_master_ids.has(_current_rank_id):
 		return
@@ -493,7 +213,9 @@ func _warn_missing_next_rank_master(next_rank_id: StringName) -> void:
 ## （🔴 FR-114, CON-008）。マスターデータ未ロード時でも調合・納品が例外なく成立することを優先し、
 ## null返却は行わない。ランク結果評価（evaluate_rank_outcome）はこのフォールバックの
 ## quota_max=0.0/limit_turn=0が誤ってPROMOTION_ELIGIBLEを誘発しないよう、あえてこの関数を
-## 経由せず_rank_mastersを直接参照する（コードレビュー指摘対応）
+## 経由せず_rank_mastersを直接参照する（コードレビュー指摘対応）。
+## alchemy delegate（execute_alchemyのtraits_unlocked取得）とrank delegateの双方から
+## 横断的に使われるためGameState自身に残す
 func _get_current_rank_master_or_fallback() -> RankMaster:
 	var master: RankMaster = _rank_masters.get(_current_rank_id)
 	if master != null:
@@ -508,263 +230,42 @@ func _get_current_rank_master_or_fallback() -> RankMaster:
 	return fallback
 
 
-## 🔴 CON-009。現在のRankState/RankMasterからランク結果を算出して返す（FR-109）。
-## 副作用を持たない問い合わせ専用。UIの先出し表示と、commit_rank_outcome()の実行直前再評価の両方から使う。
-## 🔴 コードレビュー指摘対応。_rank_state_initializedがfalseの間（quota_maxからの初期化が
-## まだ行われていない、ランクマスターがロードされていない等）は常にCONTINUEを返す。
-## こうしないと_rank_state.quotaの既定値0.0が「ノルマ達成済み」と誤認され、
-## ランクの初回挑戦が常にPROMOTION_ELIGIBLE判定になってしまう
 func evaluate_rank_outcome() -> RankOutcome.Value:
-	if not _rank_state_initialized:
-		return RankOutcome.Value.CONTINUE
-
-	var rank_master: RankMaster = _rank_masters.get(_current_rank_id)
-	if rank_master == null:
-		_warn_missing_rank_master()
-		return RankOutcome.Value.CONTINUE
-
-	var quota_cleared := RankQuotaResolver.is_rank_cleared(_rank_state.quota)
-	var turn_limit_reached := TurnLimitResolver.is_turn_limit_reached(
-		_rank_state.elapsed_turn, rank_master.limit_turn
-	)
-	return TurnLimitResolver.resolve_rank_outcome(quota_cleared, turn_limit_reached)
+	return GameStateRankDelegate.evaluate_rank_outcome(self)
 
 
-## 🔴 CON-009。evaluate_rank_outcome()を実行直前に再評価して状態へ確定反映する（FR-110）。
-## DEMOTIONなら降格回数を加算し、RankStateを再挑戦用に差し替える。
-## ゲームオーバー成立時のみgame_over(_demotion_count)を発行する（FR-113）。
-## PROMOTION_ELIGIBLEでは次ランクへ進めない（FR-404、promotion-exam planの責務）。
-## 既にゲームオーバー確定済みなら状態を変更せず直近の確定結果を返す（FR-202、冪等性）。
-## 🔴 コードレビュー指摘対応。DEMOTION側の状態更新（_demotion_count/_rank_state）は、
-## 他の全GameStateミューテータ（harvest/execute_alchemy/deliver_pending_products）と同様、
-## 必ずrank_outcome_confirmed発行より前に完了させる（同期リスナーが更新前の値を読むのを防ぐ）
-## 🔵 FR-101。PROMOTION_ELIGIBLE確定時、not _in_examの場合のみ_start_exam()を呼ぶ
-## （二重開始防止、FR-201）。既存のDEMOTION/game_over処理・シグナル発行順序は変更しない
 func commit_rank_outcome() -> Result:
-	if is_game_over():
-		return Result.ok(_last_rank_outcome)
-
-	var outcome := evaluate_rank_outcome()
-	_last_rank_outcome = outcome
-
-	if outcome == RankOutcome.Value.DEMOTION:
-		_demotion_count += 1
-		_rank_state = RankQuotaResolver.reset_for_retry(_get_current_rank_master_or_fallback())
-	elif outcome == RankOutcome.Value.PROMOTION_ELIGIBLE and not _in_exam:
-		_start_exam()
-
-	rank_outcome_confirmed.emit(outcome)  # 🔴 FR-112
-
-	if outcome == RankOutcome.Value.DEMOTION and is_game_over():
-		game_over.emit(_demotion_count)
-
-	return Result.ok(outcome)
+	return GameStateRankDelegate.commit_rank_outcome(self)
 
 
-## 🔵 FR-111。降格回数が上限に達しているか
+## 🔵 FR-111。降格回数が上限に達しているか。rank delegate・exam delegate双方の
+## ゲームオーバー判定から横断的に使われる単純な問い合わせのため、委譲せずGameState自身に残す
 func is_game_over() -> bool:
 	return _demotion_count >= GameBalance.MAX_DEMOTION_COUNT
 
 
-## 🔵 FR-101。PromotionExamResolver.start_examで現在ランクのExamStateを生成しin_examをtrueにする。
-## 🔴 NFR-101。現在ランクのRankMasterが不正（null/limit_turn<=0/exam_turn_limit<=0）な場合は
-## 試験を開始せずpush_error()する。
-## 🔴 evaluate_rank_outcome()と同様、_get_current_rank_master_or_fallback()は経由せず
-## _rank_mastersを直接参照する（フォールバックのlimit_turn=0を「正当な0値」と誤認しないため）。
-## 🔴 exam_turn_limit<=0もここで弾く。PromotionExamResolver.start_exam内部にも同種ガードがあるが、
-## そちらは失敗時にexam_quota=0のExamStateを返すだけで例外を投げないため、ここで検知しないと
-## _in_exam=trueのまま試験が始まり、次のcommit_exam_outcome()でexam_quota<=0により即SUCCESS
-## 判定されてしまう（試験を一切プレイせず昇格するバグ）
-func _start_exam() -> void:
-	var rank_master: RankMaster = _rank_masters.get(_current_rank_id)
-	if rank_master == null:
-		_warn_missing_rank_master()
-		return
-	if rank_master.limit_turn <= 0:
-		push_error("現在ランクのlimit_turnが不正なため試験を開始できません: %s" % _current_rank_id)
-		return
-	if rank_master.exam_turn_limit <= 0:
-		push_error("現在ランクのexam_turn_limitが不正なため試験を開始できません: %s" % _current_rank_id)
-		return
-
-	_exam_state = PromotionExamResolver.start_exam(rank_master)
-	_in_exam = true
-	exam_started.emit()  # 🟡 FR-302
-
-
-## 🔵 FR-103, FR-104。試験中(_in_exam=true)に調合を実行せず試験ターンだけ進める。
-## 在庫切れ・解禁レシピ切れ等で調合が実行不能になったデッドロックからの回避手段。
-## PromotionExamResolver.advance_turnは新規ExamStateを返す純粋関数（in-place書き換えではない）ため、
-## execute_alchemy()の試験中ターン消費と同様に戻り値で明示的に置き換える。
-## 🟡 in_exam=falseの場合は状態を一切変更せず失敗のResultを返す（FR-104）。
-## エラーコード&"not_in_exam"はexecute_alchemy_failed等の既存命名規則(snake_case)から推定した新規コード
-## （design phaseで明示要件なし）。resolve_outcomeの呼び出しは行わない（結果確定はcommit_exam_outcome()の責務）
 func advance_exam_turn() -> Result:
-	if not _in_exam:
-		return Result.fail(&"not_in_exam")
-
-	_exam_state = PromotionExamResolver.advance_turn(_exam_state)
-	return Result.ok()
+	return GameStateRankDelegate.advance_exam_turn(self)
 
 
-## 🟡 FR-107。in_exam=falseの場合は常にCONTINUEを返す（_rank_state_initializedガードと同型の
-## 安全策）。副作用を持たない問い合わせ専用。UIの先出し表示と、commit_exam_outcome()の
-## 実行直前再評価の両方から使う。判定ロジック自体はPromotionExamResolver.resolve_outcome
-## （ノルマ達成を制限ターン到達より優先する）にそのまま委譲する
 func evaluate_exam_outcome() -> ExamOutcome.Value:
-	if not _in_exam:
-		return ExamOutcome.Value.CONTINUE
-
-	return PromotionExamResolver.resolve_outcome(_exam_state)
+	return GameStateRankDelegate.evaluate_exam_outcome(self)
 
 
-## 🔵 FR-108〜113。evaluate_exam_outcome()を実行直前に再評価してから状態へ確定反映する。
-## SUCCESSなら次ランクへの実遷移またはゲームクリア判定、FAILUREなら同ランク再挑戦のリセット処理へ
-## それぞれ委譲する。既にゲームオーバー確定済みなら状態を変更せず直近の確定結果を冪等に返す
-## （FR-113、commit_rank_outcome()と同型）。
-## 🔴 _commit_exam_success()/_commit_exam_failure()での状態更新は、他の全GameStateミューテータと
-## 同様に必ずexam_outcome_confirmed発行より前に完了させる（同期リスナーが更新前の値を読むのを防ぐ）
 func commit_exam_outcome() -> Result:
-	if is_game_over():
-		return Result.ok(_last_exam_outcome)
-
-	var outcome := evaluate_exam_outcome()
-	_last_exam_outcome = outcome
-
-	if outcome == ExamOutcome.Value.SUCCESS:
-		_commit_exam_success()
-	elif outcome == ExamOutcome.Value.FAILURE:
-		_commit_exam_failure()
-
-	exam_outcome_confirmed.emit(outcome)  # 🟡 FR-301
-
-	if outcome == ExamOutcome.Value.FAILURE and is_game_over():
-		# 🔴 FR-113。新規シグナルは作らず、既存のrank plan実装のgame_over(demotion_count)を再利用する
-		game_over.emit(_demotion_count)
-
-	return Result.ok(outcome)
+	return GameStateRankDelegate.commit_exam_outcome(self)
 
 
-## 🔵 SUCCESS確定時の内部処理（FR-108, FR-109, FR-404）。次ランクがあれば昇格しrank_stateを
-## 次ランクのquota_maxで再初期化する。次ランクなし（RANK_ORDER末尾）ならゲームクリアとして
-## current_rank_id・rank_stateは不変のままin_examのみ終了させる。
-## 🔴 NFR-101。次ランクのRankMasterが_rank_mastersに未登録の場合は、_rank_state・_current_rank_idは
-## 変更せず_warn_missing_next_rank_master()で警告するが、_in_examは必ずfalseへ戻す。
-## 🔴 コードレビュー指摘対応。以前は_in_examをtrueのまま残していたため、次のcommit_exam_outcome()
-## 呼び出しでもexam_quotaが>0のままSUCCESS判定が再評価されこの分岐に無限に入り直し、
-## push_errorが呼び出しのたびに連呼される「解決不能な幽霊試験状態」に陥っていた
-## 🔵 FR-110。関数冒頭で_can_purchase_permanentをtrueにし、昇格試験成功と工房強化の恒久投資
-## 購入可否フラグを接続する。FR-110は「昇格試験が成功した場合」とのみ規定し分岐を限定していない
-## ため、以下3分岐すべてに一律適用されるようあえて分岐前（関数冒頭）に置く
-func _commit_exam_success() -> void:
-	_can_purchase_permanent = true  # 🔵 FR-110。既存3分岐すべてに一律適用される位置
-	var next_rank_id := RankProgression.get_next_rank_id(_current_rank_id)
-
-	if next_rank_id == &"":
-		_in_exam = false
-		return
-
-	var next_rank_master: RankMaster = _rank_masters.get(next_rank_id)
-	if next_rank_master == null:
-		_warn_missing_next_rank_master(next_rank_id)
-		_in_exam = false
-		return
-
-	_current_rank_id = next_rank_id
-	# 🟡 design phase確認済み。RankQuotaResolver.reset_for_retryは「同ランク再挑戦専用」ではなく
-	# 「RankMasterのquota_maxからRankStateを初期化する」汎用関数のため、次ランク初期化にも流用する
-	_rank_state = RankQuotaResolver.reset_for_retry(next_rank_master)
-	_rank_state_initialized = true
-	_in_exam = false
-
-
-## 🔵 FAILURE確定時の内部処理（FR-110, FR-111）。同ランクをreset_for_retryでリセットし、
-## demotion_countを+1する（commit_rank_outcome()のDEMOTION分岐と同型）
-func _commit_exam_failure() -> void:
-	_demotion_count += 1
-	_rank_state = RankQuotaResolver.reset_for_retry(_get_current_rank_master_or_fallback())
-	_in_exam = false
-
-
-## 🔵 検証(1)null(2)恒久フラグ(3)can_purchase再評価の順に行い、全て通過した場合のみ
-## 状態変更（ゴールド減算・effect反映・購入回数カウント更新）をすべて完了させてからgold_changedを
-## 発行する（FR-101〜104, FR-112〜114, FR-401〜402）。いずれかの検証に失敗した場合は
-## いかなる状態も変更しない（execute_alchemy()と同型のアトミック性パターン）。
-## effect_type別の状態反映は_apply_upgrade_effect()に委譲する（別taskでno-op実装から差し替え予定）
 func apply_upgrade(upgrade: UpgradeMaster) -> Result:
-	if upgrade == null:
-		return Result.fail(&"invalid_upgrade")
-
-	if PurchaseValidator.is_permanent_upgrade(upgrade) and not _can_purchase_permanent:
-		return Result.fail(&"workshop_closed")
-
-	# 🔵 UIの先出し判定を信頼せず、状態変更の直前にDomain層の実行可否を再評価する
-	var already_purchased_count: int = _purchased_upgrade_counts.get(upgrade.id, 0)
-	if not PurchaseValidator.can_purchase(
-		_gold, upgrade.price, already_purchased_count, upgrade.max_purchase_count
-	):
-		return Result.fail(&"cannot_purchase")
-
-	# 🔴 未知のeffect_typeや型不一致のeffect_valueを持つUpgradeMasterは、状態変更フェーズに
-	# 入る前にここで弾く。これにより_apply_upgrade_effect()に到達する時点でeffect_typeが
-	# 既知の5種類・effect_valueが正しい型であることが保証され、_apply_upgrade_effect()内の
-	# 素朴なasキャストが安全になる（コードレビュー指摘対応）
-	if not PurchaseValidator.is_valid_effect(upgrade):
-		return Result.fail(&"invalid_effect")
-
-	# --- 状態変更フェーズ（全て完了するまでシグナル発行しない） ---
-	var previous_gold := _gold
-	_gold -= upgrade.price
-
-	_apply_upgrade_effect(upgrade)  # 別taskで実装。本taskではno-op
-
-	_purchased_upgrade_counts[upgrade.id] = already_purchased_count + 1
-
-	gold_changed.emit(previous_gold, _gold, _gold - previous_gold)
-
-	return Result.ok(upgrade)
+	return GameStateWorkshopDelegate.apply_upgrade(self, upgrade)
 
 
-## 🔵 upgrade.effect_typeに応じてGameStateの各状態を更新する（FR-105〜FR-109）。
-## 呼び出し元のapply_upgrade()が既にPurchaseValidator.is_valid_effect()で
-## effect_type・effect_valueの型を検証済みであることを前提とする（コードレビュー指摘対応で
-## 事前検証を追加済み）。そのため以下のasキャストは全て型保証済みの安全なキャストであり、
-## ここで改めて型ガードを重複させない。反映先はすべてGameState自身のフィールドに限定する
-func _apply_upgrade_effect(upgrade: UpgradeMaster) -> void:
-	match upgrade.effect_type:
-		&"alchemy_slot_increase":
-			_alchemy_slot_count += (upgrade.effect_value as int)
-		&"garden_slot_increase":
-			_garden_slot_count += (upgrade.effect_value as int)
-		&"recipe_unlock":
-			_unlocked_recipe_ids.append(upgrade.effect_value as StringName)
-		&"catalyst_stock":
-			var material := MaterialInstance.new(
-				_next_material_instance_id(),
-				GameBalance.CATALYST_MATERIAL_ID,
-				GameBalance.CATALYST_BASE_QUALITY_SCORE,
-				[&"catalyst"]
-			)
-			_inventory.append(material)
-		&"seed_name_purchase":
-			var seed_id := upgrade.effect_value as StringName
-			var index := _find_seed_inventory_index(seed_id)
-			if index == -1:
-				_seed_inventory.append({"seed_id": seed_id, "count": 1})
-			else:
-				_seed_inventory[index]["count"] = ((_seed_inventory[index]["count"] as int) + 1)
-		_:
-			push_error("未知のeffect_typeです: %s" % upgrade.effect_type)  # 🟡 防御的分岐
-
-
-## 🔵 恒久投資購入可否フラグを閉じる（FR-015, FR-018）
 func close_workshop() -> void:
-	_can_purchase_permanent = false
+	GameStateWorkshopDelegate.close_workshop(self)
 
 
-## 🔵 未購入（キー未登録）の場合は0を返す（FR-018）
 func get_purchased_count(upgrade_id: StringName) -> int:
-	return _purchased_upgrade_counts.get(upgrade_id, 0)
+	return GameStateWorkshopDelegate.get_purchased_count(self, upgrade_id)
 
 
 ## 🔴 500行ルール対応。以下のテスト専用API群は実装本体をgame_state_test_support.gd
