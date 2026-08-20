@@ -1,7 +1,7 @@
 ---
 id: "015"
 title: "GameState.advance_turn_growth()を実装する"
-status: pending
+status: done
 priority: 3
 dependencies: ["008", "011", "012"]
 estimated_complexity: medium

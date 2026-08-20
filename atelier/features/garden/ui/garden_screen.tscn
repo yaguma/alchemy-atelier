@@ -1,0 +1,47 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://features/garden/ui/garden_screen.gd" id="1_garden_screen"]
+[ext_resource type="PackedScene" path="res://features/garden/ui/seed_inventory_list.tscn" id="2_seed_inventory_list"]
+
+[node name="GardenScreen" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_garden_screen")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="HeaderRow" type="HBoxContainer" parent="VBoxContainer"]
+layout_mode = 2
+
+[node name="EndTurnButton" type="Button" parent="VBoxContainer/HeaderRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "ターン終了"
+
+[node name="ShopButton" type="Button" parent="VBoxContainer/HeaderRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "ショップ"
+
+[node name="ToastLabel" type="Label" parent="VBoxContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="SlotsContainer" type="GridContainer" parent="VBoxContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+columns = 5
+
+[node name="SeedInventoryList" parent="VBoxContainer" instance=ExtResource("2_seed_inventory_list")]
+unique_name_in_owner = true
+layout_mode = 2
