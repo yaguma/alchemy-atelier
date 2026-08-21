@@ -48,23 +48,11 @@ static func execute_alchemy(
 		return Result.fail(&"slot_execution_invalid")
 
 	# 🔵 FR-104/FR-201。品質判定と特性発現判定には現在ランク由来の同一のtraits_unlockedを渡す
+	# 🔴 コードレビュー指摘対応。AlchemyScreenのライブプレビューと同一の計算経路
+	# （ProductProvisionalResolver）を通すことで、両者の乖離を防ぐ
 	var traits_unlocked := state._get_current_rank_master_or_fallback().traits_unlocked
-	var quality := QualityCalculator.calculate_quality(materials, traits_unlocked)
-	var quality_mult := QualityCalculator.quality_multiplier(quality)
-	var activated_traits := TraitActivation.resolve_traits(materials, traits_unlocked)
-
 	var recipe: RecipeMaster = state._recipe_masters[recipe_id]
-	var contribution := ProductValueCalculator.calculate_contribution(
-		recipe.base_contribution,
-		quality_mult,
-		ProductValueCalculator.resolve_contribution_bonus(activated_traits)
-	)
-	var reward := ProductValueCalculator.calculate_reward(
-		recipe.base_reward,
-		quality_mult,
-		ProductValueCalculator.resolve_reward_bonus(activated_traits)
-	)
-	var product := ProductInstance.new(recipe_id, quality, activated_traits, contribution, reward)
+	var product := ProductProvisionalResolver.resolve(materials, recipe, traits_unlocked)
 
 	# 🔵 副作用はすべての検証・計算が成功した後にのみ適用する（FR-113のアトミック性）。
 	# 🔴 remove_atのインデックスずれを避けるため降順に削除する

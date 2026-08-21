@@ -79,6 +79,14 @@ func _label_text(screen: AlchemyScreen, node_name: String) -> String:
 	return (screen.find_child(node_name, true, false) as Label).text
 
 
+# 🔴 コードレビュー指摘対応。"QualityLabel"はAlchemyPreviewPanelとMaterialEntryRowの双方に
+# 同名で存在するため、screen全体からのfind_child()は木構造上の兄弟順に依存する脆いルックアップになる
+# （たまたまAlchemyPreviewPanelがMaterialInventoryListより先に配置されているため現状は通っている）。
+# プレビュー系ラベルは必ずAlchemyPreviewPanel配下に限定して探索する
+func _preview_label_text(screen: AlchemyScreen, node_name: String) -> String:
+	return (_preview_panel(screen).find_child(node_name, true, false) as Label).text
+
+
 func _screen_source() -> String:
 	var raw := FileAccess.get_file_as_string("res://features/alchemy/ui/alchemy_screen.gd")
 	return raw.replace("\r\n", "\n")
@@ -101,8 +109,8 @@ func test_レシピ選択と素材投入で投入枠が埋まりプレビュー�
 	assert_int(_find_slot_view(screen, 0).get_status()).is_equal(AlchemySlotView.Status.FILLED)
 	assert_int(_find_slot_view(screen, 1).get_status()).is_equal(AlchemySlotView.Status.EMPTY)
 	# 品質4 → 倍率1.75、特性なし → 貢献度10*1.75=17.5 / 報酬5*1.75=8.75
-	assert_str(_label_text(screen, "QualityLabel")).is_equal("品質: 4")
-	assert_str(_label_text(screen, "ValueLabel")).is_equal("見込み貢献度: 17.5 / 見込み報酬: 8.8")
+	assert_str(_preview_label_text(screen, "QualityLabel")).is_equal("品質: 4")
+	assert_str(_preview_label_text(screen, "ValueLabel")).is_equal("見込み貢献度: 17.5 / 見込み報酬: 8.8")
 
 
 func test_投入済み素材は在庫一覧から除外される() -> void:
@@ -121,11 +129,11 @@ func test_レシピ未選択または0投入ではプレビューが空表示に
 	var screen := _make_screen()
 
 	# レシピ未選択かつ0投入（初期状態）
-	assert_str(_label_text(screen, "QualityLabel")).is_equal("品質: -")
+	assert_str(_preview_label_text(screen, "QualityLabel")).is_equal("品質: -")
 
 	# レシピ未選択で投入だけした場合も計算しない
 	_place_material(screen, "mat_1")
-	assert_str(_label_text(screen, "QualityLabel")).is_equal("品質: -")
+	assert_str(_preview_label_text(screen, "QualityLabel")).is_equal("品質: -")
 
 
 func test_指定依頼に合致するとプレビューにボーナス適用後の値が表示される() -> void:
@@ -143,7 +151,29 @@ func test_指定依頼に合致するとプレビューにボーナス適用後�
 
 	assert_bool(_preview_panel(screen).is_order_matched()).is_true()
 	# 貢献度17.5 / 報酬8.75 に指定合致ボーナス2.0倍
-	assert_str(_label_text(screen, "ValueLabel")).is_equal("見込み貢献度: 35.0 / 見込み報酬: 17.5")
+	assert_str(_preview_label_text(screen, "ValueLabel")).is_equal("見込み貢献度: 35.0 / 見込み報酬: 17.5")
+
+
+## 🔴 コードレビュー指摘対応（PR#30）の回帰テスト。GameStateGuildDelegate.deliver_pending_products()は
+## 試験中(in_exam)に指定依頼をnullへ切り替えボーナスを不適用にするが、以前のAlchemyScreenは
+## この分岐を無視して常に指定合致ボーナスを見込んだプレビューを表示していた（実際の納品結果と乖離するバグ）
+func test_試験中は指定依頼に合致していてもプレビューにボーナスが適用されない() -> void:
+	var order := DailyOrderMaster.new()
+	order.id = "order_test"
+	order.condition_type = "item"
+	order.target_recipe_id = String(RECIPE_ID)
+	order.match_bonus_multiplier = 2.0
+	GameState._set_current_daily_order_for_test(order)
+	GameState._set_exam_state_for_test(ExamState.new(), true)
+	_inject_material("mat_1", 4)
+	var screen := _make_screen()
+
+	_select_recipe(screen, RECIPE_ID)
+	_place_material(screen, "mat_1")
+
+	assert_bool(_preview_panel(screen).is_order_matched()).is_false()
+	# ボーナス不適用のため貢献度17.5 / 報酬8.75のまま（指定合致時の35.0/17.5にならない）
+	assert_str(_preview_label_text(screen, "ValueLabel")).is_equal("見込み貢献度: 17.5 / 見込み報酬: 8.8")
 
 
 # 正常系（投入取り消し）
@@ -159,7 +189,7 @@ func test_投入枠のクリアで素材が在庫へ戻る() -> void:
 
 	assert_int(_find_slot_view(screen, 0).get_status()).is_equal(AlchemySlotView.Status.EMPTY)
 	assert_int(_inventory_list(screen).get_entry_count()).is_equal(1)
-	assert_str(_label_text(screen, "QualityLabel")).is_equal("品質: -")
+	assert_str(_preview_label_text(screen, "QualityLabel")).is_equal("品質: -")
 
 
 func test_先頭枠のクリアで後続の投入がスロット順に詰められる() -> void:

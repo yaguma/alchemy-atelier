@@ -245,6 +245,14 @@ func is_current_rank_traits_unlocked() -> bool:
 	return _get_current_rank_master_or_fallback().traits_unlocked
 
 
+## 納品判定（DeliveryResolver.resolve）に渡すべき指定依頼を返す（🔵 FR-105, FR-401）。
+## 🔴 コードレビュー指摘対応。GameStateGuildDelegate.deliver_pending_products()が試験中(_in_exam)に
+## 指定依頼をnullへ切り替える分岐と全く同じ式をここに一本化し、AlchemyScreenのライブプレビューが
+## 実際の納品結果と乖離しないようにする（試験中はプレビューも指定合致ボーナスなしで計算する）
+func resolve_daily_order_for_delivery() -> DailyOrderMaster:
+	return null if _in_exam else _current_daily_order
+
+
 func evaluate_rank_outcome() -> RankOutcome.Value:
 	return GameStateRankDelegate.evaluate_rank_outcome(self)
 

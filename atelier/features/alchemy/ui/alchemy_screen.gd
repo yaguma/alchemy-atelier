@@ -25,6 +25,11 @@ var _placed_material_ids: Array[String] = []
 var _slot_state: SlotState = SlotState.new()
 var _recipe_masters: Dictionary = {}  # 🔵 StringName -> RecipeMaster。get_state()から都度キャッシュ
 var _inventory: Array[MaterialInstance] = []  # 🔵 get_state()から都度キャッシュ
+# 🔴 コードレビュー指摘対応。_recompute_preview()のたびにGameState.get_state()を再度フル呼び出し
+# していた（_inventory/_recipe_masters同様に_refresh()時点でキャッシュすべきコスト）のを解消する。
+# GameState.resolve_daily_order_for_delivery()経由で取得するため、試験中(_in_exam)は
+# 自動的にnullとなり、実際の納品処理と同じ指定依頼の扱いになる（プレビューと実結果の乖離防止）
+var _daily_order_for_preview: DailyOrderMaster = null
 var _slot_views: Array[AlchemySlotView] = []
 
 @onready var _recipe_option_button: OptionButton = %RecipeOptionButton
@@ -84,6 +89,9 @@ func _refresh() -> void:
 	_recipe_masters = state["recipe_masters"]
 	_inventory = state["inventory"]
 	_slot_state.max_slots = state["alchemy_slot_count"]
+	# 🔴 コードレビュー指摘対応。_recompute_preview()側でGameState.get_state()を再度呼ばずに済むよう
+	# ここでキャッシュする。GameState側のロジックと同一の式（試験中はnull）を経由する
+	_daily_order_for_preview = GameState.resolve_daily_order_for_delivery()
 
 	# 🔵 在庫から消えた素材（調合実行で消費された等）が投入枠に残らないよう先に整合を取る
 	_drop_missing_placed_ids()
@@ -105,10 +113,12 @@ func _on_preview_inputs_changed() -> void:
 		_execute_button.disabled = not _slot_state.can_execute()  # 🔵 AC-010
 
 
-## QualityCalculator -> TraitActivation -> ProductValueCalculator -> DeliveryResolver の
-## 4段階パイプラインを同期呼び出しし、AlchemyPreviewPanelへ結果を渡す。🔵 AC-007
-## 🔵 指定合致ボーナスの乗算はDeliveryResolver側のみで行う（ProductValueCalculatorには渡さない。
-## 二重乗算バグ防止のためdelegate側のexecute_alchemyと同じ順序・同じ引数で組む）
+## ProductProvisionalResolver（QualityCalculator -> TraitActivation -> ProductValueCalculator の
+## 3段階パイプライン） -> DeliveryResolver を同期呼び出しし、AlchemyPreviewPanelへ結果を渡す。🔵 AC-007
+## 🔴 コードレビュー指摘対応。GameStateAlchemyDelegate.execute_alchemy()と同一の
+## ProductProvisionalResolverを経由することで両者の計算結果が乖離しないようにし、
+## 指定依頼の判定にも_refresh()でキャッシュ済みの_daily_order_for_preview（試験中はnull）を使う
+## ことで、実際の納品処理（GameStateGuildDelegate.deliver_pending_products）と同じ扱いにする
 func _recompute_preview(materials: Array[MaterialInstance]) -> void:
 	if _preview_panel == null:
 		return
@@ -118,31 +128,14 @@ func _recompute_preview(materials: Array[MaterialInstance]) -> void:
 		return
 
 	var traits_unlocked := GameState.is_current_rank_traits_unlocked()
-	var quality := QualityCalculator.calculate_quality(materials, traits_unlocked)
-	var quality_mult := QualityCalculator.quality_multiplier(quality)
-	var activated_traits := TraitActivation.resolve_traits(materials, traits_unlocked)
-
-	var recipe_master := recipe as RecipeMaster
-	var contribution := ProductValueCalculator.calculate_contribution(
-		recipe_master.base_contribution,
-		quality_mult,
-		ProductValueCalculator.resolve_contribution_bonus(activated_traits)
+	var provisional := ProductProvisionalResolver.resolve(
+		materials, recipe as RecipeMaster, traits_unlocked
 	)
-	var reward := ProductValueCalculator.calculate_reward(
-		recipe_master.base_reward,
-		quality_mult,
-		ProductValueCalculator.resolve_reward_bonus(activated_traits)
-	)
-	var provisional := ProductInstance.new(
-		_slot_state.selected_recipe_id, quality, activated_traits, contribution, reward
-	)
-	var result := DeliveryResolver.resolve(
-		provisional, GameState.get_state()["current_daily_order"]
-	)
+	var result := DeliveryResolver.resolve(provisional, _daily_order_for_preview)
 
 	_preview_panel.show_preview(
-		quality,
-		activated_traits,
+		provisional.quality_score,
+		provisional.activated_traits,
 		result.final_contribution,
 		result.final_reward,
 		result.order_matched

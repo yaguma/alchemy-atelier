@@ -71,6 +71,33 @@ func test_特性未解禁ランクではis_current_rank_traits_unlockedがfalse�
 	assert_bool(GameState.is_current_rank_traits_unlocked()).is_false()
 
 
+## 🔴 コードレビュー指摘対応（PR#30）の回帰テスト。GameStateGuildDelegate.deliver_pending_products()
+## が納品時に使う指定依頼と、AlchemyScreenのライブプレビューが使う指定依頼が同一の式で
+## 解決されることを保証する
+func test_非試験中はresolve_daily_order_for_deliveryが現在の指定依頼を返す() -> void:
+	var order := DailyOrderMaster.new()
+	order.id = "order_test"
+	GameState._set_current_daily_order_for_test(order)
+
+	var resolved := GameState.resolve_daily_order_for_delivery()
+
+	assert_object(resolved).is_not_null()
+	assert_str(resolved.id).is_equal("order_test")
+
+
+## 🔴 コードレビュー指摘対応（PR#30）の回帰テスト。試験中は指定依頼を強制的にnullへ切り替え、
+## 指定合致ボーナスが（プレビュー・実納品の両方で）適用されないことを保証する
+func test_試験中はresolve_daily_order_for_deliveryがnullを返す() -> void:
+	var order := DailyOrderMaster.new()
+	order.id = "order_test"
+	GameState._set_current_daily_order_for_test(order)
+	GameState._set_exam_state_for_test(ExamState.new(), true)
+
+	var resolved := GameState.resolve_daily_order_for_delivery()
+
+	assert_object(resolved).is_null()
+
+
 # 異常系
 
 

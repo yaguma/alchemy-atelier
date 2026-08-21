@@ -22,9 +22,9 @@ static func deliver_pending_products(state: GameStateScript) -> Result:
 	# 🔵 FR-105, FR-106, FR-401。試験中(_in_exam)はdaily_orderをnullに切り替え、
 	# 指定合致ボーナス（DeliveryResolver.matches_orderはdaily_order=nullで常にfalse）を不適用にする。
 	# 報酬(gold)加算はこの分岐と無関係に常時行う（FR-106: 試験中/非試験中でgold加算量は変わらない）
-	var order_for_delivery: DailyOrderMaster = (
-		null if state._in_exam else state._current_daily_order
-	)
+	# 🔴 コードレビュー指摘対応。AlchemyScreenのライブプレビューと同一の式を共有するため
+	# GameState.resolve_daily_order_for_delivery()に一本化した（ここで独自にtern化しない）
+	var order_for_delivery := state.resolve_daily_order_for_delivery()
 	for product in state._pending_products:
 		var delivery_result := DeliveryResolver.resolve(product, order_for_delivery)
 		state._gold += roundi(delivery_result.final_reward)
