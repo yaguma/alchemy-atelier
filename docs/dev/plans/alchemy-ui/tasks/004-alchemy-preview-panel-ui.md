@@ -1,7 +1,7 @@
 ---
 id: "004"
 title: "AlchemyPreviewPanel（ライブプレビュー表示コンポーネント）を実装する"
-status: pending
+status: done
 priority: 2
 dependencies: []
 estimated_complexity: low

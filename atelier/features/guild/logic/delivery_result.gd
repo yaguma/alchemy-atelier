@@ -1,6 +1,11 @@
 # 🔵 納品1件の決算結果を表すランタイム値（core-systems.md L200-205クラス図）。
-# 🔴 参照元がDeliveryResolverと同一Feature内に限られるため、shared/entities/ではなく
-# features/guild/logic/に配置する（CON-003）。
+# 🔴 features/guild/logic/に配置する（CON-003）。
+# 🔴 コードレビュー指摘対応（2026-08-21）。当初はDeliveryResolverと同一Feature内のみが
+# 利用元という前提で配置したが、AlchemyScreen（features/alchemy/ui/）がライブプレビュー用に
+# DeliveryResolver.resolve()を直接呼び出しDeliveryResultを消費するようになったため、この前提は
+# もう成立しない。architecture.mdの「他Featureから参照してよいのはlogic/*.gdとresources/*.gdのみ」
+# ルールには合致しており配置自体は変更不要だが、フィールド変更時はalchemy Feature側への影響も
+# 確認すること（guild Feature単体のテストでは検知できない）
 class_name DeliveryResult
 extends RefCounted
 

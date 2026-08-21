@@ -1,7 +1,7 @@
 ---
 id: "005"
 title: "AlchemyScreen（調合画面本体）を実装する"
-status: pending
+status: done
 priority: 4
 dependencies: ["001", "002", "003", "004"]
 estimated_complexity: high

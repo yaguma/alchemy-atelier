@@ -1,7 +1,7 @@
 ---
 id: "002"
 title: "AlchemySlotView（投入枠表示コンポーネント）とUiTheme色定数を実装する"
-status: pending
+status: done
 priority: 2
 dependencies: []
 estimated_complexity: low

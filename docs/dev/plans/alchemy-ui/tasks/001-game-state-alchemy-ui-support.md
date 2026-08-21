@@ -1,7 +1,7 @@
 ---
 id: "001"
 title: "GameStateへ調合UI向けアクセッサ（recipe_masters/alchemy_slot_count/is_current_rank_traits_unlocked）を追加する"
-status: pending
+status: done
 priority: 1
 dependencies: []
 estimated_complexity: low

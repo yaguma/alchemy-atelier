@@ -1,7 +1,7 @@
 ---
 id: "003"
 title: "MaterialInventoryList（素材在庫一覧コンポーネント）を実装する"
-status: pending
+status: done
 priority: 2
 dependencies: []
 estimated_complexity: low

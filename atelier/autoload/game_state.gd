@@ -108,6 +108,12 @@ func get_state() -> Dictionary:
 		# GardenScreenが全スロット（空き含む）を描画するには庭の総スロット数が別途必要
 		"garden_slot_count": _garden_slot_count,
 		"inventory": cloned_inventory,
+		# 🔵 CON-001。seed_masters公開と同型。AlchemyScreenがレシピ詳細（名称・必要素材等）を
+		# 描画するために必要。マスターデータ（Resourceは不変前提）のため浅いduplicate()で十分
+		"recipe_masters": _recipe_masters.duplicate(),
+		# 🔵 CON-002。garden_slot_count公開と同型。AlchemyScreenが投入枠を空き含めて
+		# 描画するために必要。int値型のため複製不要
+		"alchemy_slot_count": _alchemy_slot_count,
 		# 🔴 要素がStringName（値型相当）のため浅い複製で十分（FR-403）
 		"unlocked_recipe_ids": _unlocked_recipe_ids.duplicate(),
 		"pending_products": cloned_pending_products,
@@ -228,6 +234,23 @@ func _get_current_rank_master_or_fallback() -> RankMaster:
 	fallback.quota_max = 0.0
 	fallback.limit_turn = 0
 	return fallback
+
+
+## 現在ランクで特性システムが解禁済みかを返す（🔵 AC-015）。
+## 🔴 UIの事前予測とDomain層の再評価が食い違わないよう、
+## GameStateAlchemyDelegate.execute_alchemy()と同一の_get_current_rank_master_or_fallback()を
+## 経由する（判定式を再実装しない、NFR-101）。ランクマスター未ロード時はフォールバックにより
+## falseを返し、例外は投げない
+func is_current_rank_traits_unlocked() -> bool:
+	return _get_current_rank_master_or_fallback().traits_unlocked
+
+
+## 納品判定（DeliveryResolver.resolve）に渡すべき指定依頼を返す（🔵 FR-105, FR-401）。
+## 🔴 コードレビュー指摘対応。GameStateGuildDelegate.deliver_pending_products()が試験中(_in_exam)に
+## 指定依頼をnullへ切り替える分岐と全く同じ式をここに一本化し、AlchemyScreenのライブプレビューが
+## 実際の納品結果と乖離しないようにする（試験中はプレビューも指定合致ボーナスなしで計算する）
+func resolve_daily_order_for_delivery() -> DailyOrderMaster:
+	return null if _in_exam else _current_daily_order
 
 
 func evaluate_rank_outcome() -> RankOutcome.Value:
