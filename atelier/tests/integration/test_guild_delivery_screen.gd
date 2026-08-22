@@ -83,10 +83,10 @@ func test_単一件の納品結果がリストに反映される() -> void:
 	assert_int(screen.get_item_count()).is_equal(1)
 	var row := _find_row(screen, 0)
 	assert_object(row).is_not_null()
-	assert_str(_row_label_text(row, "NameLabel")).is_equal("回復薬")
-	assert_str(_row_label_text(row, "QualityLabel")).contains("4")
-	assert_str(_row_label_text(row, "TraitsLabel")).contains("holy")
-	var value_text := _row_label_text(row, "ValueLabel")
+	assert_str(_row_label_text(row, "DeliveryNameLabel")).is_equal("回復薬")
+	assert_str(_row_label_text(row, "DeliveryQualityLabel")).contains("4")
+	assert_str(_row_label_text(row, "DeliveryTraitsLabel")).contains("holy")
+	var value_text := _row_label_text(row, "DeliveryValueLabel")
 	assert_str(value_text).contains("12.5")
 	assert_str(value_text).contains("30.0")
 
@@ -127,8 +127,12 @@ func test_指定合致の有無が項目ごとに表示に反映される() -> v
 
 	screen.display_results(products, results)
 
-	var matched_label := _find_row(screen, 0).find_child("OrderMatchLabel", true, false) as Label
-	var unmatched_label := _find_row(screen, 1).find_child("OrderMatchLabel", true, false) as Label
+	var matched_label := (
+		_find_row(screen, 0).find_child("DeliveryOrderMatchLabel", true, false) as Label
+	)
+	var unmatched_label := (
+		_find_row(screen, 1).find_child("DeliveryOrderMatchLabel", true, false) as Label
+	)
 	assert_bool(matched_label.visible).is_true()
 	assert_str(matched_label.text).is_equal(GuildDeliveryResultRow.ORDER_MATCHED_TEXT)
 	assert_bool(unmatched_label.visible).is_false()
@@ -149,12 +153,12 @@ func test_productsとresultsがindexで対応して表示される() -> void:
 
 	var first := _find_row(screen, 0)
 	var second := _find_row(screen, 1)
-	assert_str(_row_label_text(first, "NameLabel")).is_equal("回復薬")
-	assert_str(_row_label_text(first, "QualityLabel")).contains("2")
-	assert_str(_row_label_text(first, "ValueLabel")).contains("11.0")
-	assert_str(_row_label_text(second, "NameLabel")).is_equal("聖水")
-	assert_str(_row_label_text(second, "QualityLabel")).contains("5")
-	assert_str(_row_label_text(second, "ValueLabel")).contains("22.0")
+	assert_str(_row_label_text(first, "DeliveryNameLabel")).is_equal("回復薬")
+	assert_str(_row_label_text(first, "DeliveryQualityLabel")).contains("2")
+	assert_str(_row_label_text(first, "DeliveryValueLabel")).contains("11.0")
+	assert_str(_row_label_text(second, "DeliveryNameLabel")).is_equal("聖水")
+	assert_str(_row_label_text(second, "DeliveryQualityLabel")).contains("5")
+	assert_str(_row_label_text(second, "DeliveryValueLabel")).contains("22.0")
 
 
 func test_0件を渡すと件数と合計値がリセットされる() -> void:
@@ -215,7 +219,7 @@ func test_未登録のrecipe_idはフォールバック文言で表示される(
 	screen.display_results(products, results)
 
 	assert_int(screen.get_item_count()).is_equal(1)
-	assert_str(_row_label_text(_find_row(screen, 0), "NameLabel")).is_equal(
+	assert_str(_row_label_text(_find_row(screen, 0), "DeliveryNameLabel")).is_equal(
 		GuildDeliveryScreen.UNKNOWN_RECIPE_NAME
 	)
 
@@ -243,7 +247,7 @@ func test_発現特性が0件のときプレースホルダーが表示される
 
 	screen.display_results(products, results)
 
-	assert_str(_row_label_text(_find_row(screen, 0), "TraitsLabel")).contains(
+	assert_str(_row_label_text(_find_row(screen, 0), "DeliveryTraitsLabel")).contains(
 		GuildDeliveryResultRow.TRAITS_NONE_TEXT
 	)
 
@@ -267,3 +271,35 @@ func test_ノルマ残量が上限を超えていてもバーが上限でクラ�
 	var screen := _make_screen()
 
 	assert_float(_quota_bar(screen).value).is_equal(50.0)
+
+
+# 🔴 コードレビュー指摘対応。昇格試験中はGameStateGuildDelegate.deliver_pending_products()が
+# 貢献度をExamState.exam_quotaへ加算するため、ノルマバーも試験ノルマを参照する必要がある
+func test_昇格試験中はノルマバーが試験ノルマを反映する() -> void:
+	var exam_state := ExamState.new()
+	exam_state.exam_quota = 15.0
+	exam_state.exam_quota_max = 60.0
+	GameState._set_exam_state_for_test(exam_state, true)
+	var screen := _make_screen()
+
+	screen.display_results([] as Array[ProductInstance], [] as Array[DeliveryResult])
+
+	var bar := _quota_bar(screen)
+	assert_float(bar.max_value).is_equal(60.0)
+	assert_float(bar.value).is_equal(15.0)
+	assert_str(_label_text(screen, "RankNameLabel")).is_equal(
+		RANK_DISPLAY_NAME + GuildDeliveryScreen.EXAM_RANK_LABEL_SUFFIX
+	)
+
+
+func test_昇格試験中の通常ランクノルマ変化はノルマバーへ反映されない() -> void:
+	var exam_state := ExamState.new()
+	exam_state.exam_quota = 15.0
+	exam_state.exam_quota_max = 60.0
+	GameState._set_exam_state_for_test(exam_state, true)
+	var screen := _make_screen()
+
+	_set_rank(QUOTA_MAX, 90.0)
+	screen.display_results([] as Array[ProductInstance], [] as Array[DeliveryResult])
+
+	assert_float(_quota_bar(screen).value).is_equal(15.0)

@@ -10,11 +10,14 @@ const ORDER_MATCHED_TEXT := "指定合致"
 const TRAITS_NONE_TEXT := "なし"
 const TRAIT_SEPARATOR := ", "
 
-@onready var _name_label: Label = %NameLabel
-@onready var _quality_label: Label = %QualityLabel
-@onready var _traits_label: Label = %TraitsLabel
-@onready var _order_match_label: Label = %OrderMatchLabel
-@onready var _value_label: Label = %ValueLabel
+# 🔴 コードレビュー指摘対応。AlchemyPreviewPanel/MaterialEntryRowと同名の
+# QualityLabel/TraitsLabel/ValueLabel/OrderMatchLabelは、本コンポーネントがAlchemyScreen配下に
+# 埋め込まれた際に範囲指定なしのfind_child()が誤ったノードを拾う脆さを生むため、Delivery接頭辞で一意化する
+@onready var _name_label: Label = %DeliveryNameLabel
+@onready var _quality_label: Label = %DeliveryQualityLabel
+@onready var _traits_label: Label = %DeliveryTraitsLabel
+@onready var _order_match_label: Label = %DeliveryOrderMatchLabel
+@onready var _value_label: Label = %DeliveryValueLabel
 
 
 ## 納品結果1件の表示内容を設定する。add_child()後に呼ぶこと（@onready参照の解決後である必要がある）。

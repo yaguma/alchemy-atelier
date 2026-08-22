@@ -13,6 +13,7 @@ const RESULT_ROW_SCENE_PATH := "res://features/guild/ui/guild_delivery_result_ro
 const GuildDeliveryResultRowScene = preload(RESULT_ROW_SCENE_PATH)
 const UNKNOWN_RECIPE_NAME := "不明な調合物"  # 🔴 AC-001異常系フォールバック文言、暫定
 const ENTRY_SEPARATION := 8
+const EXAM_RANK_LABEL_SUFFIX := "昇格試験"  # 🟡 promotion-exam.md「{ランク名}昇格試験」表記踏襲
 # 🔴 ノルマ上限が0（ランクマスター未ロード時のフォールバック）のままProgressBar.max_valueへ
 # 代入するとratioが0除算でNaNになるため、空表示用のダミー上限へ置き換える（AC-004異常系）
 const EMPTY_QUOTA_MAX := 1.0
@@ -128,16 +129,27 @@ func _apply_totals() -> void:
 	_total_label.text = format_totals(_total_contribution, _total_reward)
 
 
-# 🔵 CON-005。RankState（他Featureのstate/）へは触れず、GameStateのプリミティブ公開APIのみ使う
+# 🔵 CON-005。RankState/ExamState（他Featureのstate/）へは触れず、GameStateのプリミティブ
+# 公開API（get_current_rank_master()）とget_state()が返す値型フィールド（in_exam/exam_quota/
+# exam_quota_max、FR-009/AC-018でUI公開済み）のみを使う。
+# 🔴 コードレビュー指摘対応。昇格試験中(_in_exam)はGameStateGuildDelegate.deliver_pending_products()が
+# 貢献度をRankState.quotaではなくExamState.exam_quotaへ加算するため、試験中はこちらを参照しないと
+# ノルマバーが試験開始前の値のまま固まってしまう
 func _refresh_rank_quota() -> void:
 	if _quota_bar == null:
 		return
 	var master := GameState.get_current_rank_master()
-	_rank_name_label.text = master.display_name
-	var has_quota := master.quota_max > 0.0
-	_quota_bar.max_value = master.quota_max if has_quota else EMPTY_QUOTA_MAX
+	var state := GameState.get_state()
+	var in_exam: bool = state["in_exam"]
+	_rank_name_label.text = (
+		"%s%s" % [master.display_name, EXAM_RANK_LABEL_SUFFIX] if in_exam else master.display_name
+	)
+	var quota_max: float = state["exam_quota_max"] if in_exam else master.quota_max
+	var quota: float = state["exam_quota"] if in_exam else GameState.get_current_rank_quota()
+	var has_quota := quota_max > 0.0
+	_quota_bar.max_value = quota_max if has_quota else EMPTY_QUOTA_MAX
 	# 🔵 max_valueを先に設定することで、残量が上限を超えていてもRangeが上限へクランプする
-	_quota_bar.value = GameState.get_current_rank_quota() if has_quota else 0.0
+	_quota_bar.value = quota if has_quota else 0.0
 
 
 # 🟡 FR-402。画面を閉じる導線シグナルの発行のみを行い、GameStateへの副作用は持たない
