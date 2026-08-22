@@ -1,7 +1,7 @@
 ---
 id: "001"
 title: "GameStateへギルド納品UI向けアクセッサ（get_current_rank_master/get_current_rank_quota）を追加する"
-status: pending
+status: done
 priority: 1
 dependencies: []
 estimated_complexity: low

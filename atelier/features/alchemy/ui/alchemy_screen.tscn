@@ -1,8 +1,9 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://features/alchemy/ui/alchemy_screen.gd" id="1_alchemy_screen"]
 [ext_resource type="PackedScene" path="res://features/alchemy/ui/material_inventory_list.tscn" id="2_material_inventory_list"]
 [ext_resource type="PackedScene" path="res://features/alchemy/ui/alchemy_preview_panel.tscn" id="3_alchemy_preview_panel"]
+[ext_resource type="PackedScene" path="res://features/guild/ui/guild_delivery_screen.tscn" id="4_guild_delivery_screen"]
 
 [node name="AlchemyScreen" type="Control"]
 layout_mode = 3
@@ -35,6 +36,10 @@ unique_name_in_owner = true
 layout_mode = 2
 
 [node name="MaterialInventoryList" parent="VBoxContainer" instance=ExtResource("2_material_inventory_list")]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="GuildDeliveryScreen" parent="VBoxContainer" instance=ExtResource("4_guild_delivery_screen")]
 unique_name_in_owner = true
 layout_mode = 2
 
