@@ -245,6 +245,21 @@ func is_current_rank_traits_unlocked() -> bool:
 	return _get_current_rank_master_or_fallback().traits_unlocked
 
 
+## 現在ランクのRankMasterを返す（🔴 GuildDeliveryScreenのランクノルマ簡易バー表示用）。
+## 判定式を重複実装しないよう_get_current_rank_master_or_fallback()をそのまま再利用する。
+## マスター未ロード時はtraits_unlocked=false / quota_max=0.0 / limit_turn=0の安全側
+## フォールバックを返す（既存ヘルパーの契約をそのまま継承し、nullは返さない）
+func get_current_rank_master() -> RankMaster:
+	return _get_current_rank_master_or_fallback()
+
+
+## 現在ランクのノルマ残量を返す（🔴 GuildDeliveryScreenのランクノルマ簡易バー表示用）。
+## RankState（他Featureのstate/）をUI層へ露出させずプリミティブ値のみ渡すためのラッパー。
+## RankStateは既定値quota=0.0を持つため、マスター未ロード時のフォールバック判定は不要
+func get_current_rank_quota() -> float:
+	return _rank_state.quota
+
+
 ## 納品判定（DeliveryResolver.resolve）に渡すべき指定依頼を返す（🔵 FR-105, FR-401）。
 ## 🔴 コードレビュー指摘対応。GameStateGuildDelegate.deliver_pending_products()が試験中(_in_exam)に
 ## 指定依頼をnullへ切り替える分岐と全く同じ式をここに一本化し、AlchemyScreenのライブプレビューが

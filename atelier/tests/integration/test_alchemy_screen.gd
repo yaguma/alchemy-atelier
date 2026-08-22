@@ -75,6 +75,10 @@ func _inventory_list(screen: AlchemyScreen) -> MaterialInventoryList:
 	return screen.find_child("MaterialInventoryList", true, false) as MaterialInventoryList
 
 
+func _delivery_screen(screen: AlchemyScreen) -> GuildDeliveryScreen:
+	return screen.find_child("GuildDeliveryScreen", true, false) as GuildDeliveryScreen
+
+
 func _label_text(screen: AlchemyScreen, node_name: String) -> String:
 	return (screen.find_child(node_name, true, false) as Label).text
 
@@ -296,16 +300,42 @@ func test_投入枠が埋まっている状態では追加投入されない() -
 # 正常系（ターン終了）
 
 
-func test_ターン終了ボタンでdeliver_pending_productsが呼ばれ納品トーストが出る() -> void:
-	GameState._inject_pending_product_for_test(
-		ProductInstance.new(RECIPE_ID, 3, [] as Array[StringName], 10.0, 5.0)
-	)
+func test_ターン終了ボタンで納品結果がギルド納品画面へ表示される() -> void:
+	_inject_material("mat_1", 3)
+	_inject_material("mat_2", 4)
 	var screen := _make_screen()
+	_select_recipe(screen, RECIPE_ID)
+	_place_material(screen, "mat_1")
+	_find_button(screen, "ExecuteButton").pressed.emit()
+	_place_material(screen, "mat_2")
+	_find_button(screen, "ExecuteButton").pressed.emit()
+	assert_int(_pending_count()).is_equal(2)
 
 	_find_button(screen, "EndTurnButton").pressed.emit()
 
 	assert_int(_pending_count()).is_equal(0)
-	assert_str(screen.get_toast_text()).is_not_empty()
+	assert_int(_delivery_screen(screen).get_item_count()).is_equal(2)
+	# 品質3 → 倍率1.5、品質4 → 倍率1.75。貢献度10*(1.5+1.75)=32.5 / 報酬5*(1.5+1.75)=16.25
+	assert_float(_delivery_screen(screen).get_total_contribution()).is_equal_approx(32.5, 0.01)
+	assert_float(_delivery_screen(screen).get_total_reward()).is_equal_approx(16.25, 0.01)
+	# 納品トーストのプレースホルダー実装は撤去済みのため、直前の調合トーストのまま変化しない
+	assert_str(screen.get_toast_text()).contains("調合しました")
+
+
+func test_納品対象が0件のターン終了でギルド納品画面が0件へリセットされる() -> void:
+	GameState._inject_pending_product_for_test(
+		ProductInstance.new(RECIPE_ID, 3, [] as Array[StringName], 10.0, 5.0)
+	)
+	var screen := _make_screen()
+	_find_button(screen, "EndTurnButton").pressed.emit()
+	assert_int(_delivery_screen(screen).get_item_count()).is_equal(1)
+
+	# pending_productsが空のまま再度ターン終了しても例外なく0件表示へ戻る
+	_find_button(screen, "EndTurnButton").pressed.emit()
+
+	assert_int(_delivery_screen(screen).get_item_count()).is_equal(0)
+	assert_float(_delivery_screen(screen).get_total_contribution()).is_equal_approx(0.0, 0.01)
+	assert_float(_delivery_screen(screen).get_total_reward()).is_equal_approx(0.0, 0.01)
 
 
 # 正常系（ショップ導線）
@@ -338,6 +368,15 @@ func test_AlchemyScreenのソースが禁止された実装を含まない() -> 
 	assert_bool(source.contains("_drop_data")).is_false()
 	assert_bool(source.contains("change_scene_to_file")).is_false()
 	assert_bool(source.contains("main.tscn")).is_false()
+
+
+## 納品結果表示はGuildDeliveryScreenへ委譲したため、deliveredシグナル購読と
+## 納品トーストのプレースホルダー実装が残っていないことを確認する
+func test_AlchemyScreenが納品トーストのプレースホルダー実装を持たない() -> void:
+	var source := _screen_source()
+
+	assert_bool(source.contains("_on_delivered")).is_false()
+	assert_bool(source.contains("件を納品しました")).is_false()
 
 
 func test_調合実行ハンドラがdeliver_pending_productsを呼ばない() -> void:

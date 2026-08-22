@@ -1,7 +1,7 @@
 ---
 id: "002"
 title: "GuildDeliveryResultRow（納品結果リスト1項目の表示専用コンポーネント）を実装する"
-status: pending
+status: done
 priority: 2
 dependencies: []
 estimated_complexity: medium

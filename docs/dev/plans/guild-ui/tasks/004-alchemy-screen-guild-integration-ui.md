@@ -1,7 +1,7 @@
 ---
 id: "004"
 title: "AlchemyScreenの納品プレースホルダーをGuildDeliveryScreen連携に差し替える"
-status: pending
+status: done
 priority: 3
 dependencies: ["003"]
 estimated_complexity: medium

@@ -1,7 +1,7 @@
 ---
 id: "003"
 title: "GuildDeliveryScreen（納品結果リスト・合計値・ノルマバー・閉じるボタン）を実装する"
-status: pending
+status: done
 priority: 2
 dependencies: ["001", "002"]
 estimated_complexity: high

@@ -36,6 +36,7 @@ var _slot_views: Array[AlchemySlotView] = []
 @onready var _slots_container: Container = %SlotsContainer
 @onready var _material_inventory_list: MaterialInventoryList = %MaterialInventoryList
 @onready var _preview_panel: AlchemyPreviewPanel = %AlchemyPreviewPanel
+@onready var _guild_delivery_screen: GuildDeliveryScreen = %GuildDeliveryScreen
 @onready var _execute_button: Button = %ExecuteButton
 @onready var _end_turn_button: Button = %EndTurnButton
 @onready var _shop_button: Button = %ShopButton
@@ -52,7 +53,6 @@ func _ready() -> void:
 	# 🔵 GameStateはAutoloadのため_exit_tree()での明示的disconnect()が必須（ui-components.md）
 	GameState.product_crafted.connect(_on_product_crafted)
 	GameState.execute_alchemy_failed.connect(_on_execute_alchemy_failed)
-	GameState.delivered.connect(_on_delivered)
 
 	_refresh()
 
@@ -62,8 +62,6 @@ func _exit_tree() -> void:
 		GameState.product_crafted.disconnect(_on_product_crafted)
 	if GameState.execute_alchemy_failed.is_connected(_on_execute_alchemy_failed):
 		GameState.execute_alchemy_failed.disconnect(_on_execute_alchemy_failed)
-	if GameState.delivered.is_connected(_on_delivered):
-		GameState.delivered.disconnect(_on_delivered)
 
 
 ## 現在表示中のトーストメッセージを返す（テスト用）。🔵 GardenScreen.get_toast_text()踏襲
@@ -261,9 +259,13 @@ func _on_execute_pressed() -> void:
 	GameState.execute_alchemy(_slot_state.selected_recipe_id, _placed_material_ids.duplicate())
 
 
-# 🔵 FR-108のプレースホルダー実装。deliver_pending_products()以外は呼ばない
+# 🔵 FR-101, CON-003。deliver_pending_products()はキューを空にしてしまうため、
+# GuildDeliveryScreenへ渡す表示用のProductInstance列を必ず実行前にスナップショットとして確保し、
+# products[i]とresults[i]が同一調合物を指す対応関係を呼び出し元として保証する
 func _on_end_turn_pressed() -> void:
-	GameState.deliver_pending_products()
+	var snapshot: Array[ProductInstance] = GameState.get_state()["pending_products"]
+	var result := GameState.deliver_pending_products()
+	_guild_delivery_screen.display_results(snapshot, result.value as Array[DeliveryResult])
 
 
 func _on_shop_pressed() -> void:
@@ -279,11 +281,6 @@ func _on_product_crafted(product: ProductInstance) -> void:
 func _on_execute_alchemy_failed(_recipe_id: StringName, error_code: StringName) -> void:
 	# 🔵 AC-009。失敗時はGameState側で状態が一切変更されないため、投入枠・在庫の再構築を行わない
 	_show_toast(error_message(error_code))
-
-
-func _on_delivered(results: Array[DeliveryResult]) -> void:
-	_refresh()
-	_show_toast("%d件を納品しました" % results.size())
 
 
 func _show_toast(message: String) -> void:
