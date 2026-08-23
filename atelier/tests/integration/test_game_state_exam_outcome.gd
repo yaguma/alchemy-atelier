@@ -9,6 +9,7 @@ const FLOAT_TOLERANCE := 0.0001
 var _confirmed_outcomes: Array = []
 var _game_over_payloads: Array = []
 var _game_cleared_count: int = 0
+var _event_order: Array[String] = []  # 🔴 コードレビュー指摘対応。シグナル発行順序の検証用
 
 
 func before_test() -> void:
@@ -16,6 +17,7 @@ func before_test() -> void:
 	_confirmed_outcomes = []
 	_game_over_payloads = []
 	_game_cleared_count = 0
+	_event_order = []
 	GameState.exam_outcome_confirmed.connect(_on_exam_outcome_confirmed)
 	GameState.game_over.connect(_on_game_over)
 	GameState.game_cleared.connect(_on_game_cleared)
@@ -34,6 +36,7 @@ func after_test() -> void:
 
 func _on_exam_outcome_confirmed(outcome: ExamOutcome.Value) -> void:
 	_confirmed_outcomes.append(outcome)
+	_event_order.append("exam_outcome_confirmed")
 
 
 func _on_game_over(demotion_count: int) -> void:
@@ -42,6 +45,7 @@ func _on_game_over(demotion_count: int) -> void:
 
 func _on_game_cleared() -> void:
 	_game_cleared_count += 1
+	_event_order.append("game_cleared")
 
 
 func _make_rank(rank_id: StringName, quota_max: float, limit_turn: int) -> RankMaster:
@@ -288,6 +292,72 @@ func test_マスターデータ欠落後に追加登録して再SUCCESSすると
 	assert_that(GameState._current_rank_id).is_equal(NEXT_RANK_ID)
 	assert_float(GameState._rank_state.quota).is_equal_approx(200.0, FLOAT_TOLERANCE)
 	assert_int(_game_cleared_count).is_equal(0)
+
+
+## 🔴 コードレビュー指摘対応。RankProgression.get_next_rank_id()は「末尾（真のクリア）」と
+## 「未知のランクID（不正な状態）」の両方で&""を返すため、is_true_final_rank()による
+## 明示的な判定を経由しないと未知のランクIDが誤ってゲームクリア扱いになってしまう
+func test_未知のcurrent_rank_idでSUCCESS確定してもgame_clearedは発行されない() -> void:
+	GameState._set_current_rank_id_for_test(&"rank_unknown")
+	_set_exam_state(0.0, 50.0, 5, 20)
+
+	var result := GameState.commit_exam_outcome()
+
+	assert_int(result.value).is_equal(ExamOutcome.Value.SUCCESS)
+	assert_int(_game_cleared_count).is_equal(0)
+	assert_bool(GameState._in_exam).is_false()
+	assert_bool(GameState.is_game_cleared()).is_false()
+
+
+## 🔴 コードレビュー指摘対応。既存規約（game_overはoutcome_confirmed発行後に発行される）に
+## game_clearedも揃える。順序を誤ると、両方を購読する将来のリスナーが不整合な状態を観測しうる
+func test_game_clearedはexam_outcome_confirmedの発行後に発行される() -> void:
+	GameState._set_rank_masters_for_test({LAST_RANK_ID: _make_rank(LAST_RANK_ID, 100.0, 30)})
+	GameState._set_current_rank_id_for_test(LAST_RANK_ID)
+	_set_rank_state(100.0, 0)
+	_set_exam_state(0.0, 50.0, 5, 20)
+
+	GameState.commit_exam_outcome()
+
+	assert_int(_event_order.size()).is_equal(2)
+	assert_str(_event_order[0]).is_equal("exam_outcome_confirmed")
+	assert_str(_event_order[1]).is_equal("game_cleared")
+
+
+# 正常系・異常系（コードレビュー指摘対応）: is_game_cleared() の冪等性ガード
+
+
+func test_is_game_clearedは初期状態でfalseを返す() -> void:
+	assert_bool(GameState.is_game_cleared()).is_false()
+
+
+func test_is_game_clearedはgame_cleared成立後にtrueを返す() -> void:
+	GameState._set_rank_masters_for_test({LAST_RANK_ID: _make_rank(LAST_RANK_ID, 100.0, 30)})
+	GameState._set_current_rank_id_for_test(LAST_RANK_ID)
+	_set_rank_state(100.0, 0)
+	_set_exam_state(0.0, 50.0, 5, 20)
+
+	GameState.commit_exam_outcome()
+
+	assert_bool(GameState.is_game_cleared()).is_true()
+
+
+## 🔴 コードレビュー指摘対応。真のゲームクリア成立後は_current_rank_id/_rank_stateが
+## 不変のまま残るため、is_game_cleared()ガードがないと同じ最終ランクの試験が再評価され
+## commit_exam_outcome()のたびにgame_clearedが再発行されてしまう
+func test_game_cleared成立後にcommitを再度呼んでも再発行されず直近結果が冪等に返る() -> void:
+	GameState._set_rank_masters_for_test({LAST_RANK_ID: _make_rank(LAST_RANK_ID, 100.0, 30)})
+	GameState._set_current_rank_id_for_test(LAST_RANK_ID)
+	_set_rank_state(100.0, 0)
+	_set_exam_state(0.0, 50.0, 5, 20)
+	GameState.commit_exam_outcome()
+
+	_set_exam_state(0.0, 50.0, 5, 20)
+	var second_result := GameState.commit_exam_outcome()
+
+	assert_int(second_result.value).is_equal(ExamOutcome.Value.SUCCESS)
+	assert_int(_game_cleared_count).is_equal(1)
+	assert_that(GameState._current_rank_id).is_equal(LAST_RANK_ID)
 
 
 # 正常系・境界値（FR-110, FR-111）: commit_exam_outcome の FAILURE（ゲームオーバー境界含む）確定処理

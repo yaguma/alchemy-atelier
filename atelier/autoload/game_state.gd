@@ -75,6 +75,10 @@ var _exam_state: ExamState = ExamState.new()
 # 🔵 FR-113（_last_rank_outcomeと同型）。試験結果確定後にcommit_exam_outcome()が
 # 冪等に返すための直近確定結果（後続taskで使用）
 var _last_exam_outcome: ExamOutcome.Value = ExamOutcome.Value.CONTINUE
+# 🔴 コードレビュー指摘対応。真のゲームクリア成立後、is_game_over()と同型の冪等性ガードで
+# commit_rank_outcome()/commit_exam_outcome()を早期returnさせ、同じ最終ランクの試験が
+# 再トリガーされてgame_clearedが複数回発行されるのを防ぐためのフラグ
+var _has_cleared_game: bool = false
 
 # --- 工房強化・ショップ（workshop）関連フィールド ---
 var _can_purchase_permanent: bool = false  # 🔵 FR-009
@@ -285,6 +289,12 @@ func is_game_over() -> bool:
 	return _demotion_count >= GameBalance.MAX_DEMOTION_COUNT
 
 
+## 🔴 コードレビュー指摘対応。真のゲームクリアが成立済みか。is_game_over()と同型の
+## 冪等性ガードとしてcommit_rank_outcome()/commit_exam_outcome()の両方から使う
+func is_game_cleared() -> bool:
+	return _has_cleared_game
+
+
 func advance_exam_turn() -> Result:
 	return GameStateRankDelegate.advance_exam_turn(self)
 
@@ -432,6 +442,7 @@ func reset_for_test() -> void:
 	_in_exam = false
 	_exam_state = ExamState.new()
 	_last_exam_outcome = ExamOutcome.Value.CONTINUE
+	_has_cleared_game = false
 	_can_purchase_permanent = false
 	_purchased_upgrade_counts = {}
 	_upgrade_masters = {}

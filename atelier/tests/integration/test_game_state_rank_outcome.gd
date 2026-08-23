@@ -235,6 +235,31 @@ func test_ゲームオーバー後の再commitではgame_overシグナルが再�
 	assert_int(_game_over_payloads.size()).is_equal(1)
 
 
+## 🔴 コードレビュー指摘対応。真のゲームクリア成立後にis_game_cleared()ガードがないと、
+## 同じ最終ランクのRankStateがノルマ達成・制限ターン到達のまま残るため、後続の
+## commit_rank_outcome()呼び出しでPROMOTION_ELIGIBLEが再評価され試験が再開始されてしまう
+func test_ゲームクリア成立後はcommit_rank_outcomeが早期returnし試験が再開始されない() -> void:
+	var last_rank_id: StringName = GameBalance.RANK_ORDER[-1]
+	GameState._set_current_rank_id_for_test(last_rank_id)
+	var exam := ExamState.new()
+	exam.exam_quota = 0.0
+	exam.exam_quota_max = 50.0
+	exam.exam_elapsed_turn = 5
+	exam.exam_turn_limit = 20
+	GameState._set_exam_state_for_test(exam, true)
+	GameState.commit_exam_outcome()
+	assert_bool(GameState.is_game_cleared()).is_true()
+
+	# ノルマ達成・制限ターン到達（PROMOTION_ELIGIBLEの条件）だが、is_game_cleared()で
+	# 早期returnし評価自体が行われないことを確認する
+	_set_rank_state(0.0, 30)
+	var result := GameState.commit_rank_outcome()
+
+	assert_int(result.value).is_equal(RankOutcome.Value.CONTINUE)
+	assert_int(_confirmed_outcomes.size()).is_equal(0)
+	assert_bool(GameState._in_exam).is_false()
+
+
 # 正常系（AC-012）: シグナル発行
 
 
