@@ -1,7 +1,7 @@
 ---
 id: "003"
 title: "試験開始/結果確定シグナルを購読してトーストメッセージを表示する"
-status: pending
+status: done
 priority: 2
 dependencies: ["001"]
 estimated_complexity: medium

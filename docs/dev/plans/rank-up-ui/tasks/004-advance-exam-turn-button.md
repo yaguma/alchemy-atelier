@@ -1,7 +1,7 @@
 ---
 id: "004"
 title: "「ターンを進める」ボタンの押下挙動を実装する"
-status: pending
+status: done
 priority: 2
 dependencies: ["002"]
 estimated_complexity: low

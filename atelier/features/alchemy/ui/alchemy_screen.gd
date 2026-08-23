@@ -19,6 +19,18 @@ const ERROR_MESSAGES := {
 	&"slot_execution_invalid": "投入内容が調合の条件を満たしていません",
 }  # 🟡 ui-design/screens/alchemy.mdが文言未確定（🟡TBD）のため、error_codeから妥当な推測で新規決定
 
+const EXAM_TURN_LABEL_FORMAT := "残り%dターン"  # 🟡 FR-106、書式は新規決定
+
+# 🔴 文言はAI推論による新規決定（design doc上もTBD、CON-003に基づき本Planで確定）
+const EXAM_MESSAGES := {
+	&"exam_started": "昇格試験が始まりました！",
+	&"exam_success": "昇格試験に合格しました！",
+	&"exam_failure": "昇格試験に失敗しました…",
+}
+
+# 🟡 FR-205, FR-206, FR-301。文言はAI推論による新規決定（CON-003で本Plan内確定が許容）
+const EXAM_GUIDANCE_MESSAGE := "投入できる素材がありません。「ターンを進める」で試験を進行できます。"
+
 # 🔵 投入順=スロット表示順の唯一のソース・オブ・トゥルース。
 # 「投入済み」はドメイン層にもGameStateにも存在しないUIローカルな一時状態のため本画面が保持する
 var _placed_material_ids: Array[String] = []
@@ -41,6 +53,9 @@ var _slot_views: Array[AlchemySlotView] = []
 @onready var _end_turn_button: Button = %EndTurnButton
 @onready var _shop_button: Button = %ShopButton
 @onready var _toast_label: Label = %ToastLabel
+@onready var _exam_turn_label: Label = %ExamTurnLabel
+@onready var _exam_guidance_label: Label = %ExamGuidanceLabel
+@onready var _advance_exam_turn_button: Button = %AdvanceExamTurnButton
 
 
 func _ready() -> void:
@@ -49,10 +64,13 @@ func _ready() -> void:
 	_end_turn_button.pressed.connect(_on_end_turn_pressed)
 	_shop_button.pressed.connect(_on_shop_pressed)
 	_material_inventory_list.material_place_requested.connect(_on_material_place_requested)
+	_advance_exam_turn_button.pressed.connect(_on_advance_exam_turn_pressed)
 
 	# 🔵 GameStateはAutoloadのため_exit_tree()での明示的disconnect()が必須（ui-components.md）
 	GameState.product_crafted.connect(_on_product_crafted)
 	GameState.execute_alchemy_failed.connect(_on_execute_alchemy_failed)
+	GameState.exam_started.connect(_on_exam_started)
+	GameState.exam_outcome_confirmed.connect(_on_exam_outcome_confirmed)
 
 	_refresh()
 
@@ -62,6 +80,10 @@ func _exit_tree() -> void:
 		GameState.product_crafted.disconnect(_on_product_crafted)
 	if GameState.execute_alchemy_failed.is_connected(_on_execute_alchemy_failed):
 		GameState.execute_alchemy_failed.disconnect(_on_execute_alchemy_failed)
+	if GameState.exam_started.is_connected(_on_exam_started):
+		GameState.exam_started.disconnect(_on_exam_started)
+	if GameState.exam_outcome_confirmed.is_connected(_on_exam_outcome_confirmed):
+		GameState.exam_outcome_confirmed.disconnect(_on_exam_outcome_confirmed)
 
 
 ## 現在表示中のトーストメッセージを返す（テスト用）。🔵 GardenScreen.get_toast_text()踏襲
@@ -78,10 +100,17 @@ static func error_message(error_code: StringName) -> String:
 	return "調合に失敗しました（%s）" % error_code
 
 
+## 試験の残りターン数を算出する。負値にならないようクランプする。🔵 FR-106
+static func remaining_exam_turns(exam_turn_limit: int, exam_elapsed_turn: int) -> int:
+	return maxi(exam_turn_limit - exam_elapsed_turn, 0)
+
+
 ## GameState.get_state()を再取得し、レシピ一覧・スロット一覧・在庫一覧・プレビューを再構築する。🔵
-func _refresh() -> void:
+## 🔴 コードレビュー指摘対応。取得済みのstateを呼び出し元へ返すことで、_on_product_crafted()等が
+## 自動納品判定のためにGameState.get_state()を再度呼ばずに済むようにする（NFR-001）
+func _refresh() -> Dictionary:
 	if _slots_container == null:
-		return
+		return {}
 
 	var state := GameState.get_state()
 	_recipe_masters = state["recipe_masters"]
@@ -98,6 +127,43 @@ func _refresh() -> void:
 	_rebuild_slots()
 	_material_inventory_list.setup(_available_materials())
 	_on_preview_inputs_changed()
+	_refresh_exam_ui(state)
+	return state
+
+
+## in_exam状態に応じて試験用UI（残りターン表示・ターンを進めるボタン・案内メッセージ）を更新する。
+## 🔴 実装判断。_refresh()が既に取得済みのstateを再利用し、追加のGameState.get_state()呼び出しは
+## 行わない（NFR-001）
+func _refresh_exam_ui(state: Dictionary) -> void:
+	var in_exam: bool = state["in_exam"]  # 🔵
+	_exam_turn_label.visible = in_exam  # 🔵 FR-201, FR-202
+	_advance_exam_turn_button.visible = in_exam  # 🔵 FR-201, FR-202, FR-406
+	_end_turn_button.visible = not in_exam  # 🔵 FR-203, FR-204
+	if in_exam:
+		var remaining := remaining_exam_turns(state["exam_turn_limit"], state["exam_elapsed_turn"])  # 🔵
+		_exam_turn_label.text = EXAM_TURN_LABEL_FORMAT % remaining  # 🟡
+
+	var inventory: Array = state["inventory"]
+	var unlocked_recipe_ids: Array = state["unlocked_recipe_ids"]
+	# 🔴 コードレビュー指摘対応。unlocked_recipe_idsが非空でも、対応するRecipeMasterが
+	# _recipe_masters（マスターデータ未ロード等）に見つからなければ_rebuild_recipe_options()が
+	# その全IDをスキップしドロップダウンが実質空になる。「解禁レシピ0」と同じデッドロックのため、
+	# 「実際に選択可能なレシピが1件も無い」ことで判定する（FR-205, FR-206）
+	var has_selectable_recipe := _has_resolvable_recipe(unlocked_recipe_ids)
+	var should_show_guidance := in_exam and (inventory.is_empty() or not has_selectable_recipe)
+	_exam_guidance_label.visible = should_show_guidance
+	if should_show_guidance:
+		_exam_guidance_label.text = EXAM_GUIDANCE_MESSAGE
+
+
+## unlocked_recipe_idsのうち1件でもキャッシュ済み_recipe_masters（🔵_refresh()で更新済み）から
+## 解決可能かを返す。🔴 コードレビュー指摘対応。_rebuild_recipe_options()の解決ロジックと
+## 判定基準を一致させる（片方だけ更新されて乖離するのを防ぐ）
+func _has_resolvable_recipe(unlocked_recipe_ids: Array) -> bool:
+	for recipe_id in unlocked_recipe_ids:
+		if _recipe_masters.get(recipe_id) is RecipeMaster:
+			return true
+	return false
 
 
 ## ローカルキャッシュのみでプレビュー再計算とボタン活性状態を更新する。
@@ -264,18 +330,40 @@ func _on_execute_pressed() -> void:
 # products[i]とresults[i]が同一調合物を指す対応関係を呼び出し元として保証する
 func _on_end_turn_pressed() -> void:
 	var snapshot: Array[ProductInstance] = GameState.get_state()["pending_products"]
+	_deliver_and_display(snapshot)
+
+
+## 🔴 コードレビュー指摘対応。_on_end_turn_pressed()と_on_product_crafted()（試験中自動納品）で
+## 重複していた「deliver_pending_products() -> display_results()」呼び出し契約を1箇所に集約する
+func _deliver_and_display(products: Array[ProductInstance]) -> void:
 	var result := GameState.deliver_pending_products()
-	_guild_delivery_screen.display_results(snapshot, result.value as Array[DeliveryResult])
+	_guild_delivery_screen.display_results(products, result.value as Array[DeliveryResult])
 
 
 func _on_shop_pressed() -> void:
 	shop_requested.emit()
 
 
+# 🔵 FR-102。design doc OnExamTurnAdvanced。in_exam=falseの場合ボタン自体がvisible=falseで
+# 押下不能なため、GameState.advance_exam_turn()のResult.fail(&"not_in_exam")ハンドリングは不要 🟡
+func _on_advance_exam_turn_pressed() -> void:
+	GameState.advance_exam_turn()
+	_refresh()
+
+
 func _on_product_crafted(product: ProductInstance) -> void:
 	# 🔵 AC-008。投入素材は在庫から消費済みのため、_refresh()で投入枠が空にリセットされる
-	_refresh()
+	# 🔴 コードレビュー指摘対応。_refresh()が返すstateを再利用し、下のin_exam判定のために
+	# GameState.get_state()を再度呼ばない（NFR-001）
+	var state := _refresh()
 	_show_toast("調合しました（品質%d、発現特性%d件）" % [product.quality_score, product.activated_traits.size()])
+
+	# 🔵 FR-101。in_exam中のみ自動納品する。_on_end_turn_pressed()と同じ_deliver_and_display()を使う
+	if state.is_empty():
+		return
+	if state["in_exam"]:
+		var snapshot: Array[ProductInstance] = state["pending_products"]
+		_deliver_and_display(snapshot)
 
 
 func _on_execute_alchemy_failed(_recipe_id: StringName, error_code: StringName) -> void:
@@ -287,3 +375,21 @@ func _show_toast(message: String) -> void:
 	if _toast_label == null:
 		return
 	_toast_label.text = message
+
+
+# 🟡 FR-103。design doc OnExamStarted
+func _on_exam_started() -> void:
+	_refresh()
+	_show_toast(EXAM_MESSAGES[&"exam_started"])
+
+
+# 🟡 FR-104, FR-105。design doc OnExamResolved
+func _on_exam_outcome_confirmed(outcome: ExamOutcome.Value) -> void:
+	_refresh()
+	match outcome:
+		ExamOutcome.Value.SUCCESS:
+			_show_toast(EXAM_MESSAGES[&"exam_success"])
+		ExamOutcome.Value.FAILURE:
+			_show_toast(EXAM_MESSAGES[&"exam_failure"])
+		_:
+			pass  # 🔵 FR-105。CONTINUEの場合はトーストを表示しない

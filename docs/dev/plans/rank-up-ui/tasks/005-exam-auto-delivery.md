@@ -1,7 +1,7 @@
 ---
 id: "005"
 title: "試験中の調合成功時に自動で納品まで実行する"
-status: pending
+status: done
 priority: 2
 dependencies: ["002"]
 estimated_complexity: medium

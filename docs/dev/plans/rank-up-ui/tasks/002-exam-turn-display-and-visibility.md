@@ -1,7 +1,7 @@
 ---
 id: "002"
 title: "試験残りターン表示とtin_exam連動のvisible切替を実装する"
-status: pending
+status: done
 priority: 1
 dependencies: ["001"]
 estimated_complexity: medium
