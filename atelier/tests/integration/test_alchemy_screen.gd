@@ -618,6 +618,17 @@ func test_試験中に解禁レシピが空だと案内メッセージが表示�
 	assert_bool(screen.find_child("ExamGuidanceLabel", true, false).visible).is_true()
 
 
+## 🔴 コードレビュー指摘対応の回帰テスト。unlocked_recipe_idsが非空でも、対応するRecipeMasterが
+## _recipe_mastersに存在しなければドロップダウンが実質空になり「解禁レシピ0」と同じデッドロックになる
+func test_試験中に解禁レシピはあるがマスターデータ未ロードだと案内メッセージが表示される() -> void:
+	_set_exam(3.0, 10.0, 0, 5)
+	_inject_material("mat_1", 3)
+	GameState._set_unlocked_recipe_ids_for_test([&"recipe_missing"] as Array[StringName])
+	var screen := _make_screen()
+
+	assert_bool(screen.find_child("ExamGuidanceLabel", true, false).visible).is_true()
+
+
 func test_試験中でも在庫と解禁レシピがあれば案内メッセージは表示されない() -> void:
 	_set_exam(3.0, 10.0, 0, 5)
 	_inject_material("mat_1", 3)

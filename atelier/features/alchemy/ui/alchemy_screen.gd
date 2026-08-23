@@ -106,9 +106,11 @@ static func remaining_exam_turns(exam_turn_limit: int, exam_elapsed_turn: int) -
 
 
 ## GameState.get_state()を再取得し、レシピ一覧・スロット一覧・在庫一覧・プレビューを再構築する。🔵
-func _refresh() -> void:
+## 🔴 コードレビュー指摘対応。取得済みのstateを呼び出し元へ返すことで、_on_product_crafted()等が
+## 自動納品判定のためにGameState.get_state()を再度呼ばずに済むようにする（NFR-001）
+func _refresh() -> Dictionary:
 	if _slots_container == null:
-		return
+		return {}
 
 	var state := GameState.get_state()
 	_recipe_masters = state["recipe_masters"]
@@ -126,6 +128,7 @@ func _refresh() -> void:
 	_material_inventory_list.setup(_available_materials())
 	_on_preview_inputs_changed()
 	_refresh_exam_ui(state)
+	return state
 
 
 ## in_exam状態に応じて試験用UI（残りターン表示・ターンを進めるボタン・案内メッセージ）を更新する。
@@ -142,11 +145,25 @@ func _refresh_exam_ui(state: Dictionary) -> void:
 
 	var inventory: Array = state["inventory"]
 	var unlocked_recipe_ids: Array = state["unlocked_recipe_ids"]
-	# 🟡 FR-205, FR-206
-	var should_show_guidance := in_exam and (inventory.is_empty() or unlocked_recipe_ids.is_empty())
+	# 🔴 コードレビュー指摘対応。unlocked_recipe_idsが非空でも、対応するRecipeMasterが
+	# _recipe_masters（マスターデータ未ロード等）に見つからなければ_rebuild_recipe_options()が
+	# その全IDをスキップしドロップダウンが実質空になる。「解禁レシピ0」と同じデッドロックのため、
+	# 「実際に選択可能なレシピが1件も無い」ことで判定する（FR-205, FR-206）
+	var has_selectable_recipe := _has_resolvable_recipe(unlocked_recipe_ids)
+	var should_show_guidance := in_exam and (inventory.is_empty() or not has_selectable_recipe)
 	_exam_guidance_label.visible = should_show_guidance
 	if should_show_guidance:
 		_exam_guidance_label.text = EXAM_GUIDANCE_MESSAGE
+
+
+## unlocked_recipe_idsのうち1件でもキャッシュ済み_recipe_masters（🔵_refresh()で更新済み）から
+## 解決可能かを返す。🔴 コードレビュー指摘対応。_rebuild_recipe_options()の解決ロジックと
+## 判定基準を一致させる（片方だけ更新されて乖離するのを防ぐ）
+func _has_resolvable_recipe(unlocked_recipe_ids: Array) -> bool:
+	for recipe_id in unlocked_recipe_ids:
+		if _recipe_masters.get(recipe_id) is RecipeMaster:
+			return true
+	return false
 
 
 ## ローカルキャッシュのみでプレビュー再計算とボタン活性状態を更新する。
@@ -313,8 +330,14 @@ func _on_execute_pressed() -> void:
 # products[i]とresults[i]が同一調合物を指す対応関係を呼び出し元として保証する
 func _on_end_turn_pressed() -> void:
 	var snapshot: Array[ProductInstance] = GameState.get_state()["pending_products"]
+	_deliver_and_display(snapshot)
+
+
+## 🔴 コードレビュー指摘対応。_on_end_turn_pressed()と_on_product_crafted()（試験中自動納品）で
+## 重複していた「deliver_pending_products() -> display_results()」呼び出し契約を1箇所に集約する
+func _deliver_and_display(products: Array[ProductInstance]) -> void:
 	var result := GameState.deliver_pending_products()
-	_guild_delivery_screen.display_results(snapshot, result.value as Array[DeliveryResult])
+	_guild_delivery_screen.display_results(products, result.value as Array[DeliveryResult])
 
 
 func _on_shop_pressed() -> void:
@@ -330,15 +353,17 @@ func _on_advance_exam_turn_pressed() -> void:
 
 func _on_product_crafted(product: ProductInstance) -> void:
 	# 🔵 AC-008。投入素材は在庫から消費済みのため、_refresh()で投入枠が空にリセットされる
-	_refresh()
+	# 🔴 コードレビュー指摘対応。_refresh()が返すstateを再利用し、下のin_exam判定のために
+	# GameState.get_state()を再度呼ばない（NFR-001）
+	var state := _refresh()
 	_show_toast("調合しました（品質%d、発現特性%d件）" % [product.quality_score, product.activated_traits.size()])
 
-	# 🔵 FR-101。in_exam中のみ自動納品する。_on_end_turn_pressed()と同型のスナップショットパターンを踏襲する
-	var state := GameState.get_state()
+	# 🔵 FR-101。in_exam中のみ自動納品する。_on_end_turn_pressed()と同じ_deliver_and_display()を使う
+	if state.is_empty():
+		return
 	if state["in_exam"]:
 		var snapshot: Array[ProductInstance] = state["pending_products"]
-		var result := GameState.deliver_pending_products()
-		_guild_delivery_screen.display_results(snapshot, result.value as Array[DeliveryResult])
+		_deliver_and_display(snapshot)
 
 
 func _on_execute_alchemy_failed(_recipe_id: StringName, error_code: StringName) -> void:
