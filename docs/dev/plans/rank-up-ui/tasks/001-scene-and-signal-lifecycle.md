@@ -1,7 +1,7 @@
 ---
 id: "001"
 title: "AlchemyScreenに試験モード用ノードとシグナル購読ライフサイクルを追加する"
-status: pending
+status: done
 priority: 1
 dependencies: []
 estimated_complexity: low

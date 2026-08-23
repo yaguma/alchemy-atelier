@@ -405,7 +405,256 @@ func test_破棄後にGameStateのシグナルを発行しても例外が発生�
 	)
 	GameState.execute_alchemy_failed.emit(RECIPE_ID, &"slot_execution_invalid")
 	GameState.delivered.emit([] as Array[DeliveryResult])
+	GameState.exam_started.emit()
+	GameState.exam_outcome_confirmed.emit(ExamOutcome.Value.CONTINUE)
 
 	assert_bool(GameState.product_crafted.get_connections().is_empty()).is_true()
 	assert_bool(GameState.execute_alchemy_failed.get_connections().is_empty()).is_true()
 	assert_bool(GameState.delivered.get_connections().is_empty()).is_true()
+	assert_bool(GameState.exam_started.get_connections().is_empty()).is_true()
+	assert_bool(GameState.exam_outcome_confirmed.get_connections().is_empty()).is_true()
+
+
+# 試験モード（rank-up-ui Plan、AC-002〜AC-010）
+
+
+func _make_exam_state(
+	quota: float, quota_max: float, elapsed_turn: int, turn_limit: int
+) -> ExamState:
+	var state := ExamState.new()
+	state.exam_quota = quota
+	state.exam_quota_max = quota_max
+	state.exam_elapsed_turn = elapsed_turn
+	state.exam_turn_limit = turn_limit
+	return state
+
+
+func _set_exam(
+	quota: float, quota_max: float, elapsed_turn: int, turn_limit: int, in_exam: bool = true
+) -> void:
+	GameState._set_exam_state_for_test(
+		_make_exam_state(quota, quota_max, elapsed_turn, turn_limit), in_exam
+	)
+
+
+func test_ready後に試験シグナルが購読済みである() -> void:
+	var _screen := _make_screen()
+
+	assert_int(GameState.exam_started.get_connections().size()).is_equal(1)
+	assert_int(GameState.exam_outcome_confirmed.get_connections().size()).is_equal(1)
+
+
+func test_破棄後に試験シグナルの購読が解除される() -> void:
+	var screen := _make_screen()
+	screen.get_parent().remove_child(screen)
+	screen.free()
+
+	assert_bool(GameState.exam_started.get_connections().is_empty()).is_true()
+	assert_bool(GameState.exam_outcome_confirmed.get_connections().is_empty()).is_true()
+
+
+func test_画面生成直後は試験用ノードが非表示である() -> void:
+	var screen := _make_screen()
+
+	assert_bool(screen.find_child("ExamTurnLabel", true, false).visible).is_false()
+	assert_bool(screen.find_child("ExamGuidanceLabel", true, false).visible).is_false()
+	assert_bool(screen.find_child("AdvanceExamTurnButton", true, false).visible).is_false()
+
+
+func test_試験中は残りターンが表示されEndTurnButtonが非表示になる() -> void:
+	_set_exam(3.0, 10.0, 2, 5)
+	var screen := _make_screen()
+
+	assert_str(_label_text(screen, "ExamTurnLabel")).is_equal("残り3ターン")
+	assert_bool(screen.find_child("ExamTurnLabel", true, false).visible).is_true()
+	assert_bool(_find_button(screen, "AdvanceExamTurnButton").visible).is_true()
+	assert_bool(_find_button(screen, "EndTurnButton").visible).is_false()
+
+
+func test_試験中でなければ既存のEndTurnButtonが表示されたままになる() -> void:
+	var screen := _make_screen()
+
+	assert_bool(_find_button(screen, "AdvanceExamTurnButton").visible).is_false()
+	assert_bool(_find_button(screen, "EndTurnButton").visible).is_true()
+
+
+func test_残りターンが上限に到達した場合は0ターン表示のままクランプされる() -> void:
+	_set_exam(3.0, 10.0, 5, 5)
+	var screen := _make_screen()
+
+	assert_str(_label_text(screen, "ExamTurnLabel")).is_equal("残り0ターン")
+
+
+func test_経過ターンが上限を超えていても0ターン表示のままクランプされる() -> void:
+	_set_exam(3.0, 10.0, 5, 3)
+	var screen := _make_screen()
+
+	assert_str(_label_text(screen, "ExamTurnLabel")).is_equal("残り0ターン")
+
+
+func test_ターンを進めるボタン押下で試験経過ターンが1増え表示が更新される() -> void:
+	_set_exam(3.0, 10.0, 2, 5)
+	var screen := _make_screen()
+
+	_find_button(screen, "AdvanceExamTurnButton").pressed.emit()
+
+	assert_int(GameState.get_state()["exam_elapsed_turn"]).is_equal(3)
+	assert_str(_label_text(screen, "ExamTurnLabel")).is_equal("残り2ターン")
+
+
+func test_ターンを進めるボタンは在庫が空でも常に有効である() -> void:
+	_set_exam(3.0, 10.0, 2, 5)
+	var screen := _make_screen()
+
+	assert_bool(_find_button(screen, "AdvanceExamTurnButton").disabled).is_false()
+
+
+func test_試験開始シグナルでトーストが表示され画面が更新される() -> void:
+	var screen := _make_screen()
+
+	GameState.exam_started.emit()
+
+	assert_str(screen.get_toast_text()).is_equal("昇格試験が始まりました！")
+
+
+func test_試験合格確定でトーストが表示される() -> void:
+	_setup_exam_success_rank()
+	_set_exam(0.0, 50.0, 5, 20)
+	var screen := _make_screen()
+
+	GameState.commit_exam_outcome()
+
+	assert_str(screen.get_toast_text()).is_equal("昇格試験に合格しました！")
+
+
+func test_試験不合格確定でトーストが表示される() -> void:
+	_setup_exam_success_rank()
+	_set_exam(10.0, 50.0, 20, 20)
+	var screen := _make_screen()
+
+	GameState.commit_exam_outcome()
+
+	assert_str(screen.get_toast_text()).is_equal("昇格試験に失敗しました…")
+
+
+func test_試験継続中はトーストが変化しない() -> void:
+	var screen := _make_screen()
+	screen._show_toast("直前のトースト")
+
+	GameState.exam_outcome_confirmed.emit(ExamOutcome.Value.CONTINUE)
+
+	assert_str(screen.get_toast_text()).is_equal("直前のトースト")
+
+
+func test_on_exam_outcome_confirmedにExamOutcomeValueの型注釈がある() -> void:
+	var source := _screen_source()
+
+	(
+		assert_bool(
+			source.contains("func _on_exam_outcome_confirmed(outcome: ExamOutcome.Value) -> void:")
+		)
+		. is_true()
+	)
+
+
+func test_試験中の調合成功で自動納品されギルド納品画面へ反映される() -> void:
+	_set_exam(10.0, 10.0, 0, 5)
+	_inject_material("mat_1", 3)
+	var screen := _make_screen()
+	_select_recipe(screen, RECIPE_ID)
+	_place_material(screen, "mat_1")
+
+	_find_button(screen, "ExecuteButton").pressed.emit()
+
+	assert_int(_delivery_screen(screen).get_item_count()).is_equal(1)
+	assert_int(_pending_count()).is_equal(0)
+	assert_float(_delivery_screen(screen).get_total_contribution()).is_greater(0.0)
+	assert_float(_delivery_screen(screen).get_total_reward()).is_greater(0.0)
+
+
+func test_試験中でなければ調合成功しても自動納品されない() -> void:
+	_inject_material("mat_1", 3)
+	var screen := _make_screen()
+	_select_recipe(screen, RECIPE_ID)
+	_place_material(screen, "mat_1")
+
+	_find_button(screen, "ExecuteButton").pressed.emit()
+
+	assert_int(_delivery_screen(screen).get_item_count()).is_equal(0)
+	assert_int(_pending_count()).is_equal(1)
+
+
+func test_試験中に連続して調合すると毎回自動納品され表示が更新される() -> void:
+	_set_exam(10.0, 10.0, 0, 5)
+	_inject_material("mat_1", 3)
+	_inject_material("mat_2", 4)
+	var screen := _make_screen()
+	_select_recipe(screen, RECIPE_ID)
+
+	_place_material(screen, "mat_1")
+	_find_button(screen, "ExecuteButton").pressed.emit()
+	assert_int(_delivery_screen(screen).get_item_count()).is_equal(1)
+
+	_place_material(screen, "mat_2")
+	_find_button(screen, "ExecuteButton").pressed.emit()
+
+	assert_int(_delivery_screen(screen).get_item_count()).is_equal(1)
+	assert_int(_pending_count()).is_equal(0)
+
+
+func test_試験中に在庫が空だと案内メッセージが表示される() -> void:
+	_set_exam(3.0, 10.0, 0, 5)
+	var screen := _make_screen()
+
+	assert_bool(screen.find_child("ExamGuidanceLabel", true, false).visible).is_true()
+
+
+func test_試験中に解禁レシピが空だと案内メッセージが表示される() -> void:
+	_set_exam(3.0, 10.0, 0, 5)
+	_inject_material("mat_1", 3)
+	GameState._set_unlocked_recipe_ids_for_test([] as Array[StringName])
+	var screen := _make_screen()
+
+	assert_bool(screen.find_child("ExamGuidanceLabel", true, false).visible).is_true()
+
+
+func test_試験中でも在庫と解禁レシピがあれば案内メッセージは表示されない() -> void:
+	_set_exam(3.0, 10.0, 0, 5)
+	_inject_material("mat_1", 3)
+	var screen := _make_screen()
+
+	assert_bool(screen.find_child("ExamGuidanceLabel", true, false).visible).is_false()
+
+
+func test_試験中でなければ在庫が空でも案内メッセージは表示されない() -> void:
+	var screen := _make_screen()
+
+	assert_bool(screen.find_child("ExamGuidanceLabel", true, false).visible).is_false()
+
+
+func test_案内メッセージ表示中もターンを進めるボタンは有効なまま() -> void:
+	_set_exam(3.0, 10.0, 0, 5)
+	var screen := _make_screen()
+
+	assert_bool(_find_button(screen, "AdvanceExamTurnButton").disabled).is_false()
+	assert_bool(_find_button(screen, "ExecuteButton").disabled).is_true()
+
+
+## commit_exam_outcome()のSUCCESS分岐がGameBalance.RANK_ORDER上の次ランク解決に依存するため、
+## RANK_ORDER実在の2ランク（rank_g→rank_f）をマスター登録する（test_game_state_exam_outcome.gdと同型）。
+## これにより「未知の現在ランクID」push_errorを避けつつSUCCESS/FAILUREともに検証できる
+func _setup_exam_success_rank() -> void:
+	var current := RankMaster.new()
+	current.id = "rank_g"
+	current.display_name = "テストG"
+	current.quota_max = 100.0
+	current.limit_turn = 30
+	current.traits_unlocked = false
+	var next_rank := RankMaster.new()
+	next_rank.id = "rank_f"
+	next_rank.display_name = "テストF"
+	next_rank.quota_max = 200.0
+	next_rank.limit_turn = 40
+	next_rank.traits_unlocked = false
+	GameState._set_rank_masters_for_test({&"rank_g": current, &"rank_f": next_rank})
+	GameState._set_current_rank_id_for_test(&"rank_g")

@@ -1,7 +1,7 @@
 ---
 id: "006"
 title: "試験中の在庫切れ/解禁レシピ0時に案内メッセージを表示する"
-status: pending
+status: done
 priority: 3
 dependencies: ["002"]
 estimated_complexity: low
