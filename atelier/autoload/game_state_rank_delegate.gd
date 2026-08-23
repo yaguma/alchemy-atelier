@@ -41,8 +41,11 @@ static func evaluate_rank_outcome(state: GameStateScript) -> RankOutcome.Value:
 ## 必ずrank_outcome_confirmed発行より前に完了させる（同期リスナーが更新前の値を読むのを防ぐ）
 ## 🔵 FR-101。PROMOTION_ELIGIBLE確定時、not _in_examの場合のみ_start_exam()を呼ぶ
 ## （二重開始防止、FR-201）。既存のDEMOTION/game_over処理・シグナル発行順序は変更しない
+## 🔴 コードレビュー指摘対応。真のゲームクリア成立後はis_game_over()と同型でis_game_cleared()も
+## ガードする。これがないと最終ランクのRankStateが変更されないまま残るため、後続ターンで
+## 同じ最終ランクのPROMOTION_ELIGIBLEが再評価され試験が再開始されてしまう
 static func commit_rank_outcome(state: GameStateScript) -> Result:
-	if state.is_game_over():
+	if state.is_game_over() or state.is_game_cleared():
 		return Result.ok(state._last_rank_outcome)
 
 	var outcome := evaluate_rank_outcome(state)
@@ -122,19 +125,28 @@ static func evaluate_exam_outcome(state: GameStateScript) -> ExamOutcome.Value:
 ## （FR-113、commit_rank_outcome()と同型）。
 ## 🔴 _commit_exam_success()/_commit_exam_failure()での状態更新は、他の全GameStateミューテータと
 ## 同様に必ずexam_outcome_confirmed発行より前に完了させる（同期リスナーが更新前の値を読むのを防ぐ）
+## 🔴 コードレビュー指摘対応。is_game_cleared()もis_game_over()と同型で早期returnガードする
+## （commit_rank_outcome()参照。同じ最終ランク試験の再トリガーによるgame_cleared再発行を防ぐ）。
+## game_cleared自体もgame_overと同じ規約（exam_outcome_confirmed発行後にのみ発行する）に揃えるため、
+## _commit_exam_success()内では直接emitせず、真のゲームクリアが成立したかをboolで受け取り
+## exam_outcome_confirmed発行後にここでemitする
 static func commit_exam_outcome(state: GameStateScript) -> Result:
-	if state.is_game_over():
+	if state.is_game_over() or state.is_game_cleared():
 		return Result.ok(state._last_exam_outcome)
 
 	var outcome := evaluate_exam_outcome(state)
 	state._last_exam_outcome = outcome
 
+	var did_clear_game := false
 	if outcome == ExamOutcome.Value.SUCCESS:
-		_commit_exam_success(state)
+		did_clear_game = _commit_exam_success(state)
 	elif outcome == ExamOutcome.Value.FAILURE:
 		_commit_exam_failure(state)
 
 	state.exam_outcome_confirmed.emit(outcome)  # 🟡 FR-301
+
+	if did_clear_game:
+		state.game_cleared.emit()  # 🔵 FR-101。既存規約どおりexam_outcome_confirmed発行後に発行する
 
 	if outcome == ExamOutcome.Value.FAILURE and state.is_game_over():
 		# 🔴 FR-113。新規シグナルは作らず、既存のrank plan実装のgame_over(demotion_count)を再利用する
@@ -154,19 +166,30 @@ static func commit_exam_outcome(state: GameStateScript) -> Result:
 ## 🔵 FR-110。関数冒頭で_can_purchase_permanentをtrueにし、昇格試験成功と工房強化の恒久投資
 ## 購入可否フラグを接続する。FR-110は「昇格試験が成功した場合」とのみ規定し分岐を限定していない
 ## ため、以下3分岐すべてに一律適用されるようあえて分岐前（関数冒頭）に置く
-static func _commit_exam_success(state: GameStateScript) -> void:
+## 🔴 コードレビュー指摘対応。戻り値boolは「真のゲームクリアが成立したか」を呼び出し元
+## （commit_exam_outcome()）へ伝える。game_cleared自体はここでは発行せず、既存のgame_over規約と
+## 同様exam_outcome_confirmed発行後に呼び出し元が発行する
+static func _commit_exam_success(state: GameStateScript) -> bool:
 	state._can_purchase_permanent = true  # 🔵 FR-110。既存3分岐すべてに一律適用される位置
 	var next_rank_id := RankProgression.get_next_rank_id(state._current_rank_id)
 
 	if next_rank_id == &"":
 		state._in_exam = false
-		return
+		# 🔴 コードレビュー指摘対応。get_next_rank_id()の&""は「末尾（真のクリア）」と
+		# 「未知のランクID（不正な状態）」の両方で返るため、is_true_final_rank()で明示的に
+		# 判定する。未知のランクIDを誤ってゲームクリア扱いにしない（FR-004, FR-101）
+		if not RankProgression.is_true_final_rank(state._current_rank_id):
+			push_error("未知の現在ランクIDのため昇格試験結果を確定できません: %s" % state._current_rank_id)
+			return false
+		state._has_cleared_game = true  # 🔴 is_game_cleared()の冪等性ガード用。発行より前に確定させる
+		return true
 
 	var next_rank_master: RankMaster = state._rank_masters.get(next_rank_id)
 	if next_rank_master == null:
 		state._warn_missing_next_rank_master(next_rank_id)
 		state._in_exam = false
-		return
+		# 🔵 FR-201, FR-405。マスターデータ欠落はゲームクリアではないためgame_clearedは発行しない
+		return false
 
 	state._current_rank_id = next_rank_id
 	# 🟡 design phase確認済み。RankQuotaResolver.reset_for_retryは「同ランク再挑戦専用」ではなく
@@ -174,6 +197,7 @@ static func _commit_exam_success(state: GameStateScript) -> void:
 	state._rank_state = RankQuotaResolver.reset_for_retry(next_rank_master)
 	state._rank_state_initialized = true
 	state._in_exam = false
+	return false
 
 
 ## 🔵 FAILURE確定時の内部処理（FR-110, FR-111）。同ランクをreset_for_retryでリセットし、

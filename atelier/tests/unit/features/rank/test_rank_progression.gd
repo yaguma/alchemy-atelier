@@ -61,3 +61,29 @@ func test_同一引数で複数回呼び出しても同じ結果を返す() -> v
 	assert_str(String(RankProgression.get_next_rank_id(&"rank_s"))).is_equal(
 		String(RankProgression.get_next_rank_id(&"rank_s"))
 	)
+
+
+# 正常系: コードレビュー指摘対応。末尾ランクはtrueを返す
+func test_末尾ランクはis_true_final_rankでtrueを返す() -> void:
+	assert_bool(RankProgression.is_true_final_rank(&"rank_s")).is_true()
+
+
+# 境界値: コードレビュー指摘対応。末尾直前のランクはfalseを返す
+func test_末尾直前のランクはis_true_final_rankでfalseを返す() -> void:
+	assert_bool(RankProgression.is_true_final_rank(&"rank_a")).is_false()
+
+
+# 正常系: コードレビュー指摘対応。先頭ランクはfalseを返す
+func test_先頭ランクはis_true_final_rankでfalseを返す() -> void:
+	assert_bool(RankProgression.is_true_final_rank(&"rank_g")).is_false()
+
+
+# 異常系: コードレビュー指摘対応。get_next_rank_id()は末尾ランクと未知のランクIDの両方で&""を
+# 返すため区別できないが、is_true_final_rankは未知のランクIDに対して明確にfalseを返す
+func test_未知のランクIDはis_true_final_rankでfalseを返す() -> void:
+	assert_bool(RankProgression.is_true_final_rank(&"unknown")).is_false()
+
+
+# 異常系: コードレビュー指摘対応。空のランクIDでもクラッシュせずfalseを返す
+func test_空のランクIDはis_true_final_rankでfalseを返す() -> void:
+	assert_bool(RankProgression.is_true_final_rank(&"")).is_false()

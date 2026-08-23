@@ -1,7 +1,7 @@
 ---
 id: "001"
 title: "GameStateにgame_clearedシグナルを追加し真のゲームクリア分岐から発行する"
-status: pending
+status: done
 priority: 1
 dependencies: []
 estimated_complexity: low

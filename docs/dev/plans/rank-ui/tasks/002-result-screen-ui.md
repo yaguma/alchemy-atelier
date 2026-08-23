@@ -1,7 +1,7 @@
 ---
 id: "002"
 title: "ResultScreen(SCR-006結果画面)を実装しgame_over/game_clearedを自己購読する"
-status: pending
+status: done
 priority: 2
 dependencies: ["001"]
 estimated_complexity: medium
