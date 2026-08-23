@@ -3,18 +3,22 @@ extends GdUnitTestSuite
 const RANK_ID: StringName = &"rank_g"
 const NEXT_RANK_ID: StringName = &"rank_f"
 const LAST_RANK_ID: StringName = &"rank_s"
+const SECOND_LAST_RANK_ID: StringName = &"rank_a"
 const FLOAT_TOLERANCE := 0.0001
 
 var _confirmed_outcomes: Array = []
 var _game_over_payloads: Array = []
+var _game_cleared_count: int = 0
 
 
 func before_test() -> void:
 	GameState.reset_for_test()
 	_confirmed_outcomes = []
 	_game_over_payloads = []
+	_game_cleared_count = 0
 	GameState.exam_outcome_confirmed.connect(_on_exam_outcome_confirmed)
 	GameState.game_over.connect(_on_game_over)
+	GameState.game_cleared.connect(_on_game_cleared)
 	_setup_rank(100.0, 30)
 
 
@@ -24,6 +28,8 @@ func after_test() -> void:
 		GameState.exam_outcome_confirmed.disconnect(_on_exam_outcome_confirmed)
 	if GameState.game_over.is_connected(_on_game_over):
 		GameState.game_over.disconnect(_on_game_over)
+	if GameState.game_cleared.is_connected(_on_game_cleared):
+		GameState.game_cleared.disconnect(_on_game_cleared)
 
 
 func _on_exam_outcome_confirmed(outcome: ExamOutcome.Value) -> void:
@@ -32,6 +38,10 @@ func _on_exam_outcome_confirmed(outcome: ExamOutcome.Value) -> void:
 
 func _on_game_over(demotion_count: int) -> void:
 	_game_over_payloads.append(demotion_count)
+
+
+func _on_game_cleared() -> void:
+	_game_cleared_count += 1
 
 
 func _make_rank(rank_id: StringName, quota_max: float, limit_turn: int) -> RankMaster:
@@ -198,6 +208,86 @@ func test_RANK_ORDER末尾でSUCCESS確定してもcurrent_rank_idとrank_state�
 	assert_that(GameState._current_rank_id).is_equal(LAST_RANK_ID)
 	assert_float(GameState._rank_state.quota).is_equal_approx(100.0, FLOAT_TOLERANCE)
 	assert_bool(GameState._in_exam).is_false()
+
+
+# 正常系・異常系・境界値（FR-004, FR-101, FR-201, FR-405）: game_cleared シグナル
+
+
+func test_RANK_ORDER末尾でSUCCESS確定するとgame_clearedが発行される() -> void:
+	GameState._set_rank_masters_for_test({LAST_RANK_ID: _make_rank(LAST_RANK_ID, 100.0, 30)})
+	GameState._set_current_rank_id_for_test(LAST_RANK_ID)
+	_set_rank_state(100.0, 0)
+	_set_exam_state(0.0, 50.0, 5, 20)
+
+	GameState.commit_exam_outcome()
+
+	assert_int(_game_cleared_count).is_equal(1)
+
+
+func test_game_cleared発行時にcurrent_rank_idが不変のままin_examが終了する() -> void:
+	GameState._set_rank_masters_for_test({LAST_RANK_ID: _make_rank(LAST_RANK_ID, 100.0, 30)})
+	GameState._set_current_rank_id_for_test(LAST_RANK_ID)
+	_set_rank_state(100.0, 0)
+	_set_exam_state(0.0, 50.0, 5, 20)
+
+	GameState.commit_exam_outcome()
+
+	assert_int(_game_cleared_count).is_equal(1)
+	assert_that(GameState._current_rank_id).is_equal(LAST_RANK_ID)
+	assert_bool(GameState._in_exam).is_false()
+
+
+func test_次ランクのマスターデータが未登録ならgame_clearedもgame_overも発行されない() -> void:
+	# _rank_mastersにはRANK_IDのみ登録し、NEXT_RANK_IDは意図的に未登録のままにする
+	GameState._set_rank_masters_for_test({RANK_ID: _make_rank(RANK_ID, 100.0, 30)})
+	GameState._set_current_rank_id_for_test(RANK_ID)
+	_set_rank_state(100.0, 0)
+	_set_exam_state(0.0, 50.0, 5, 20)
+
+	GameState.commit_exam_outcome()
+
+	assert_int(_game_cleared_count).is_equal(0)
+	assert_int(_game_over_payloads.size()).is_equal(0)
+
+
+func test_末尾から2番目のランクでSUCCESS確定すると昇格しgame_clearedは発行されない() -> void:
+	var masters: Dictionary = {
+		SECOND_LAST_RANK_ID: _make_rank(SECOND_LAST_RANK_ID, 100.0, 30),
+		LAST_RANK_ID: _make_rank(LAST_RANK_ID, 200.0, 40),
+	}
+	GameState._set_rank_masters_for_test(masters)
+	GameState._set_current_rank_id_for_test(SECOND_LAST_RANK_ID)
+	_set_rank_state(100.0, 0)
+	_set_exam_state(0.0, 50.0, 5, 20)
+
+	GameState.commit_exam_outcome()
+
+	assert_that(GameState._current_rank_id).is_equal(LAST_RANK_ID)
+	assert_int(_game_cleared_count).is_equal(0)
+
+
+## マスターデータ欠落分岐を通った後に該当RankMasterを追加登録して再度SUCCESS確定させると、
+## 通常昇格が成立しgame_clearedは発行されないことを確認する（幽霊試験状態の再発防止も兼ねる）
+func test_マスターデータ欠落後に追加登録して再SUCCESSすると昇格しgame_clearedは発行されない() -> void:
+	GameState._set_rank_masters_for_test({RANK_ID: _make_rank(RANK_ID, 100.0, 30)})
+	GameState._set_current_rank_id_for_test(RANK_ID)
+	_set_rank_state(100.0, 0)
+	_set_exam_state(0.0, 50.0, 5, 20)
+	GameState.commit_exam_outcome()
+
+	var masters: Dictionary = {
+		RANK_ID: _make_rank(RANK_ID, 100.0, 30),
+		NEXT_RANK_ID: _make_rank(NEXT_RANK_ID, 200.0, 40),
+	}
+	GameState._set_rank_masters_for_test(masters)
+	_set_exam_state(0.0, 50.0, 5, 20)
+
+	var result := GameState.commit_exam_outcome()
+
+	assert_int(result.value).is_equal(ExamOutcome.Value.SUCCESS)
+	assert_that(GameState._current_rank_id).is_equal(NEXT_RANK_ID)
+	assert_float(GameState._rank_state.quota).is_equal_approx(200.0, FLOAT_TOLERANCE)
+	assert_int(_game_cleared_count).is_equal(0)
 
 
 # 正常系・境界値（FR-110, FR-111）: commit_exam_outcome の FAILURE（ゲームオーバー境界含む）確定処理

@@ -17,6 +17,9 @@ signal delivered(results: Array[DeliveryResult])  # 🔴 FR-108
 signal gold_changed(previous_amount: int, new_amount: int, delta: int)
 signal rank_outcome_confirmed(outcome: RankOutcome.Value)  # 🔴 FR-112
 signal game_over(demotion_count: int)  # 🔴 FR-113
+# 🔵 FR-004, FR-101, FR-302。最終ランクでの昇格試験成功（真のゲームクリア）時のみ発行する。
+# 対応する自然なペイロードが存在しないためYAGNIで無引数とする
+signal game_cleared
 signal exam_started  # 🟡 FR-302（任意要件）。開始ロジック自体は後続task（007〜011）で実装する
 signal exam_outcome_confirmed(outcome: ExamOutcome.Value)  # 🟡 FR-301（任意要件）
 

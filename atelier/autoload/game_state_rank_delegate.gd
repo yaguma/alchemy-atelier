@@ -160,12 +160,15 @@ static func _commit_exam_success(state: GameStateScript) -> void:
 
 	if next_rank_id == &"":
 		state._in_exam = false
+		# 🔵 FR-101。真のゲームクリア分岐からのみ発行する。既存規約どおり状態mutation完了後に発行する
+		state.game_cleared.emit()
 		return
 
 	var next_rank_master: RankMaster = state._rank_masters.get(next_rank_id)
 	if next_rank_master == null:
 		state._warn_missing_next_rank_master(next_rank_id)
 		state._in_exam = false
+		# 🔵 FR-201, FR-405。マスターデータ欠落はゲームクリアではないためgame_clearedは発行しない
 		return
 
 	state._current_rank_id = next_rank_id
