@@ -1,0 +1,24 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://features/workshop/ui/upgrade_item_row.gd" id="1_upgrade_item_row"]
+
+[node name="UpgradeItemRow" type="HBoxContainer"]
+layout_mode = 3
+anchors_preset = 10
+anchor_right = 1.0
+grow_horizontal = 2
+script = ExtResource("1_upgrade_item_row")
+
+[node name="NameLabel" type="Label" parent="."]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="PriceLabel" type="Label" parent="."]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="PurchaseButton" type="Button" parent="."]
+unique_name_in_owner = true
+layout_mode = 2
+text = "購入する"

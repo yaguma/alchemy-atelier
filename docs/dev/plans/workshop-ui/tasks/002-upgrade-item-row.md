@@ -1,7 +1,7 @@
 ---
 id: "002"
 title: "UpgradeItemRowコンポーネントを新規作成する"
-status: pending
+status: done
 priority: 1
 dependencies: []
 estimated_complexity: medium
