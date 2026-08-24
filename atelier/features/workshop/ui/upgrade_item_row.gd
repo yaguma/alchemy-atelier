@@ -28,7 +28,8 @@ func _ready() -> void:  # 🔵 自ノードsignalのため_exit_tree()でのdisc
 ## 判定優先順位は「購入済み上限到達」＞「ゴールド不足」＞「タブロック」＞「購入可能」（🟡
 ## AC群が組合せケース＝ゴールド不足かつ購入済み等を明示しないための実装判断。「買い切った」は
 ## 所持ゴールドに関わらず不変の事実であることを根拠に最優先とする）
-func setup(upgrade: UpgradeMaster, gold: int, already_purchased_count: int, locked: bool) -> void:  # 🔵 FR-204, FR-205, FR-206, FR-403, FR-404
+# 🔵 FR-204, FR-205, FR-206, FR-403, FR-404
+func setup(upgrade: UpgradeMaster, gold: int, already_purchased_count: int, locked: bool) -> void:
 	_upgrade_id = upgrade.id
 	_name_label.text = upgrade.name
 	_price_label.text = "%d G" % upgrade.price
