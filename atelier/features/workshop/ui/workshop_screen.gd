@@ -9,6 +9,8 @@ signal screen_closed  # 🔵 FR-104（task 006で発行処理を実装する。�
 
 const TAB_PERMANENT: StringName = &"permanent"
 const TAB_CONSUMABLE: StringName = &"consumable"
+const TOAST_PURCHASE_SUCCESS_FORMAT := "購入しました：%s"  # 🟡 文言は暫定
+const TOAST_PURCHASE_FAILURE_FORMAT := "購入できませんでした（%s）"  # 🟡 文言は暫定。%sはResult.error_code
 
 var _active_tab: StringName = TAB_CONSUMABLE  # 🟡 既定値。初回_refresh()で状態に応じ上書きされうる
 var _has_refreshed_once: bool = false  # 🟡 初期タブ選択を「初回表示時のみ」に限定するためのガード
@@ -25,7 +27,17 @@ var _has_refreshed_once: bool = false  # 🟡 初期タブ選択を「初回表�
 func _ready() -> void:
 	_permanent_tab_button.pressed.connect(_on_permanent_tab_pressed)
 	_consumable_tab_button.pressed.connect(_on_consumable_tab_pressed)
+	# 🔵 本タスクで追加: 両リストからの購入要求を受ける
+	_permanent_list.purchase_requested.connect(_on_purchase_requested)
+	_consumable_list.purchase_requested.connect(_on_purchase_requested)
 	_refresh()
+
+
+## 現在表示中のトーストメッセージを返す（テスト用）。🔵 GardenScreen.get_toast_text()踏襲
+func get_toast_text() -> String:
+	if _toast_label == null:
+		return ""
+	return _toast_label.text
 
 
 ## GameState.get_state()を再取得し、ゴールド表示・タブ活性/非活性・両リストを再構築する。🔵 FR-105
@@ -101,3 +113,28 @@ func _on_consumable_tab_pressed() -> void:
 ## 現在表示中のタブを返す（テスト用）。🟡 GardenScreen.get_toast_text()同様のテスト用ゲッター新規補完
 func get_active_tab() -> StringName:
 	return _active_tab
+
+
+## FR-101: 購入要求を受けてGameState.apply_upgrade()を呼び出す。
+## upgrade_idからUpgradeMasterへの解決に失敗した場合（マスター未登録ID）は状態変更を一切行わず
+## 早期returnする（🟡 UpgradeItemList/UpgradeItemRowは常にGameState.get_state()由来の
+## upgrade.idしか発行しないため実運用では起こらないが、防御的分岐として残す）
+func _on_purchase_requested(upgrade_id: StringName) -> void:
+	var state := GameState.get_state()
+	var upgrade_masters: Dictionary = state["upgrade_masters"]
+	var upgrade: Variant = upgrade_masters.get(upgrade_id)
+	if not (upgrade is UpgradeMaster):
+		return
+
+	var result := GameState.apply_upgrade(upgrade as UpgradeMaster)
+	if result.success:
+		_refresh()  # 🔵 FR-102
+		_show_toast(TOAST_PURCHASE_SUCCESS_FORMAT % (upgrade as UpgradeMaster).name)
+	else:
+		_show_toast(TOAST_PURCHASE_FAILURE_FORMAT % result.error_code)  # 🔵 FR-103
+
+
+func _show_toast(message: String) -> void:
+	if _toast_label == null:
+		return
+	_toast_label.text = message
