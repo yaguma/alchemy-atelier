@@ -10,7 +10,6 @@ extends Control
 signal purchase_requested(upgrade_id: StringName)  # 🔵
 
 const UpgradeItemRowScene = preload("res://features/workshop/ui/upgrade_item_row.tscn")
-const ENTRY_SEPARATION := 8
 
 var _upgrades: Array[UpgradeMaster] = []
 var _gold: int = 0
@@ -40,7 +39,7 @@ func get_entry_count() -> int:
 
 
 func _ready() -> void:
-	_entry_container.add_theme_constant_override("separation", ENTRY_SEPARATION)
+	_entry_container.add_theme_constant_override("separation", UiTheme.SPACING_LIST_ENTRY)
 	_rebuild()
 
 

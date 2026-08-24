@@ -144,7 +144,11 @@ func _show_toast(message: String) -> void:
 ## FR-104: close_workshop()呼び出し後にscreen_closedを発行する。
 ## close_workshop()は_can_purchase_permanentをfalseに戻すだけの冪等操作のため、
 ## 通常アクセス状態（既にfalse）で呼んでも副作用はない（design doc「閉じるボタンは
-## 恒久投資強制表示時も含め常に閉じる/次へとして機能する」に対応）
+## 恒久投資強制表示時も含め常に閉じる/次へとして機能する」に対応）。
+## 🔴 コードレビュー指摘対応。_refresh()を挟まないと、MainScene常駐+visible切替パターンで
+## 本画面が再表示された際にタブのdisabled状態が古いまま（can_purchase_permanentがtrueだった
+## 頃の表示）になりうるため、close_workshop()直後に_refresh()して表示を最新化してからemitする
 func _on_close_pressed() -> void:  # 🟡 FR-104
 	GameState.close_workshop()
+	_refresh()
 	screen_closed.emit()
