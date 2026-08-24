@@ -1,7 +1,7 @@
 ---
 id: "003"
 title: "UpgradeItemListコンポーネントを新規作成する"
-status: pending
+status: done
 priority: 2
 dependencies: ["002"]
 estimated_complexity: medium
