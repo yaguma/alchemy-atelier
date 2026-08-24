@@ -30,6 +30,7 @@ func _ready() -> void:
 	# 🔵 本タスクで追加: 両リストからの購入要求を受ける
 	_permanent_list.purchase_requested.connect(_on_purchase_requested)
 	_consumable_list.purchase_requested.connect(_on_purchase_requested)
+	_close_button.pressed.connect(_on_close_pressed)  # 🔵 本タスクで追加
 	_refresh()
 
 
@@ -138,3 +139,12 @@ func _show_toast(message: String) -> void:
 	if _toast_label == null:
 		return
 	_toast_label.text = message
+
+
+## FR-104: close_workshop()呼び出し後にscreen_closedを発行する。
+## close_workshop()は_can_purchase_permanentをfalseに戻すだけの冪等操作のため、
+## 通常アクセス状態（既にfalse）で呼んでも副作用はない（design doc「閉じるボタンは
+## 恒久投資強制表示時も含め常に閉じる/次へとして機能する」に対応）
+func _on_close_pressed() -> void:  # 🟡 FR-104
+	GameState.close_workshop()
+	screen_closed.emit()

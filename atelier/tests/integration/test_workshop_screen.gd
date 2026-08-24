@@ -182,6 +182,61 @@ func test_購入成功後にpurchased_countが1増加し購入済み表示にな
 	assert_bool(row.is_purchase_button_disabled()).is_true()
 
 
+# 正常系（閉じる）
+
+
+func _find_close_button(screen: WorkshopScreen) -> Button:
+	return screen.find_child("CloseButton", true, false) as Button
+
+
+func test_CloseButton押下でscreen_closedが発行される() -> void:
+	GameState.load_workshop_master_data()
+	var screen := _make_screen()
+	monitor_signals(screen, false)
+
+	_find_close_button(screen).pressed.emit()
+
+	await assert_signal(screen).is_emitted("screen_closed")
+
+
+func test_恒久投資タブが活性の状態でCloseButton押下するとcan_purchase_permanentがfalseになる() -> void:
+	GameState.load_workshop_master_data()
+	GameState._set_can_purchase_permanent_for_test(true)
+	var screen := _make_screen()
+
+	_find_close_button(screen).pressed.emit()
+
+	assert_bool(GameState.get_state()["can_purchase_permanent"]).is_false()
+
+
+func test_通常アクセス状態でCloseButton押下してもcan_purchase_permanentはfalseのまま変化しない() -> void:
+	GameState.load_workshop_master_data()
+	var screen := _make_screen()
+
+	_find_close_button(screen).pressed.emit()
+
+	assert_bool(GameState.get_state()["can_purchase_permanent"]).is_false()
+
+
+func test_CloseButton押下はゴールドと購入済み回数とupgrade_mastersを変化させない() -> void:
+	GameState.load_workshop_master_data()
+	GameState._set_gold_for_test(500)
+	GameState._set_purchased_upgrade_counts_for_test({&"upgrade_seed_name_purchase_ore": 2})
+	var screen := _make_screen()
+	var upgrade_masters_before_size: int = (
+		(GameState.get_state()["upgrade_masters"] as Dictionary).size()
+	)
+
+	_find_close_button(screen).pressed.emit()
+
+	var state := GameState.get_state()
+	assert_int(state["gold"]).is_equal(500)
+	assert_int(GameState.get_purchased_count(&"upgrade_seed_name_purchase_ore")).is_equal(2)
+	assert_int((state["upgrade_masters"] as Dictionary).size()).is_equal(
+		upgrade_masters_before_size
+	)
+
+
 # 異常系（購入失敗）
 
 

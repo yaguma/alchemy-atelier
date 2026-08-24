@@ -1,7 +1,7 @@
 ---
 id: "006"
 title: "WorkshopScreenの閉じるボタンを実装する"
-status: pending
+status: done
 priority: 4
 dependencies: ["004"]
 estimated_complexity: low
