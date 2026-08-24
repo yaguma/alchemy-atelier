@@ -1,7 +1,7 @@
 ---
 id: "001"
 title: "GameState.get_state()にupgrade_masters/purchased_upgrade_countsを公開する"
-status: pending
+status: done
 priority: 1
 dependencies: []
 estimated_complexity: low

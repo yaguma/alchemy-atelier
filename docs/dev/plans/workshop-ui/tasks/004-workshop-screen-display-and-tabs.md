@@ -1,7 +1,7 @@
 ---
 id: "004"
 title: "WorkshopScreenの表示基盤とタブ切替を実装する"
-status: pending
+status: done
 priority: 2
 dependencies: ["001", "003"]
 estimated_complexity: medium

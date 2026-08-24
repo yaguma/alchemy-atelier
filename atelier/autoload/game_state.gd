@@ -139,6 +139,12 @@ func get_state() -> Dictionary:
 		"exam_elapsed_turn": _exam_state.exam_elapsed_turn,
 		"exam_turn_limit": _exam_state.exam_turn_limit,
 		"can_purchase_permanent": _can_purchase_permanent,  # 🔵 FR-017
+		# 🔵 FR-007。seed_masters/recipe_masters公開と同型。UpgradeMasterはResource（不変前提の
+		# マスターデータ）のため、Dictionary自体の浅いduplicate()のみで防御的コピー要件を満たす
+		"upgrade_masters": _upgrade_masters.duplicate(),
+		# 🔵 FR-008。値がint（値型）のDictionaryのため、浅いduplicate()でキー追加/削除・値上書きの
+		# いずれからも_purchased_upgrade_counts本体を保護できる
+		"purchased_upgrade_counts": _purchased_upgrade_counts.duplicate(),
 	}
 
 

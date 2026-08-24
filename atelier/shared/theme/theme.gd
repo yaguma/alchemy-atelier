@@ -4,6 +4,11 @@ const FONT_MAIN: FontFile = preload("res://assets/fonts/noto_sans_jp_regular.ttf
 
 const FONT_SIZE_DEFAULT := 16
 
+# 🟡 リスト系コンポーネント（UpgradeItemList等）のエントリ間スペーシング。コードレビュー指摘対応で
+# 新規追加。既存のSeedInventoryList.ENTRY_SEPARATIONはローカル定数のまま残っているが、
+# 本定数の追加を機に新規コンポーネントから統一的に参照できるようにする
+const SPACING_LIST_ENTRY := 8
+
 # 🔴 庭スロット4状態の表示色。ui-design/overview.mdでは色コード自体が未確定（🔴専用ビジュアルデザインパス待ち）のため、
 # PlantSlotView実装のために暫定値を新規決定した。庭フェーズのアクセントカラー（リーフグリーン）を生育中に流用し、
 # 他3状態は色だけでなくアイコン・テキストでも判別可能なNFR-201を踏まえた補助的な位置づけとする。
