@@ -3,6 +3,7 @@ class_name MasterDataLoader
 const MATERIALS_DIR := "res://data/materials/"
 const RECIPES_DIR := "res://data/recipes/"
 const UPGRADES_DIR := "res://data/upgrades/"
+const RANKS_DIR := "res://data/ranks/"
 const TRES_EXTENSION := ".tres"
 
 
@@ -55,6 +56,8 @@ static func _resolve_dir_path(category: StringName) -> String:
 			return RECIPES_DIR
 		&"upgrades":
 			return UPGRADES_DIR
+		&"ranks":
+			return RANKS_DIR
 		_:
 			return ""
 
@@ -68,5 +71,7 @@ static func _is_allowed_type(category: StringName, resource: Resource) -> bool:
 			return resource is RecipeMaster
 		&"upgrades":
 			return resource is UpgradeMaster
+		&"ranks":
+			return resource is RankMaster
 		_:
 			return false

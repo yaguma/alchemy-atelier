@@ -8,6 +8,9 @@ extends Control
 ## スコープ境界を厳守する。タブ切替・visible制御・シーン遷移は一切実装しない。
 
 signal shop_requested  # 🔵 FR-110（プレースホルダー導線。GardenScreen.shop_requested踏襲）
+# 🔵 FR-107, FR-402。埋め込みGuildDeliveryScreenのscreen_closedを本画面が中継することで、
+# MainSceneはGuildDeliveryScreen（他Featureのui/）を直接参照せず結果確認完了を検知できる
+signal delivery_confirmed
 
 const AlchemySlotViewScene = preload("res://features/alchemy/ui/alchemy_slot_view.tscn")
 const RECIPE_PLACEHOLDER_TEXT := "選択してください"
@@ -65,6 +68,7 @@ func _ready() -> void:
 	_shop_button.pressed.connect(_on_shop_pressed)
 	_material_inventory_list.material_place_requested.connect(_on_material_place_requested)
 	_advance_exam_turn_button.pressed.connect(_on_advance_exam_turn_pressed)
+	_guild_delivery_screen.screen_closed.connect(_on_delivery_screen_closed)
 
 	# 🔵 GameStateはAutoloadのため_exit_tree()での明示的disconnect()が必須（ui-components.md）
 	GameState.product_crafted.connect(_on_product_crafted)
@@ -84,6 +88,9 @@ func _exit_tree() -> void:
 		GameState.exam_started.disconnect(_on_exam_started)
 	if GameState.exam_outcome_confirmed.is_connected(_on_exam_outcome_confirmed):
 		GameState.exam_outcome_confirmed.disconnect(_on_exam_outcome_confirmed)
+	# 🟡 子ノードへの接続はGodotが自動切断するが、_ready()の接続と対にして可読性を揃える
+	if _guild_delivery_screen.screen_closed.is_connected(_on_delivery_screen_closed):
+		_guild_delivery_screen.screen_closed.disconnect(_on_delivery_screen_closed)
 
 
 ## 現在表示中のトーストメッセージを返す（テスト用）。🔵 GardenScreen.get_toast_text()踏襲
@@ -328,9 +335,12 @@ func _on_execute_pressed() -> void:
 # 🔵 FR-101, CON-003。deliver_pending_products()はキューを空にしてしまうため、
 # GuildDeliveryScreenへ渡す表示用のProductInstance列を必ず実行前にスナップショットとして確保し、
 # products[i]とresults[i]が同一調合物を指す対応関係を呼び出し元として保証する
+# 🔵 FR-115。納品でノルマを消費し切った後にランク結果を確定させる（順序が逆だと同ターンの
+# 貢献度が判定に反映されない）。試験中はEndTurnButton自体がvisible=falseのため誤発火しない
 func _on_end_turn_pressed() -> void:
 	var snapshot: Array[ProductInstance] = GameState.get_state()["pending_products"]
 	_deliver_and_display(snapshot)
+	GameState.commit_rank_outcome()
 
 
 ## 🔴 コードレビュー指摘対応。_on_end_turn_pressed()と_on_product_crafted()（試験中自動納品）で
@@ -338,16 +348,27 @@ func _on_end_turn_pressed() -> void:
 func _deliver_and_display(products: Array[ProductInstance]) -> void:
 	var result := GameState.deliver_pending_products()
 	_guild_delivery_screen.display_results(products, result.value as Array[DeliveryResult])
+	_guild_delivery_screen.visible = true  # 🔵 FR-203。表示すべき結果がある時だけ見せる
 
 
 func _on_shop_pressed() -> void:
 	shop_requested.emit()
 
 
+# 🔵 FR-107, FR-203。結果画面を畳んでからdelivery_confirmedへ中継する。
+# GameStateへの副作用はGuildDeliveryScreen側と同様に持たない
+func _on_delivery_screen_closed() -> void:
+	_guild_delivery_screen.visible = false
+	delivery_confirmed.emit()
+
+
 # 🔵 FR-102。design doc OnExamTurnAdvanced。in_exam=falseの場合ボタン自体がvisible=falseで
 # 押下不能なため、GameState.advance_exam_turn()のResult.fail(&"not_in_exam")ハンドリングは不要 🟡
+# 🔵 FR-116。ターン消費後に試験結果を確定させる（制限ターン到達の判定に当ターンを含めるため）。
+# 試験中のランク判定はcommit_exam_outcome()が担うので、ここでcommit_rank_outcome()は呼ばない
 func _on_advance_exam_turn_pressed() -> void:
 	GameState.advance_exam_turn()
+	GameState.commit_exam_outcome()
 	_refresh()
 
 

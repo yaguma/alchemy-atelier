@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="RankMaster" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://features/rank/resources/rank_master.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "rank_c"
+display_name = "Cランク"
+quota_max = 40.0
+limit_turn = 16
+traits_unlocked = true
+exam_turn_limit = 3
+exam_difficulty_coefficient = 1.0

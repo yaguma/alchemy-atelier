@@ -1,7 +1,7 @@
 ---
 id: "002"
 title: "MainSceneの骨格を実装し4画面の常駐とvisible切替を成立させる"
-status: pending
+status: done
 priority: 1
 dependencies: ["001"]
 estimated_complexity: high

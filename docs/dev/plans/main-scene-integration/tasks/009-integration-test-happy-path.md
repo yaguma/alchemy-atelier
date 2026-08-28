@@ -1,7 +1,7 @@
 ---
 id: "009"
 title: "通常ターン1周と工房往復の結合シナリオをGdUnit4統合テストで検証する"
-status: pending
+status: done
 priority: 3
 dependencies: ["008"]
 estimated_complexity: medium

@@ -1,5 +1,62 @@
-[gd_scene format=3]
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://scenes/main.gd" id="1_main"]
+[ext_resource type="PackedScene" path="res://features/garden/ui/garden_screen.tscn" id="2_garden_screen"]
+[ext_resource type="PackedScene" path="res://features/alchemy/ui/alchemy_screen.tscn" id="3_alchemy_screen"]
+[ext_resource type="PackedScene" path="res://features/workshop/ui/workshop_screen.tscn" id="4_workshop_screen"]
+[ext_resource type="PackedScene" path="res://features/rank/ui/result_screen.tscn" id="5_result_screen"]
+[ext_resource type="PackedScene" path="res://shared/ui/rank_hud.tscn" id="6_rank_hud"]
 
 [node name="Main" type="Control"]
 layout_mode = 3
-anchors_preset = 0
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_main")
+
+[node name="GardenScreen" parent="." instance=ExtResource("2_garden_screen")]
+unique_name_in_owner = true
+layout_mode = 1
+
+[node name="AlchemyScreen" parent="." instance=ExtResource("3_alchemy_screen")]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+
+[node name="WorkshopScreen" parent="." instance=ExtResource("4_workshop_screen")]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+
+[node name="ResultScreen" parent="." instance=ExtResource("5_result_screen")]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+
+[node name="RankHud" parent="." instance=ExtResource("6_rank_hud")]
+unique_name_in_owner = true
+layout_mode = 1
+
+[node name="TabBar" type="HBoxContainer" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_top = 32.0
+offset_bottom = 76.0
+grow_horizontal = 2
+mouse_filter = 2
+
+[node name="GardenTabButton" type="Button" parent="TabBar"]
+unique_name_in_owner = true
+layout_mode = 2
+toggle_mode = true
+text = "庭"
+
+[node name="AlchemyTabButton" type="Button" parent="TabBar"]
+unique_name_in_owner = true
+layout_mode = 2
+toggle_mode = true
+text = "調合"

@@ -1,7 +1,7 @@
 ---
 id: "001"
 title: "RankMasterの最小限フィクスチャとload_rank_master_data()を実装する"
-status: pending
+status: done
 priority: 1
 dependencies: []
 estimated_complexity: medium

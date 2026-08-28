@@ -1,7 +1,7 @@
 ---
 id: "004"
 title: "RankHudコンポーネントを実装しMainSceneに常時表示する"
-status: pending
+status: done
 priority: 2
 dependencies: ["002"]
 estimated_complexity: medium

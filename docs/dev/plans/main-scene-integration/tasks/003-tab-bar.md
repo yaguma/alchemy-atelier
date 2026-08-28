@@ -1,7 +1,7 @@
 ---
 id: "003"
 title: "MainSceneに庭⇔調合の共通タブバーを実装する"
-status: pending
+status: done
 priority: 2
 dependencies: ["002"]
 estimated_complexity: medium

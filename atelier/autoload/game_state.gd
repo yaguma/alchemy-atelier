@@ -170,6 +170,10 @@ func load_workshop_master_data() -> void:
 	GameStateWorkshopDelegate.load_workshop_master_data(self)
 
 
+func load_rank_master_data() -> void:
+	GameStateRankDelegate.load_rank_master_data(self)
+
+
 func plant_seed(seed_id: StringName) -> Result:
 	return GameStateGardenDelegate.plant_seed(self, seed_id)
 
@@ -271,6 +275,14 @@ func get_current_rank_master() -> RankMaster:
 ## RankStateは既定値quota=0.0を持つため、マスター未ロード時のフォールバック判定は不要
 func get_current_rank_quota() -> float:
 	return _rank_state.quota
+
+
+## 現在ランクの経過ターン数を返す（🔴 RankHudの残ターン表示用）。
+## get_current_rank_quota()と同型で、RankState（他Featureのstate/）をUI層へ露出させず
+## プリミティブ値のみ渡すためのラッパー。RankStateは既定値elapsed_turn=0を持つため
+## マスター未ロード時のフォールバック判定は不要
+func get_current_rank_elapsed_turn() -> int:
+	return _rank_state.elapsed_turn
 
 
 ## 納品判定（DeliveryResolver.resolve）に渡すべき指定依頼を返す（🔵 FR-105, FR-401）。
