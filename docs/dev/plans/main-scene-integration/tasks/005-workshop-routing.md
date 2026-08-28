@@ -1,7 +1,7 @@
 ---
 id: "005"
 title: "MainSceneに工房への往復ルーティングを実装する"
-status: pending
+status: done
 priority: 2
 dependencies: ["002"]
 estimated_complexity: low

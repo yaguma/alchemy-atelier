@@ -25,6 +25,13 @@ const COLOR_SLOT_DATA_ERROR := Color("#9B7FC7")
 const COLOR_ALCHEMY_SLOT_EMPTY := Color("#B0AFA8")
 const COLOR_ALCHEMY_SLOT_FILLED := Color("#7FA8C9")
 
+# 🔴 全画面共通ヘッダー（RankHud）の表示色。ui-design/overview.mdでは色コード自体が未確定
+# （🔴専用ビジュアルデザインパス待ち）のため暫定値を新規決定した。テキストはdesign-guide.mdの
+# 「温もり」方針に沿う濃いブラウングレー、ノルマバーはギルド納品のアクセント（コーラル）系を
+# 流用してランクノルマとギルド決算の関連を色でも示す。
+const COLOR_HUD_TEXT := Color("#4A4438")
+const COLOR_HUD_QUOTA_BAR := Color("#E8A87C")
+
 # 🟡 調合プレビューの「指定合致」強調色。ui-design/overview.mdで色コードが未確定のため暫定値。
 # ギルド納品フェーズのアクセント（コーラル）系を流用し、指定依頼との関連を色でも示す。
 # NFR-201に従い、色は補助であり判別自体は専用テキストの表示/非表示で行う

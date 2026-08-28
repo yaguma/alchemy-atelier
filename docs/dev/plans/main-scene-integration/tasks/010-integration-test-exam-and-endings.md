@@ -1,7 +1,7 @@
 ---
 id: "010"
 title: "昇格試験の開始・合否分岐・終局までの結合シナリオをGdUnit4統合テストで検証する"
-status: pending
+status: done
 priority: 3
 dependencies: ["008"]
 estimated_complexity: high

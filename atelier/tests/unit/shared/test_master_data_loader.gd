@@ -1,5 +1,17 @@
 extends GdUnitTestSuite
 
+const NON_RANK_SOURCE_PATH := "res://data/materials/material_herb.tres"
+const NON_RANK_TEMP_PATH := "res://data/ranks/_tmp_non_rank.tres"
+
+
+func after_test() -> void:
+	# 混在テストが作成した一時ファイルを、テスト失敗時も含め確実に除去する
+	if FileAccess.file_exists(NON_RANK_TEMP_PATH):
+		DirAccess.remove_absolute(NON_RANK_TEMP_PATH)
+	if FileAccess.file_exists(NON_RANK_TEMP_PATH + ".uid"):
+		DirAccess.remove_absolute(NON_RANK_TEMP_PATH + ".uid")
+
+
 # 正常系
 
 
@@ -34,6 +46,27 @@ func test_ロードしたSeedMasterのフィールドが実データと一致す
 	assert_that(seed_herb.produces_material_id).is_equal(&"material_herb")
 
 
+func test_ranksカテゴリで実データの全件をRankMasterとしてロードする() -> void:
+	var ranks := MasterDataLoader.load_all(&"ranks")
+
+	assert_int(ranks.size()).is_equal(GameBalance.RANK_ORDER.size())
+	for r in ranks:
+		assert_object(r).is_instanceof(RankMaster)
+
+
+func test_ranksカテゴリのIDがRANK_ORDERと過不足なく一致する() -> void:
+	var ranks := MasterDataLoader.load_all(&"ranks")
+
+	var loaded_ids: Array[StringName] = []
+	for r in ranks:
+		loaded_ids.append(StringName((r as RankMaster).id))
+	loaded_ids.sort()
+	var expected_ids: Array[StringName] = GameBalance.RANK_ORDER.duplicate()
+	expected_ids.sort()
+
+	assert_array(loaded_ids).is_equal(expected_ids)
+
+
 func test_実データに対しvalidate_referencesがtrueを返す() -> void:
 	var materials := MasterDataLoader.load_all(&"materials")
 
@@ -55,6 +88,19 @@ func test_未解決のproduces_material_idがある場合validate_referencesがf
 	var result := MasterDataLoader.validate_references([seed, material])
 
 	assert_bool(result).is_false()
+
+
+## ranksディレクトリに他カテゴリのリソース（MaterialMaster）を一時的に置いても、
+## _is_allowed_type()の型フィルタにより取り込まれないことを検証する
+func test_ranksディレクトリに他カテゴリのリソースがあっても取り込まない() -> void:
+	var non_rank: Resource = load(NON_RANK_SOURCE_PATH)
+	assert_int(ResourceSaver.save(non_rank.duplicate(), NON_RANK_TEMP_PATH)).is_equal(OK)
+
+	var ranks := MasterDataLoader.load_all(&"ranks")
+
+	assert_int(ranks.size()).is_equal(GameBalance.RANK_ORDER.size())
+	for r in ranks:
+		assert_object(r).is_instanceof(RankMaster)
 
 
 func test_未知のカテゴリでload_allを呼ぶと空配列を返す() -> void:

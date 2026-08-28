@@ -41,6 +41,13 @@ func get_toast_text() -> String:
 	return _toast_label.text
 
 
+## GameStateの最新値で表示を再構築する公開API。🔴 コードレビュー指摘対応。本画面はCON-002により
+## GameStateのsignalを購読しない設計のため、MainSceneが工房を可視化するたびに明示的にrefresh()を
+## 呼ばないとゴールド表示・購入可否が開いた瞬間から古いままになる
+func refresh() -> void:
+	_refresh()
+
+
 ## GameState.get_state()を再取得し、ゴールド表示・タブ活性/非活性・両リストを再構築する。🔵 FR-105
 func _refresh() -> void:
 	if _permanent_list == null:

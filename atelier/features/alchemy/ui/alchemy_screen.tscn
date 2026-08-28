@@ -52,6 +52,7 @@ autowrap_mode = 3
 
 [node name="GuildDeliveryScreen" parent="VBoxContainer" instance=ExtResource("4_guild_delivery_screen")]
 unique_name_in_owner = true
+visible = false
 layout_mode = 2
 
 [node name="ToastLabel" type="Label" parent="VBoxContainer"]

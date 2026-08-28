@@ -651,6 +651,196 @@ func test_案内メッセージ表示中もターンを進めるボタンは有�
 	assert_bool(_find_button(screen, "ExecuteButton").disabled).is_true()
 
 
+# 納品結果画面の表示制御とdelivery_confirmed中継（main-scene-integration Plan、FR-107/FR-203/FR-402）
+
+
+func _delivery_continue_button(screen: AlchemyScreen) -> Button:
+	return _delivery_screen(screen).find_child("ContinueButton", true, false) as Button
+
+
+func test_画面生成直後はギルド納品画面が非表示である() -> void:
+	var screen := _make_screen()
+
+	assert_bool(_delivery_screen(screen).visible).is_false()
+
+
+func test_ターン終了で納品結果を表示するとギルド納品画面が表示される() -> void:
+	_inject_material("mat_1", 3)
+	var screen := _make_screen()
+	_select_recipe(screen, RECIPE_ID)
+	_place_material(screen, "mat_1")
+	_find_button(screen, "ExecuteButton").pressed.emit()
+
+	_find_button(screen, "EndTurnButton").pressed.emit()
+
+	assert_bool(_delivery_screen(screen).visible).is_true()
+
+
+func test_続けるボタン押下でギルド納品画面が再び非表示になる() -> void:
+	_inject_material("mat_1", 3)
+	var screen := _make_screen()
+	_find_button(screen, "EndTurnButton").pressed.emit()
+	assert_bool(_delivery_screen(screen).visible).is_true()
+
+	_delivery_continue_button(screen).pressed.emit()
+
+	assert_bool(_delivery_screen(screen).visible).is_false()
+
+
+func test_続けるボタン押下でdelivery_confirmedが中継発行される() -> void:
+	var screen := _make_screen()
+	monitor_signals(screen)
+	_find_button(screen, "EndTurnButton").pressed.emit()
+
+	_delivery_continue_button(screen).pressed.emit()
+
+	await assert_signal(screen).is_emitted("delivery_confirmed")
+
+
+func test_試験中の自動納品でもギルド納品画面が表示される() -> void:
+	_set_exam(10.0, 10.0, 0, 5)
+	_inject_material("mat_1", 3)
+	var screen := _make_screen()
+	_select_recipe(screen, RECIPE_ID)
+	_place_material(screen, "mat_1")
+
+	_find_button(screen, "ExecuteButton").pressed.emit()
+
+	assert_bool(_delivery_screen(screen).visible).is_true()
+
+
+func test_納品対象が0件でも表示制御がクラッシュせず表示と非表示を往復する() -> void:
+	var screen := _make_screen()
+
+	_find_button(screen, "EndTurnButton").pressed.emit()
+
+	assert_int(_delivery_screen(screen).get_item_count()).is_equal(0)
+	assert_bool(_delivery_screen(screen).visible).is_true()
+
+	_delivery_continue_button(screen).pressed.emit()
+
+	assert_bool(_delivery_screen(screen).visible).is_false()
+
+
+func test_破棄後にscreen_closedの購読が解除される() -> void:
+	var screen := _make_screen()
+	var delivery := _delivery_screen(screen)
+	assert_int(delivery.screen_closed.get_connections().size()).is_equal(1)
+
+	screen.get_parent().remove_child(screen)
+	screen.free()
+
+	assert_bool(is_instance_valid(delivery)).is_false()
+
+
+# ターン確定の配線（main-scene-integration Plan、FR-115/FR-116）
+
+
+## commit_rank_outcome()のPROMOTION_ELIGIBLE/DEMOTION分岐を実際に成立させるためのランク設定。
+## _set_rank()と違い_set_rank_state_for_test()まで行うため_rank_state_initializedがtrueになり、
+## evaluate_rank_outcome()がCONTINUE固定のガードを抜けて実判定を行うようになる
+func _setup_rank_outcome(quota: float, elapsed_turn: int, limit_turn: int) -> void:
+	var rank := RankMaster.new()
+	rank.id = "rank_g"
+	rank.display_name = "テストG"
+	rank.quota_max = 100.0
+	rank.limit_turn = limit_turn
+	rank.exam_turn_limit = 10
+	rank.exam_difficulty_coefficient = 0.5
+	rank.traits_unlocked = false
+	var next_rank := RankMaster.new()
+	next_rank.id = "rank_f"
+	next_rank.display_name = "テストF"
+	next_rank.quota_max = 200.0
+	next_rank.limit_turn = 40
+	next_rank.exam_turn_limit = 10
+	next_rank.exam_difficulty_coefficient = 0.5
+	next_rank.traits_unlocked = false
+	GameState._set_rank_masters_for_test({&"rank_g": rank, &"rank_f": next_rank})
+	GameState._set_current_rank_id_for_test(&"rank_g")
+	var rank_state := RankState.new()
+	rank_state.quota = quota
+	rank_state.elapsed_turn = elapsed_turn
+	GameState._set_rank_state_for_test(rank_state)
+
+
+func test_ターン終了でランク結果が確定しrank_outcome_confirmedが発行される() -> void:
+	_setup_rank_outcome(100.0, 0, 30)
+	var screen := _make_screen()
+	monitor_signals(GameState, false)
+
+	_find_button(screen, "EndTurnButton").pressed.emit()
+
+	await assert_signal(GameState).is_emitted(
+		"rank_outcome_confirmed", [RankOutcome.Value.CONTINUE]
+	)
+
+
+func test_ランクノルマ達成状態のターン終了で昇格試験が開始される() -> void:
+	_setup_rank_outcome(0.0, 30, 30)
+	var screen := _make_screen()
+	monitor_signals(GameState, false)
+
+	_find_button(screen, "EndTurnButton").pressed.emit()
+
+	await assert_signal(GameState).is_emitted("exam_started")
+	assert_bool(GameState.get_state()["in_exam"]).is_true()
+
+
+func test_試験ターンを進めると試験結果が確定しexam_outcome_confirmedが発行される() -> void:
+	_setup_exam_success_rank()
+	_set_exam(10.0, 50.0, 0, 20)
+	var screen := _make_screen()
+	monitor_signals(GameState, false)
+
+	_find_button(screen, "AdvanceExamTurnButton").pressed.emit()
+
+	await assert_signal(GameState).is_emitted(
+		"exam_outcome_confirmed", [ExamOutcome.Value.CONTINUE]
+	)
+	assert_bool(GameState.get_state()["in_exam"]).is_true()
+
+
+func test_試験ノルマ達成状態でターンを進めると合格が確定する() -> void:
+	_setup_exam_success_rank()
+	_set_exam(0.0, 50.0, 0, 20)
+	var screen := _make_screen()
+	monitor_signals(GameState, false)
+
+	_find_button(screen, "AdvanceExamTurnButton").pressed.emit()
+
+	await assert_signal(GameState).is_emitted("exam_outcome_confirmed", [ExamOutcome.Value.SUCCESS])
+	assert_bool(GameState.get_state()["in_exam"]).is_false()
+
+
+## 異常系。試験中はEndTurnButtonがvisible=falseで押下不能なため、commit_rank_outcome()が
+## 試験中に誤発火してランク判定と試験判定が二重に走ることはない（既存のvisible制御による防止を確認する）
+func test_試験中はターン終了ボタンが押下不能でランク結果確定が誤発火しない() -> void:
+	_setup_rank_outcome(0.0, 30, 30)
+	_set_exam(10.0, 50.0, 0, 20)
+	var screen := _make_screen()
+
+	assert_bool(_find_button(screen, "EndTurnButton").visible).is_false()
+	assert_bool(_find_button(screen, "AdvanceExamTurnButton").visible).is_true()
+
+
+## 境界値。降格回数がMAX_DEMOTION_COUNTの直前（-1）でDEMOTIONが確定すると、
+## rank_outcome_confirmedに続けてgame_overまで発行される
+func test_降格でゲームオーバー閾値に到達するとターン終了後にgame_overも発行される() -> void:
+	_setup_rank_outcome(100.0, 30, 30)
+	GameState._set_demotion_count_for_test(GameBalance.MAX_DEMOTION_COUNT - 1)
+	var screen := _make_screen()
+	monitor_signals(GameState, false)
+
+	_find_button(screen, "EndTurnButton").pressed.emit()
+
+	await assert_signal(GameState).is_emitted(
+		"rank_outcome_confirmed", [RankOutcome.Value.DEMOTION]
+	)
+	await assert_signal(GameState).is_emitted("game_over", [GameBalance.MAX_DEMOTION_COUNT])
+	assert_bool(GameState.is_game_over()).is_true()
+
+
 ## commit_exam_outcome()のSUCCESS分岐がGameBalance.RANK_ORDER上の次ランク解決に依存するため、
 ## RANK_ORDER実在の2ランク（rank_g→rank_f）をマスター登録する（test_game_state_exam_outcome.gdと同型）。
 ## これにより「未知の現在ランクID」push_errorを避けつつSUCCESS/FAILUREともに検証できる

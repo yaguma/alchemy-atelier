@@ -1,7 +1,7 @@
 ---
 id: "006"
 title: "AlchemyScreenにdelivery_confirmed中継signalを追加しGuildDeliveryScreenの常時表示バグを修正する"
-status: pending
+status: done
 priority: 2
 dependencies: ["002"]
 estimated_complexity: medium

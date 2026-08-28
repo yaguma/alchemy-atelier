@@ -56,6 +56,14 @@ func get_toast_text() -> String:
 	return _toast_label.text
 
 
+## GameStateの最新値で表示を再構築する公開API。🔴 コードレビュー指摘対応。MainSceneは
+## 4画面を常駐させvisible切替のみで表示するため、本画面が購読していない変化（工房での
+## 種購入等）を可視化のたびに反映するには、MainSceneから明示的にrefresh()を呼ぶ経路が要る。
+## _refresh()はモジュール内限定（先頭_）のため、外部公開用の薄いラッパーとして用意する
+func refresh() -> void:
+	_refresh()
+
+
 ## GameState.get_state()を再取得し、スロット一覧・種一覧を再構築する。🔵
 func _refresh() -> void:
 	if _slots_container == null:

@@ -1,7 +1,7 @@
 ---
 id: "008"
 title: "MainSceneに昇格試験開始・合否分岐・終局画面へのルーティングを実装する"
-status: pending
+status: done
 priority: 2
 dependencies: ["003", "004", "005", "006", "007"]
 estimated_complexity: high

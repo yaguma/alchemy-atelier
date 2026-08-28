@@ -1,7 +1,7 @@
 ---
 id: "007"
 title: "AlchemyScreenにcommit_rank_outcome()/commit_exam_outcome()の呼び出しを配線する"
-status: pending
+status: done
 priority: 2
 dependencies: ["006"]
 estimated_complexity: medium

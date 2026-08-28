@@ -9,6 +9,40 @@ class_name GameStateRankDelegate
 const GameStateScript = preload("res://autoload/game_state.gd")
 
 
+## res://data/ranks/ から RankMaster をロードし _rank_masters に格納する（既存3つのload_*と同型）。
+## 🔴 RankMaster.idはStringだが_rank_mastersのキーと_current_rank_idはStringNameのため、
+## 格納時にStringNameへ正規化する（他マスターのidはStringName宣言のため本関数固有の処理）。
+## 🔴 重複ID検知パターンはload_workshop_master_data()を踏襲し、検知時は一切格納せず中断する。
+## 🟡 初回ロード時のみRankStateを初期ランクのquota_maxで初期化する。ロードのたびに初期化すると
+## プレイ中のランク進行状態が巻き戻るため、必ず_rank_state_initializedでガードする
+static func load_rank_master_data(state: GameStateScript) -> void:
+	var ranks := MasterDataLoader.load_all(&"ranks")
+
+	var rank_masters: Dictionary = {}
+	for r in ranks:
+		var rank := r as RankMaster
+		var rank_id := StringName(rank.id)
+		if rank_masters.has(rank_id):
+			push_error("ランクのIDが重複しています: %s" % rank_id)
+			return
+		rank_masters[rank_id] = rank
+	state._rank_masters = rank_masters
+
+	if state._rank_state_initialized:
+		return
+
+	# 🔴 NFR-101。data/ranks/が空・初期ランクのマスターが欠落している場合も、push_errorのみで
+	# クラッシュさせず_rank_state_initialized=falseのまま処理を終える
+	# （evaluate_rank_outcome()が常にCONTINUEを返す安全側の状態に留まる）
+	var initial_rank_master: RankMaster = state._rank_masters.get(state._current_rank_id)
+	if initial_rank_master == null:
+		state._warn_missing_rank_master()
+		return
+
+	state._rank_state = RankQuotaResolver.reset_for_retry(initial_rank_master)
+	state._rank_state_initialized = true
+
+
 ## 🔴 CON-009。現在のRankState/RankMasterからランク結果を算出して返す（FR-109）。
 ## 副作用を持たない問い合わせ専用。UIの先出し表示と、commit_rank_outcome()の実行直前再評価の両方から使う。
 ## 🔴 コードレビュー指摘対応。_rank_state_initializedがfalseの間（quota_maxからの初期化が
