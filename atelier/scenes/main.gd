@@ -113,8 +113,20 @@ func get_is_alchemy_tab_disabled() -> bool:
 	return _alchemy_tab_button.disabled
 
 
-func _on_phase_changed(_previous: StringName, next: StringName) -> void:  # 🔵 FR-103
+func _on_phase_changed(previous: StringName, next: StringName) -> void:  # 🔵 FR-103
+	# 🔴 コードレビュー指摘対応。閉じるボタンを経ずタブバーで工房から離脱した場合も
+	# 恒久投資購入枠を閉じる。close_workshop()は_can_purchase_permanentをfalseに戻すだけの
+	# 冪等操作（workshop_screen.gd _on_close_pressed()のコメント参照）のため、
+	# 閉じるボタン経由で既に呼ばれていても二重呼び出しに副作用はない
+	if previous == PHASE_WORKSHOP and next != PHASE_WORKSHOP:
+		GameState.close_workshop()
 	_apply_visible_phase(next)
+	# 🔴 コードレビュー指摘対応。_ready()の初回同期（_apply_visible_phase()の直接呼び出し）では
+	# 対象画面が自身の_ready()で既に最新描画済みのため、ここでの呼び出しは実際のフェーズ遷移
+	# （本ハンドラ経由）に限定する。_apply_visible_phase()側で呼ぶと初回表示のたび二重リフレッシュに
+	# なり、1フレーム内でqueue_free()された旧エントリ行がscene_runnerのテスト終了時までに
+	# 処理されずorphan node警告として検出されてしまう
+	_refresh_visible_screen(next)
 
 
 # 🔵 FR-101。disabled時もpressedがコード経由で発行されうる（Buttonのdisabledはマウス入力のみ
@@ -219,6 +231,21 @@ func _apply_visible_phase(phase: StringName) -> void:
 	_result_screen.visible = phase == PHASE_RESULT
 
 	_update_tab_selected_visual(phase)
+
+
+# 🔴 コードレビュー指摘対応。4画面は常駐+visible切替のため、各画面の_ready()一度きりの
+# 表示構築だけでは他画面での操作（庭の収穫、工房での購入等）が可視化のタイミングで反映されない。
+# 可視化するたびに対象画面のrefresh()を呼び、GameStateの最新値で再構築する
+func _refresh_visible_screen(phase: StringName) -> void:
+	match phase:
+		PHASE_GARDEN:
+			_garden_screen.refresh()
+		PHASE_ALCHEMY:
+			_alchemy_screen.refresh()
+		PHASE_WORKSHOP:
+			_workshop_screen.refresh()
+		_:
+			pass
 
 
 func _is_known_phase(phase: StringName) -> bool:

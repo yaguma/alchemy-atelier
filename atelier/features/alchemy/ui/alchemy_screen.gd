@@ -100,6 +100,13 @@ func get_toast_text() -> String:
 	return _toast_label.text
 
 
+## GameStateの最新値で表示を再構築する公開API。🔴 コードレビュー指摘対応。庭で収穫した素材が
+## 調合タブへ切り替えた時点の在庫一覧に反映されない不具合の修正としてMainSceneから呼ばれる
+## （GardenScreen.refresh()と同型のラッパー）
+func refresh() -> void:
+	_refresh()
+
+
 ## error_codeに対応するトースト文言を返す。未知のコードもそのまま提示して沈黙させない。🔵 AC-009
 static func error_message(error_code: StringName) -> String:
 	if ERROR_MESSAGES.has(error_code):
