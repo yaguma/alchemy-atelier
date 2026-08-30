@@ -54,6 +54,14 @@ static func execute_alchemy(
 	var recipe: RecipeMaster = state._recipe_masters[recipe_id]
 	var product := ProductProvisionalResolver.resolve(materials, recipe, traits_unlocked)
 
+	# 🔴 コードレビュー指摘対応。指定依頼の合致判定自体はDeliveryResolverの責務（FR-403,
+	# 二重乗算バグ防止）のためここでは倍率を適用しないが、「どの指定依頼を基準に納品時ボーナスを
+	# 判定するか」は調合が成立したこの瞬間の_current_daily_orderで確定させる。
+	# resolve_daily_order_for_delivery()は_in_exam中はnullを返すため、試験中の調合はここで
+	# 自動的に「指定依頼なし」として確定する（FR-401と同じ結論）
+	product.has_daily_order_snapshot = true
+	product.daily_order_snapshot = state.resolve_daily_order_for_delivery()
+
 	# 🔵 副作用はすべての検証・計算が成功した後にのみ適用する（FR-113のアトミック性）。
 	# 🔴 remove_atのインデックスずれを避けるため降順に削除する
 	indices.sort()

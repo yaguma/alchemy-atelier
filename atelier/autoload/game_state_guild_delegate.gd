@@ -50,10 +50,21 @@ static func deliver_pending_products(state: GameStateScript) -> Result:
 	# 指定合致ボーナス（DeliveryResolver.matches_orderはdaily_order=nullで常にfalse）を不適用にする。
 	# 報酬(gold)加算はこの分岐と無関係に常時行う（FR-106: 試験中/非試験中でgold加算量は変わらない）
 	# 🔴 コードレビュー指摘対応。AlchemyScreenのライブプレビューと同一の式を共有するため
-	# GameState.resolve_daily_order_for_delivery()に一本化した（ここで独自にtern化しない）
+	# GameState.resolve_daily_order_for_delivery()に一本化した（ここで独自にtern化しない）。
+	# ここで得る値は「今この納品を確定させる瞬間の指定依頼」であり、execute_alchemy()を経由せず
+	# 直接キューへ注入された調合物（テスト専用API等、has_daily_order_snapshot==false）の
+	# フォールバック先としてのみ使う（下記ループ内コメント参照）
 	var order_for_delivery := state.resolve_daily_order_for_delivery()
 	for product in state._pending_products:
-		var delivery_result := DeliveryResolver.resolve(product, order_for_delivery)
+		# 🔴 コードレビュー指摘対応。Garden側のEndTurn（advance_turn_growth()、FR-102）は
+		# 調合キューの納品タイミングと無関係に指定依頼を再抽選できるため、納品時点の
+		# _current_daily_orderをそのまま使うと調合時点のライブプレビューと結果が食い違いうる。
+		# execute_alchemy()が調合成立時に確定させたdaily_order_snapshotを優先し、
+		# それが無い場合（テスト専用注入等）のみ従来通り納品時点の指定依頼へフォールバックする
+		var order_for_product := (
+			product.daily_order_snapshot if product.has_daily_order_snapshot else order_for_delivery
+		)
+		var delivery_result := DeliveryResolver.resolve(product, order_for_product)
 		state._gold += roundi(delivery_result.final_reward)
 		# 🔵 貢献度の適用先を試験中/非試験中で切り替える。RankQuotaResolver.apply_contribution自体は
 		# ノルマの入れ物がRankState.quotaかExamState.exam_quotaかを問わない汎用のfloatクランプ関数のため無変更で流用する
