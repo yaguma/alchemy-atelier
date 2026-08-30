@@ -1,7 +1,7 @@
 ---
 id: "004"
 title: "F→E昇格サイクルと通し全体の非再生成アサーションを実装する"
-status: pending
+status: done
 priority: 2
 dependencies: ["003"]
 estimated_complexity: high

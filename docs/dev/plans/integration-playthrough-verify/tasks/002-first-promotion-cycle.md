@@ -1,7 +1,7 @@
 ---
 id: "002"
 title: "G→F昇格までの通常ターン〜試験合格シナリオを実装する"
-status: pending
+status: done
 priority: 1
 dependencies: ["001"]
 estimated_complexity: medium

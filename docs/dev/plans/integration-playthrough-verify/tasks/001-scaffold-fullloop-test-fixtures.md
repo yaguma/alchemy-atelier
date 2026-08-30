@@ -1,7 +1,7 @@
 ---
 id: "001"
 title: "ロングランプレイスルーテストの雛形と共通フィクスチャヘルパーを実装する"
-status: pending
+status: done
 priority: 1
 dependencies: []
 estimated_complexity: medium

@@ -1,7 +1,7 @@
 ---
 id: "005"
 title: "全体通し実行・静的解析・フォーマットチェックを行い検証レポートをまとめる"
-status: pending
+status: done
 priority: 3
 dependencies: ["004"]
 estimated_complexity: low

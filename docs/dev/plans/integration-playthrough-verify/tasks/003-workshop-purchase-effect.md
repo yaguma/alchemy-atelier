@@ -1,7 +1,7 @@
 ---
 id: "003"
 title: "工房強化のUI購入とGameState反映を検証するステップを実装する"
-status: pending
+status: done
 priority: 2
 dependencies: ["002"]
 estimated_complexity: medium
