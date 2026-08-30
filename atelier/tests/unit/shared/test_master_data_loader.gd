@@ -210,26 +210,30 @@ func test_空配列をvalidate_referencesに渡すとtrueを返す() -> void:
 	assert_bool(result).is_true()
 
 
-## G〜S全ランクで抽選プールが空にならないこと（Gランクは特性未解禁のためitem条件のみが有効）を検証する
+## G〜S全ランクで抽選プールが空にならないこと（Gランクは特性未解禁のためitem条件のみが有効）を検証する。
+## 🔴 コードレビュー指摘対応。解禁レシピ・特性解禁による絞り込みは本番のDailyOrderSelector.filter_achievable()
+## を呼び出し、判定式を二重実装しない（NFR-101）。「trait条件は実在する種で入手可能な特性か」という
+## filter_achievable()の関知しない追加のマスターデータ整合性チェックのみをここで足す
 func test_全ランクで達成可能なdaily_orderが最低1件存在する() -> void:
-	var orders := MasterDataLoader.load_all(&"daily_orders")
+	var orders: Array[DailyOrderMaster] = []
+	for o in MasterDataLoader.load_all(&"daily_orders"):
+		orders.append(o as DailyOrderMaster)
 	var obtainable_traits := _collect_obtainable_traits()
-	var initial_recipe_id := String(GameBalance.INITIAL_RECIPE_ID)
+	var unlocked_recipe_ids: Array[StringName] = [GameBalance.INITIAL_RECIPE_ID]
 
 	for rank_id in GameBalance.RANK_ORDER:
 		var rank := _find_rank(rank_id)
 		assert_object(rank).is_not_null()
 
+		var achievable := DailyOrderSelector.filter_achievable(
+			orders, unlocked_recipe_ids, rank.traits_unlocked
+		)
 		var achievable_count := 0
-		for o in orders:
-			var order := o as DailyOrderMaster
-			if order.condition_type == "item" and order.target_recipe_id == initial_recipe_id:
-				achievable_count += 1
-			elif (
-				order.condition_type == "trait"
-				and rank.traits_unlocked
-				and obtainable_traits.has(StringName(order.target_trait))
-			):
+		for order in achievable:
+			if order.condition_type == DailyOrderSelector.CONDITION_TYPE_TRAIT:
+				if obtainable_traits.has(StringName(order.target_trait)):
+					achievable_count += 1
+			else:
 				achievable_count += 1
 
 		var failure_message := "ランク%sで達成可能なdaily_orderが存在しません" % rank_id

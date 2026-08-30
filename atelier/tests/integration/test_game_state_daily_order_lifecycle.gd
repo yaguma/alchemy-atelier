@@ -6,6 +6,10 @@ const MAIN_SCENE_PATH := "res://scenes/main.tscn"
 # data/daily_orders/にcondition_type=="item"で対応するエントリが存在する2件を使う
 const SECOND_RECIPE_ID: StringName = &"recipe_mana_tonic"
 
+# 🔴 コードレビュー指摘対応。test_main_scene_daily_order_flow.gdと重複していた
+# _current_pool()の実装をtests/mocks/daily_order_pool.gdへ統合した
+const DailyOrderPool = preload("res://tests/mocks/daily_order_pool.gd")
+
 
 func before_test() -> void:
 	GameState.reset_for_test()
@@ -16,11 +20,7 @@ func before_test() -> void:
 
 ## 現在の解禁状況での抽選プールを、本番実装と同じ条件でテスト側にも再現する
 func _current_pool() -> Array[DailyOrderMaster]:
-	return DailyOrderSelector.filter_achievable(
-		GameState._daily_order_masters,
-		GameState._unlocked_recipe_ids,
-		GameState.is_current_rank_traits_unlocked()
-	)
+	return DailyOrderPool.current_pool()
 
 
 func _unlock_second_recipe() -> void:

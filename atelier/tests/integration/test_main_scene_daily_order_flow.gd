@@ -30,6 +30,10 @@ const FLOAT_TOLERANCE := 0.0001
 ## 再抽選が「別の依頼」を引くシードの探索上限。プールが2件なら数回で必ず見つかる
 const SEED_SEARCH_LIMIT := 100
 
+# 🔴 コードレビュー指摘対応。test_game_state_daily_order_lifecycle.gdと重複していた
+# _current_pool()の実装をtests/mocks/daily_order_pool.gdへ統合した
+const DailyOrderPool = preload("res://tests/mocks/daily_order_pool.gd")
+
 var _crafted_products: Array[ProductInstance] = []
 var _delivery_results: Array[DeliveryResult] = []
 
@@ -112,11 +116,7 @@ func _enter_exam() -> void:
 ## 現在の解禁状況での抽選プールを、本番実装（GameStateGuildDelegate.reroll_daily_order）と
 ## 同じ条件でテスト側にも再現する
 func _current_pool() -> Array[DailyOrderMaster]:
-	return DailyOrderSelector.filter_achievable(
-		GameState._daily_order_masters,
-		GameState._unlocked_recipe_ids,
-		GameState.is_current_rank_traits_unlocked()
-	)
+	return DailyOrderPool.current_pool()
 
 
 ## 「Gランク相当（解禁レシピ1件・特性未解禁）で、その1件を対象とする.tresが存在しない」状況を作る。
@@ -303,6 +303,53 @@ func test_指定依頼に合致する調合物を納品するとボーナスが�
 	# 納品結果画面にもボーナス適用後の1件が表示される
 	assert_bool(_delivery_screen(main).visible).is_true()
 	assert_int(_delivery_screen(main).get_item_count()).is_equal(1)
+
+
+# 正常系: 調合後の再抽選を挟んでも調合時点のボーナスで確定する（PR#42コードレビュー指摘の回帰テスト）
+
+
+## 🔴 コードレビュー指摘対応。Garden側のEndTurn（advance_turn_growth、FR-102）はAlchemy側の
+## 納品タイミングと無関係に指定依頼を再抽選しうる。調合済みだが未納品の調合物が、納品前に挟まれた
+## 庭のターン終了で指定依頼が別物へすり替わっても、調合時点でライブプレビューに表示していた
+## ボーナスのまま決算されることを検証する（納品時点の新しい指定依頼が誤って適用されない）
+func test_調合後に庭でターン終了し指定依頼が再抽選されても納品ボーナスは調合時点のもので確定する() -> void:
+	_inject_material("mat_1", 4)
+	var main := _make_main()
+	_relax_rank_quota()
+	_unlock_second_recipe()
+	_record_signals()
+
+	var order_at_craft := GameState.resolve_daily_order_for_delivery()
+	assert_str(order_at_craft.target_recipe_id).is_equal(String(HEALING_POTION_ID))
+	var multiplier := order_at_craft.match_bonus_multiplier
+
+	_press(main, "AlchemyTabButton")
+	_place_for_craft(main, HEALING_POTION_ID, "mat_1")
+	assert_bool(_preview_panel(main).is_order_matched()).is_true()
+	_press(_alchemy(main), "ExecuteButton")
+
+	# 納品前に庭のターン終了を挟み、指定依頼を別のものへ確実に再抽選させる
+	var pool := _current_pool()
+	var rng_seed := _find_seed_selecting_other_order(pool, order_at_craft)
+	RngService.set_seed(rng_seed)
+	_press(main, "GardenTabButton")
+	_press(_garden(main), "EndTurnButton")
+	assert_object(GameState._current_daily_order).is_not_same(order_at_craft)
+
+	_press(main, "AlchemyTabButton")
+	var gold_before: int = GameState.get_state()["gold"]
+	_press(_alchemy(main), "EndTurnButton")
+
+	assert_int(_delivery_results.size()).is_equal(1)
+	var product := _crafted_products[0]
+	var result := _delivery_results[0]
+	# 納品時点の指定依頼は既に別物へ切り替わっているが、報酬は調合時点のボーナスのまま決算される
+	assert_bool(result.order_matched).is_true()
+	assert_float(result.final_contribution).is_equal_approx(
+		product.contribution * multiplier, FLOAT_TOLERANCE
+	)
+	assert_float(result.final_reward).is_equal_approx(product.reward * multiplier, FLOAT_TOLERANCE)
+	assert_int(GameState.get_state()["gold"] - gold_before).is_equal(roundi(result.final_reward))
 
 
 # 正常系: ターン終了での再抽選と表示追随

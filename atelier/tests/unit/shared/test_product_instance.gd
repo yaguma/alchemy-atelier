@@ -55,3 +55,38 @@ func test_コンストラクタに渡した配列を後から変更してもイ�
 	activated_traits.append(&"catalyst")
 
 	assert_int(instance.activated_traits.size()).is_equal(1)
+
+
+## 🔴 コードレビュー指摘対応（PR#42）。指定依頼の納品時ボーナスすり替わりバグの修正で追加した2フィールド
+func test_daily_order_snapshotの既定値はnullでhas_daily_order_snapshotはfalse() -> void:
+	var instance := ProductInstance.new(&"recipe_potion", 3, [] as Array[StringName], 12.5, 30.0)
+
+	assert_object(instance.daily_order_snapshot).is_null()
+	assert_bool(instance.has_daily_order_snapshot).is_false()
+
+
+func test_cloneでhas_daily_order_snapshotとdaily_order_snapshotが複製される() -> void:
+	var original := ProductInstance.new(&"recipe_potion", 3, [] as Array[StringName], 12.5, 30.0)
+	var order := DailyOrderMaster.new()
+	order.id = "order_test"
+	order.match_bonus_multiplier = 1.3
+	original.has_daily_order_snapshot = true
+	original.daily_order_snapshot = order
+
+	var cloned := original.clone()
+
+	assert_bool(cloned.has_daily_order_snapshot).is_true()
+	assert_object(cloned.daily_order_snapshot).is_not_null()
+	assert_str(cloned.daily_order_snapshot.id).is_equal("order_test")
+	# 参照ではなく複製された別オブジェクトであること（daily_order_master.gdのclone()契約と同様）
+	assert_bool(cloned.daily_order_snapshot == order).is_false()
+
+
+func test_daily_order_snapshotがnullのままcloneしてもnullを維持する() -> void:
+	var original := ProductInstance.new(&"recipe_potion", 3, [] as Array[StringName], 12.5, 30.0)
+	original.has_daily_order_snapshot = true
+
+	var cloned := original.clone()
+
+	assert_bool(cloned.has_daily_order_snapshot).is_true()
+	assert_object(cloned.daily_order_snapshot).is_null()

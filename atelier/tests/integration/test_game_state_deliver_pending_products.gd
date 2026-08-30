@@ -256,6 +256,48 @@ func test_調合から納品までの一連で合致ボーナスが1回だけ適
 	assert_int(_gold()).is_equal(10)
 
 
+## 🔴 コードレビュー指摘対応の回帰テスト（PR#42）。Garden側のEndTurn（advance_turn_growth,
+## FR-102）は納品タイミングと無関係に_current_daily_orderを再抽選しうるため、調合済みだが
+## 未納品の調合物は、納品時点の新しい指定依頼ではなく調合時点の指定依頼で決算されなければならない
+func test_調合後に指定依頼が再抽選されても納品ボーナスは調合時点のもので確定する() -> void:
+	_setup_alchemy()
+	_set_matching_order(1.3)
+
+	var product: ProductInstance = (
+		GameState.execute_alchemy(RECIPE_ID, ["mat_1", "mat_2"] as Array[String]).value
+	)
+
+	# 調合後、納品前に指定依頼を「合致しない」別のものへ差し替える
+	# （GameStateGuildDelegate.reroll_daily_order相当の状態遷移をテスト専用APIで再現する）
+	var other_order := DailyOrderMaster.new()
+	other_order.id = "order_other"
+	other_order.condition_type = DeliveryResolver.CONDITION_TYPE_ITEM
+	other_order.target_recipe_id = "recipe_unrelated"
+	other_order.match_bonus_multiplier = 1.3
+	GameState._set_current_daily_order_for_test(other_order)
+
+	var results: Array[DeliveryResult] = GameState.deliver_pending_products().value
+
+	# 調合時点の合致ボーナス（1.3倍）のまま決算され、納品時点の指定依頼（非合致）は使われない
+	assert_bool(results[0].order_matched).is_true()
+	assert_float(results[0].final_contribution).is_equal_approx(
+		product.contribution * 1.3, FLOAT_TOLERANCE
+	)
+	assert_float(results[0].final_reward).is_equal_approx(product.reward * 1.3, FLOAT_TOLERANCE)
+
+
+## 🔴 execute_alchemy()を経由しないテスト専用注入（has_daily_order_snapshot==false）は、
+## 従来通り納品時点の_current_daily_orderへフォールバックする（guild Planの既存契約を維持）
+func test_テスト専用注入の調合物は納品時点の指定依頼で決算される() -> void:
+	_inject_product(_make_product(RECIPE_ID, 10.0, 5.0))
+	_set_matching_order(1.3)
+
+	var results: Array[DeliveryResult] = GameState.deliver_pending_products().value
+
+	assert_bool(results[0].order_matched).is_true()
+	assert_float(results[0].final_contribution).is_equal_approx(13.0, FLOAT_TOLERANCE)
+
+
 func test_get_stateのpending_productsを変更しても内部キューは汚染されない() -> void:
 	_inject_product(_make_product(RECIPE_ID, 10.0, 2.0))
 	_inject_product(_make_product(RECIPE_ID, 20.0, 3.0))
