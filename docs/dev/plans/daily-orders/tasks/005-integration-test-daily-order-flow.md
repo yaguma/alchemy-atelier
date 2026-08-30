@@ -1,7 +1,7 @@
 ---
 id: "005"
 title: "指定依頼の抽選から表示・納品ボーナスまでの結合シナリオをGdUnit4統合テストで検証する"
-status: pending
+status: done
 priority: 3
 dependencies: ["004"]
 estimated_complexity: high

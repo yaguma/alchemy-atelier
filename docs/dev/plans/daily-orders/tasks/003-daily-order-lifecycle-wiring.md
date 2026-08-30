@@ -1,7 +1,7 @@
 ---
 id: "003"
 title: "GameStateに指定依頼のロード・初回抽選・毎ターン再抽選を配線する"
-status: pending
+status: done
 priority: 2
 dependencies: ["002"]
 estimated_complexity: medium

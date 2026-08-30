@@ -1,7 +1,7 @@
 ---
 id: "002"
 title: "指定依頼の絞り込み・抽選を行う純粋関数DailyOrderSelectorを実装する"
-status: pending
+status: done
 priority: 1
 dependencies: ["001"]
 estimated_complexity: medium

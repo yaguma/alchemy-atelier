@@ -1,7 +1,7 @@
 ---
 id: "004"
 title: "AlchemyScreenに現在の指定依頼を表示するUIを追加する"
-status: pending
+status: done
 priority: 2
 dependencies: ["003"]
 estimated_complexity: medium

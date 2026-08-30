@@ -41,6 +41,9 @@ func _enter_tree() -> void:
 	GameState.load_alchemy_master_data()
 	GameState.load_workshop_master_data()
 	GameState.load_rank_master_data()
+	# 🔵 指定依頼の初回抽選は解禁レシピ・ランクの特性解禁状況に依存するため、
+	# ランクマスターのロード後に呼ぶ（順序を入れ替えないこと）
+	GameState.load_daily_order_master_data()
 
 
 func _ready() -> void:

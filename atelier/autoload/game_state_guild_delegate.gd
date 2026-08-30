@@ -6,6 +6,33 @@ class_name GameStateGuildDelegate
 const GameStateScript = preload("res://autoload/game_state.gd")
 
 
+## 🔵 res://data/daily_orders/からDailyOrderMasterをロードして_daily_order_mastersへ格納し、
+## 続けて初回抽選を1回行う（既存のload_*_master_data()と同型）。
+## 🟡 load_rank_master_data()と異なり「初回のみ」の冪等ガードは持たない。指定依頼は
+## ロードのたびに引き直しても進行中のランク状態のような不可逆な情報を失わないため、
+## 再ロード＝再抽選で問題ない
+static func load_daily_order_master_data(state: GameStateScript) -> void:
+	var masters: Array[DailyOrderMaster] = []
+	for order in MasterDataLoader.load_all(&"daily_orders"):
+		masters.append(order as DailyOrderMaster)
+	state._daily_order_masters = masters
+
+	reroll_daily_order(state)
+
+
+## 🔵 現在の解禁状況（解禁レシピ・特性解禁フラグ）で達成可能な依頼へ絞り込み、
+## RngServiceが払い出した乱数値で1件を抽選して_current_daily_orderへ設定する。
+## 🔴 絞り込み結果が空の場合はnullをそのまま設定する。達成不能な依頼を提示するくらいなら
+## 「本日の指定なし」にする方が安全なため、フォールバック用の特別なマスターは生成しない
+static func reroll_daily_order(state: GameStateScript) -> void:
+	var pool := DailyOrderSelector.filter_achievable(
+		state._daily_order_masters,
+		state._unlocked_recipe_ids,
+		state.is_current_rank_traits_unlocked()
+	)
+	state._current_daily_order = DailyOrderSelector.select(pool, RngService.randf())
+
+
 ## 🔴 _pending_productsを先頭から全件消費し、各ProductInstanceについて
 ## DeliveryResolver.resolve(product, _current_daily_order)を呼び出す（FR-005, FR-105）。
 ## final_rewardはroundi()で丸めて_goldへ即時加算（FR-106, CON-007）、

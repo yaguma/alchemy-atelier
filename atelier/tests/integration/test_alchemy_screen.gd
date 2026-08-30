@@ -180,6 +180,83 @@ func test_試験中は指定依頼に合致していてもプレビューにボ�
 	assert_str(_preview_label_text(screen, "ValueLabel")).is_equal("見込み貢献度: 17.5 / 見込み報酬: 8.8")
 
 
+# 正常系（指定依頼ラベル）
+
+
+func _make_item_order(target_recipe_id: String, multiplier: float = 1.5) -> DailyOrderMaster:
+	var order := DailyOrderMaster.new()
+	order.id = "order_item"
+	order.condition_type = "item"
+	order.target_recipe_id = target_recipe_id
+	order.match_bonus_multiplier = multiplier
+	return order
+
+
+func _make_trait_order(target_trait: String, multiplier: float = 1.5) -> DailyOrderMaster:
+	var order := DailyOrderMaster.new()
+	order.id = "order_trait"
+	order.condition_type = "trait"
+	order.target_trait = target_trait
+	order.match_bonus_multiplier = multiplier
+	return order
+
+
+func test_指定依頼がitem条件のとき対象レシピ名と倍率が表示される() -> void:
+	GameState._set_current_daily_order_for_test(_make_item_order(String(RECIPE_ID), 1.5))
+
+	var screen := _make_screen()
+
+	assert_str(_label_text(screen, "DailyOrderLabel")).is_equal("指定依頼: テストレシピ（x1.5）")
+
+
+func test_指定依頼がtrait条件のとき対象特性名と倍率が表示される() -> void:
+	GameState._set_current_daily_order_for_test(_make_trait_order("芳香", 2.0))
+
+	var screen := _make_screen()
+
+	assert_str(_label_text(screen, "DailyOrderLabel")).is_equal("指定依頼: 特性「芳香」（x2.0）")
+
+
+func test_指定依頼が無い場合はなしと明示表示される() -> void:
+	var screen := _make_screen()
+
+	assert_str(_label_text(screen, "DailyOrderLabel")).is_equal(AlchemyScreen.DAILY_ORDER_NONE_TEXT)
+
+
+func test_ターン進行で指定依頼が引き直されるとラベルが追随する() -> void:
+	GameState._set_current_daily_order_for_test(_make_item_order(String(RECIPE_ID), 1.5))
+	var screen := _make_screen()
+	assert_str(_label_text(screen, "DailyOrderLabel")).is_equal("指定依頼: テストレシピ（x1.5）")
+
+	# マスター未ロードのため再抽選の母集団は空となり、指定依頼はnullへ引き直される
+	GameState.advance_turn_growth()
+	screen.refresh()
+
+	assert_str(_label_text(screen, "DailyOrderLabel")).is_equal(AlchemyScreen.DAILY_ORDER_NONE_TEXT)
+
+
+## 🔵 試験中はresolve_daily_order_for_delivery()がnullを返すため、プレビューだけでなく
+## ラベル表示も「なし」に揃える（実際の納品結果と乖離した指定依頼を提示しない）
+func test_試験中は指定依頼ラベルがなし表示になる() -> void:
+	GameState._set_current_daily_order_for_test(_make_item_order(String(RECIPE_ID), 2.0))
+	GameState._set_exam_state_for_test(ExamState.new(), true)
+
+	var screen := _make_screen()
+
+	assert_str(_label_text(screen, "DailyOrderLabel")).is_equal(AlchemyScreen.DAILY_ORDER_NONE_TEXT)
+
+
+# 異常系（指定依頼ラベル）
+
+
+func test_対象レシピのマスターが見つからない場合はレシピIDをそのまま表示する() -> void:
+	GameState._set_current_daily_order_for_test(_make_item_order("recipe_unknown", 1.5))
+
+	var screen := _make_screen()
+
+	assert_str(_label_text(screen, "DailyOrderLabel")).is_equal("指定依頼: recipe_unknown（x1.5）")
+
+
 # 正常系（投入取り消し）
 
 
