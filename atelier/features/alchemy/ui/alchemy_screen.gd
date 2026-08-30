@@ -24,6 +24,12 @@ const ERROR_MESSAGES := {
 
 const EXAM_TURN_LABEL_FORMAT := "残り%dターン"  # 🟡 FR-106、書式は新規決定
 
+# 🟡 指定依頼の提示文言。design docが文言未確定のため書式は新規決定。
+# 空欄ではなく「なし」を明示することで、未実装/表示バグとの区別が付くようにする
+const DAILY_ORDER_NONE_TEXT := "指定依頼: なし"
+const DAILY_ORDER_ITEM_FORMAT := "指定依頼: %s（x%.1f）"
+const DAILY_ORDER_TRAIT_FORMAT := "指定依頼: 特性「%s」（x%.1f）"
+
 # 🔴 文言はAI推論による新規決定（design doc上もTBD、CON-003に基づき本Planで確定）
 const EXAM_MESSAGES := {
 	&"exam_started": "昇格試験が始まりました！",
@@ -48,6 +54,7 @@ var _daily_order_for_preview: DailyOrderMaster = null
 var _slot_views: Array[AlchemySlotView] = []
 
 @onready var _recipe_option_button: OptionButton = %RecipeOptionButton
+@onready var _daily_order_label: Label = %DailyOrderLabel
 @onready var _slots_container: Container = %SlotsContainer
 @onready var _material_inventory_list: MaterialInventoryList = %MaterialInventoryList
 @onready var _preview_panel: AlchemyPreviewPanel = %AlchemyPreviewPanel
@@ -133,6 +140,7 @@ func _refresh() -> Dictionary:
 	# 🔴 コードレビュー指摘対応。_recompute_preview()側でGameState.get_state()を再度呼ばずに済むよう
 	# ここでキャッシュする。GameState側のロジックと同一の式（試験中はnull）を経由する
 	_daily_order_for_preview = GameState.resolve_daily_order_for_delivery()
+	_update_daily_order_label()
 
 	# 🔵 在庫から消えた素材（調合実行で消費された等）が投入枠に残らないよう先に整合を取る
 	_drop_missing_placed_ids()
@@ -168,6 +176,37 @@ func _refresh_exam_ui(state: Dictionary) -> void:
 	_exam_guidance_label.visible = should_show_guidance
 	if should_show_guidance:
 		_exam_guidance_label.text = EXAM_GUIDANCE_MESSAGE
+
+
+## 素材投入を決める前に現在の指定依頼を確認できるよう、_daily_order_for_preview
+## （🔵 _refresh()でキャッシュ済み。試験中はnull）の内容をラベルへ反映する。
+## 🔵 倍率は表示するだけで乗算は一切行わない（プレビュー側との二重乗算防止）
+func _update_daily_order_label() -> void:
+	if _daily_order_label == null:
+		return
+	if _daily_order_for_preview == null:
+		_daily_order_label.text = DAILY_ORDER_NONE_TEXT
+		return
+
+	var order := _daily_order_for_preview
+	if order.condition_type == "trait":
+		_daily_order_label.text = (
+			DAILY_ORDER_TRAIT_FORMAT % [order.target_trait, order.match_bonus_multiplier]
+		)
+		return
+	_daily_order_label.text = (
+		DAILY_ORDER_ITEM_FORMAT
+		% [_resolve_recipe_display_name(order.target_recipe_id), order.match_bonus_multiplier]
+	)
+
+
+## recipe_idに対応するRecipeMasterの表示名を返す。🔴 マスター未ロード等で解決できない場合は
+## 空欄にせずrecipe_id自体をフォールバック表示する（GardenScreenのSeedMaster欠落時と同方針）
+func _resolve_recipe_display_name(recipe_id: String) -> String:
+	var master: Variant = _recipe_masters.get(StringName(recipe_id))
+	if master is RecipeMaster:
+		return (master as RecipeMaster).name
+	return recipe_id
 
 
 ## unlocked_recipe_idsのうち1件でもキャッシュ済み_recipe_masters（🔵_refresh()で更新済み）から

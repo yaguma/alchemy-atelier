@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="DailyOrderMaster" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://features/guild/resources/daily_order_master.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "daily_order_trait_sturdy"
+condition_type = "trait"
+target_trait = "sturdy"

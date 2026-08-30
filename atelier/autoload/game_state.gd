@@ -46,8 +46,9 @@ var _pending_products: Array[ProductInstance] = []  # 🔴 FR-008 ギルド納�
 var _alchemy_slot_count: int = GameBalance.ALCHEMY_SLOT_COUNT_DEFAULT
 
 # --- ギルド納品（guild）関連フィールド ---
-# 🔴 CON-010。日替わり指定調合物の再抽選ロジックは別planのため、既定値nullでも納品が成立する
+# 🔴 CON-010。マスター未ロード時・達成可能な依頼が無い時は既定値nullのままでも納品が成立する
 var _current_daily_order: DailyOrderMaster = null
+var _daily_order_masters: Array[DailyOrderMaster] = []  # 🔵 抽選プールの母集団
 
 # --- ランク進行（rank）関連フィールド ---
 var _current_rank_id: StringName = GameBalance.INITIAL_RANK_ID  # 🔵 FR-006
@@ -174,6 +175,10 @@ func load_rank_master_data() -> void:
 	GameStateRankDelegate.load_rank_master_data(self)
 
 
+func load_daily_order_master_data() -> void:
+	GameStateGuildDelegate.load_daily_order_master_data(self)
+
+
 func plant_seed(seed_id: StringName) -> Result:
 	return GameStateGardenDelegate.plant_seed(self, seed_id)
 
@@ -199,8 +204,11 @@ func harvest(slot_index: int) -> Result:
 	return GameStateGardenDelegate.harvest(self, slot_index)
 
 
+## 🔵 通常ターンの終了処理。庭の成長・枯死処理を進めた直後に、翌ターンぶんの
+## 指定依頼を引き直す（試験中のターン進行であるadvance_exam_turn()では再抽選しない）
 func advance_turn_growth() -> void:
 	GameStateGardenDelegate.advance_turn_growth(self)
+	GameStateGuildDelegate.reroll_daily_order(self)
 
 
 func execute_alchemy(recipe_id: StringName, material_instance_ids: Array[String]) -> Result:
@@ -450,6 +458,7 @@ func reset_for_test() -> void:
 	_pending_products = []
 	_alchemy_slot_count = GameBalance.ALCHEMY_SLOT_COUNT_DEFAULT
 	_current_daily_order = null
+	_daily_order_masters = []
 	_current_rank_id = GameBalance.INITIAL_RANK_ID
 	_rank_masters = {}
 	_rank_state = RankState.new()
