@@ -170,10 +170,16 @@ func _workshop(main: MainScene) -> WorkshopScreen:
 
 ## 庭の種一覧から指定の種を1つ植え付ける。種マスターはフィクスチャで差し替えていないため
 ## 実マスターデータの行（SeedEntry_<seed_id>）をそのまま押す。
+## 🔴 PlantButtonはdisabled状態でもコード経由のpressed発行を抑止しないため、押下自体が
+## 成立しても植え付けが実際に成功したとは限らない。garden_state.plantsの株数が
+## 押下前後で1件増えていることまで確認し、slot_full等での静かな失敗を検出できるようにする
 func _plant_seed(main: MainScene, seed_id: StringName) -> void:
 	var row := _garden(main).find_child("SeedEntry_%s" % seed_id, true, false) as SeedEntryRow
 	assert_object(row).is_not_null()
+	var plants_before: int = (GameState.get_state()["garden_state"] as GardenState).plants.size()
 	_press(row, "PlantButton")
+	var plants_after: int = (GameState.get_state()["garden_state"] as GardenState).plants.size()
+	assert_int(plants_after).is_equal(plants_before + 1)
 
 
 ## 🔵 test_main_scene_happy_path.gdの同名ヘルパー踏襲。OptionButtonはselect()だけでは
@@ -305,7 +311,14 @@ func test_MainSceneと4画面のインスタンスIDを観測できる() -> void
 	var ids := _screen_instance_ids(main)
 
 	assert_int(ids.size()).is_equal(SCREEN_NODE_NAMES.size() + 1)
-	assert_array(ids).contains_exactly(_screen_instance_ids(main))
+	# 🔴 同じ呼び出しの結果同士を比較する自己比較は、find_child()が誤ったノードに
+	# マッチしていても常にパスしてしまうため検証力がない（PR#44レビュー指摘対応）。
+	# 各IDが有効値（0より大きい）かつ互いに重複していないことを直接検証する。
+	var seen_ids: Dictionary = {}
+	for id in ids:
+		assert_int(id).is_greater(0)
+		assert_bool(seen_ids.has(id)).is_false()
+		seen_ids[id] = true
 
 
 # 正常系: G→Fの前半シナリオ（通常ターン→ランク判定→試験→合格→工房）
