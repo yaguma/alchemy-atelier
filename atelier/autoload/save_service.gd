@@ -46,10 +46,14 @@ func save_to_slot(slot: int) -> Result:
 	var data := GameStateSaveDelegate.collect_save_data(GameState)
 	data["saved_at_unix"] = int(Time.get_unix_time_from_system())
 
-	var dir_error := DirAccess.make_dir_recursive_absolute(SAVE_DIR)
-	if dir_error != OK:
-		push_error("セーブディレクトリの作成に失敗しました: %s" % error_string(dir_error))
-		return Result.fail(ERROR_DIR_CREATE_FAILED)
+	# 🔴 コードレビュー指摘対応。初回セーブ以降はSAVE_DIRが既に存在するため、
+	# 毎回のオートセーブでmake_dir_recursive_absolute()を再実行する（ディレクトリ存在確認の
+	# syscallが無駄になる）のを避け、未作成の場合のみ作成する
+	if not DirAccess.dir_exists_absolute(SAVE_DIR):
+		var dir_error := DirAccess.make_dir_recursive_absolute(SAVE_DIR)
+		if dir_error != OK:
+			push_error("セーブディレクトリの作成に失敗しました: %s" % error_string(dir_error))
+			return Result.fail(ERROR_DIR_CREATE_FAILED)
 
 	var file := FileAccess.open(_slot_path(slot), FileAccess.WRITE)
 	if file == null:
@@ -163,3 +167,16 @@ func autosave() -> void:
 	var result := save_to_slot(active_slot)
 	if not result.success:
 		push_warning("オートセーブに失敗しました: slot=%d error=%s" % [active_slot, result.error_code])
+
+
+## 🔴 コードレビュー指摘対応。SaveServiceはAutoload（プロセス内で単一）のため、
+## GameStateと同様にテスト分離用のリセットAPIを持つ（state-management.md「テスト用API」・
+## godot-debug-tools.md「雛形1」準拠）。従来は各テストファイルがactive_slot/_pending_restoreへ
+## 直接アクセスしてリセットしており、リセット漏れがあると以後のテストでset_phase()経由の
+## autosave()が実ファイルへ書き込み続けてしまっていた。GameStateTestSupport.guard()は
+## GameStateScript非依存の共有ヘルパーのためそのまま流用する。
+func reset_for_test() -> void:
+	if not GameStateTestSupport.guard("reset_for_test"):
+		return
+	active_slot = -1
+	_pending_restore = {}

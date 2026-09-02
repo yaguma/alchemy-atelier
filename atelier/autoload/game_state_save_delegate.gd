@@ -15,9 +15,7 @@ const GameStateScript = preload("res://autoload/game_state.gd")
 ## 🟡 Resource参照（_current_daily_order, ProductInstance.daily_order_snapshot）はIDのみを保存し、
 ## ロード時にマスターデータから引き直す前提とする（Resource自体をJSONへ埋め込まない）。
 static func collect_save_data(state: GameStateScript) -> Dictionary:
-	var unlocked_recipe_ids: Array[String] = []
-	for recipe_id in state._unlocked_recipe_ids:
-		unlocked_recipe_ids.append(String(recipe_id))
+	var unlocked_recipe_ids := _string_names_to_strings(state._unlocked_recipe_ids)
 
 	var seed_inventory: Array[Dictionary] = []
 	for entry in state._seed_inventory:
@@ -79,9 +77,7 @@ static func _collect_garden_state(garden_state: GardenState) -> Dictionary:
 static func _collect_inventory(inventory: Array[MaterialInstance]) -> Array:
 	var collected: Array[Dictionary] = []
 	for material in inventory:
-		var trait_tags: Array[String] = []
-		for tag in material.trait_tags:
-			trait_tags.append(String(tag))
+		var trait_tags := _string_names_to_strings(material.trait_tags)
 		var entry := {
 			"instance_id": material.instance_id,
 			"material_id": String(material.material_id),
@@ -98,9 +94,7 @@ static func _collect_inventory(inventory: Array[MaterialInstance]) -> Array:
 static func _collect_pending_products(pending_products: Array[ProductInstance]) -> Array:
 	var collected: Array[Dictionary] = []
 	for product in pending_products:
-		var activated_traits: Array[String] = []
-		for activated_trait in product.activated_traits:
-			activated_traits.append(String(activated_trait))
+		var activated_traits := _string_names_to_strings(product.activated_traits)
 		var snapshot := product.daily_order_snapshot
 		var entry := {
 			"recipe_id": String(product.recipe_id),
@@ -143,9 +137,7 @@ static func restore_save_data(state: GameStateScript, data: Dictionary) -> void:
 			{"seed_id": StringName(entry["seed_id"]), "count": int(entry["count"])}
 		)
 
-	var unlocked_recipe_ids: Array[StringName] = []
-	for recipe_id in data["unlocked_recipe_ids"]:
-		unlocked_recipe_ids.append(StringName(recipe_id))
+	var unlocked_recipe_ids := _strings_to_string_names(data["unlocked_recipe_ids"])
 
 	var purchased_upgrade_counts: Dictionary = {}
 	var saved_counts: Dictionary = data["purchased_upgrade_counts"]
@@ -183,6 +175,22 @@ static func restore_save_data(state: GameStateScript, data: Dictionary) -> void:
 	state._purchased_upgrade_counts = purchased_upgrade_counts
 
 
+## 🔴 コードレビュー指摘対応。collect_save_data()/restore_save_data()で7箇所に重複していた
+## Array[StringName]↔Array[String]変換ループを共通ヘルパーへ集約する。
+static func _string_names_to_strings(values: Array) -> Array[String]:
+	var result: Array[String] = []
+	for value in values:
+		result.append(String(value))
+	return result
+
+
+static func _strings_to_string_names(values: Array) -> Array[StringName]:
+	var result: Array[StringName] = []
+	for value in values:
+		result.append(StringName(value))
+	return result
+
+
 ## 🟡 保存済みIDに一致するDailyOrderMasterをロード済みマスターから線形探索して返す。
 ## 空文字列（＝保存時点で指定依頼なし）、およびマスターデータ側の変更でIDが消えた場合は
 ## 例外を投げずnullを返す（「本日の指定なし」への安全側フォールバック。CON-010と同じ扱い）。
@@ -217,9 +225,7 @@ static func _restore_garden_state(data: Dictionary) -> GardenState:
 static func _restore_inventory(data: Array) -> Array[MaterialInstance]:
 	var inventory: Array[MaterialInstance] = []
 	for entry in data:
-		var trait_tags: Array[StringName] = []
-		for tag in entry["trait_tags"]:
-			trait_tags.append(StringName(tag))
+		var trait_tags := _strings_to_string_names(entry["trait_tags"])
 		inventory.append(
 			MaterialInstance.new(
 				String(entry["instance_id"]),
@@ -240,9 +246,7 @@ static func _restore_pending_products(
 ) -> Array[ProductInstance]:
 	var pending_products: Array[ProductInstance] = []
 	for entry in data:
-		var activated_traits: Array[StringName] = []
-		for activated_trait in entry["activated_traits"]:
-			activated_traits.append(StringName(activated_trait))
+		var activated_traits := _strings_to_string_names(entry["activated_traits"])
 		var product := ProductInstance.new(
 			StringName(entry["recipe_id"]),
 			int(entry["quality_score"]),

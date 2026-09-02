@@ -80,6 +80,12 @@ func _ready() -> void:
 	# 🔵 FR-004。起動時点のcurrent_phaseに表示を合わせる。.tscn側の初期visibleに依存すると
 	# 「シーンの初期値」と「GameStateの実際のフェーズ」が二重管理になるため、必ずここで揃える
 	_apply_visible_phase(GameState.get_state()["current_phase"])
+	# 🔴 コードレビュー指摘対応。SaveService.apply_pending_restore()はGameStateの
+	# private fieldを直接書き換えるためphase_changedが発火せず、_on_phase_changed()経由の
+	# タブ無効化（_set_tabs_disabled）が復帰しない。試験中/終局のセーブをロードした直後も
+	# 庭⇔調合タブが操作可能なままになる（試験からの離脱防止が抜ける）のを防ぐため、
+	# 起動時のタブ状態もGameStateの実際の状態から明示的に導出する
+	_set_tabs_disabled(_should_tabs_be_disabled_on_load())
 
 
 # 🔵 FR-005。GameStateはAutoloadで本ノードより寿命が長いため明示的なdisconnect()が必須。
@@ -263,3 +269,12 @@ func _is_known_phase(phase: StringName) -> bool:
 			return true
 		_:
 			return false
+
+
+# 🔴 コードレビュー指摘対応。起動直後（ロード直後を含む）のタブ無効化状態を、
+# シグナル発火に頼らずGameStateの現在値から直接導出する。判定基準は既存の
+# タブ無効化トリガ（_on_exam_started/_on_exam_outcome_confirmed/_on_game_cleared/
+# _on_game_over）と同じ条件（試験中、または終局でresultへ遷移済み）に揃える
+func _should_tabs_be_disabled_on_load() -> bool:
+	var state := GameState.get_state()
+	return bool(state["in_exam"]) or state["current_phase"] == PHASE_RESULT

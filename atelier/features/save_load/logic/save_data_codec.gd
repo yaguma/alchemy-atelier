@@ -20,9 +20,13 @@ static func calculate_checksum(data: Dictionary) -> String:
 	return JSON.stringify(normalized).sha256_text()
 
 
-## 🔵 dataをチェックサム付きの永続化用Dictionaryにラップして返す。
+## 🔵 dataをバージョン・チェックサム付きの永続化用Dictionaryにラップして返す。
+## 🔴 コードレビュー指摘対応。SAVE_FORMAT_VERSIONを実際にファイルへ書き込む
+## （従来はコメント上の予約のみで実装が伴わず、既存の全セーブファイルにバージョン情報が
+## 一切残らないまま蓄積してしまっていた）。読み込み側（validate_and_unwrap）は
+## 引き続きこの値を検証しない（現スコープの割り切りは変えない）。
 static func wrap_with_checksum(data: Dictionary) -> Dictionary:
-	return {"data": data, "checksum": calculate_checksum(data)}
+	return {"version": SAVE_FORMAT_VERSION, "data": data, "checksum": calculate_checksum(data)}
 
 
 ## 🔵 JSON.parse()が返した生のVariantを検証し、正当ならdata部分のDictionaryを返す。

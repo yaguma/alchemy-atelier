@@ -1,17 +1,17 @@
 extends GdUnitTestSuite
 
+const SaveSlotTestHelpers = preload("res://tests/mocks/save_slot_test_helpers.gd")
+
 
 func before_test() -> void:
 	GameState.reset_for_test()
-	SaveService.active_slot = -1
-	SaveService._pending_restore = {}
-	_cleanup_slots()
+	SaveService.reset_for_test()
+	SaveSlotTestHelpers.cleanup_slots()
 
 
 func after_test() -> void:
-	SaveService.active_slot = -1
-	SaveService._pending_restore = {}
-	_cleanup_slots()
+	SaveService.reset_for_test()
+	SaveSlotTestHelpers.cleanup_slots()
 
 
 # 正常系（表示）
@@ -42,7 +42,7 @@ func test_保存済みスロットのみつづきから表示になり保存値�
 
 func test_破損スロットは壊れている旨の表示になる() -> void:
 	assert_bool(SaveService.save_to_slot(2).success).is_true()
-	_corrupt_slot_file(2)
+	SaveSlotTestHelpers.corrupt_slot_file(self, 2)
 
 	var screen := _make_screen()
 
@@ -79,7 +79,7 @@ func test_保存済みスロットのボタン押下でpending_restoreへ復元�
 
 func test_破損スロットのボタン押下でシグナルが発行され遷移は要求されない() -> void:
 	assert_bool(SaveService.save_to_slot(1).success).is_true()
-	_corrupt_slot_file(1)
+	SaveSlotTestHelpers.corrupt_slot_file(self, 1)
 
 	var screen := _make_screen()
 	monitor_signals(screen, false)
@@ -102,29 +102,3 @@ func _make_screen() -> SlotSelectScreen:
 	# 実際のシーン差し替えはGdUnit4のテストランナー自身のcurrent_sceneを巻き込むため抑止する
 	screen.scene_transition_enabled = false
 	return screen
-
-
-func _cleanup_slots() -> void:
-	for slot in range(SaveService.SLOT_COUNT):
-		var path: String = SaveService._slot_path(slot)
-		if FileAccess.file_exists(path):
-			DirAccess.remove_absolute(path)
-
-
-## 保存済みファイルのgold値を1文字だけ書き換え、JSONとしては正当なまま
-## チェックサムのみ不一致になる破損を作る
-func _corrupt_slot_file(slot: int) -> void:
-	var path: String = SaveService._slot_path(slot)
-	var read_file := FileAccess.open(path, FileAccess.READ)
-	var text := read_file.get_as_text()
-	read_file.close()
-
-	var marker := '"gold":'
-	var pos := text.find(marker) + marker.length()
-	assert_int(pos).is_greater(marker.length() - 1)
-	var replacement := "9" if text[pos] != "9" else "8"
-	var corrupted := text.substr(0, pos) + replacement + text.substr(pos + 1)
-
-	var write_file := FileAccess.open(path, FileAccess.WRITE)
-	write_file.store_string(corrupted)
-	write_file.close()

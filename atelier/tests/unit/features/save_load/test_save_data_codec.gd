@@ -44,6 +44,14 @@ func test_dataとchecksumを持つDictionaryにラップする() -> void:
 	assert_dict(wrapped).contains_key_value("checksum", SaveDataCodec.calculate_checksum(data))
 
 
+# 正常系
+# 🔴 コードレビュー指摘対応。SAVE_FORMAT_VERSIONが実際にラップ結果へ書き込まれることを保証する
+func test_ラップ結果にSAVE_FORMAT_VERSIONが書き込まれる() -> void:
+	var wrapped := SaveDataCodec.wrap_with_checksum({"gold": 100})
+
+	assert_dict(wrapped).contains_key_value("version", SaveDataCodec.SAVE_FORMAT_VERSION)
+
+
 # 境界値
 func test_空のDictionaryもラップできる() -> void:
 	var wrapped := SaveDataCodec.wrap_with_checksum({})

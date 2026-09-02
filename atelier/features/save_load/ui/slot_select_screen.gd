@@ -93,9 +93,23 @@ static func _format_summary(summary: SaveSlotSummary) -> String:
 			summary.current_rank_id,
 			summary.gold,
 			summary.current_turn,
-			Time.get_datetime_string_from_unix_time(summary.saved_at_unix, true),
+			_format_local_datetime(summary.saved_at_unix),
 		]
 	)
+
+
+## 🔴 コードレビュー指摘対応。Time.get_datetime_string_from_unix_time()は第2引数が
+## セパレータ（Tか空白か）の切替のみでタイムゾーン変換を行わず、常にUTC表示になる。
+## そのためJST等UTC以外のプレイヤーには実際のセーブ時刻からズレた値が表示されてしまう。
+## get_datetime_dict_from_unix_time()自体もこのGodotバージョンでは引数を1つしか取らず
+## （utc切替オプションを持たない）常にUTC解釈のため、get_time_zone_from_system()の
+## オフセット（分）を保存済みunix時刻へ加算してからUTC関数へ渡すことでローカル時刻を得る
+## （Godotでunix時刻をローカル時刻表示する定番の回避策）。
+static func _format_local_datetime(unix_time: int) -> String:
+	var bias_minutes: int = Time.get_time_zone_from_system()["bias"]
+	var local_unix_time := unix_time + bias_minutes * 60
+	var d := Time.get_datetime_dict_from_unix_time(local_unix_time)
+	return "%04d-%02d-%02d %02d:%02d" % [d["year"], d["month"], d["day"], d["hour"], d["minute"]]
 
 
 ## 🔵 選択スロットをSaveServiceへ確定させ、成功時のみmain.tscnへ遷移する。

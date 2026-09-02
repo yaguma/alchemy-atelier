@@ -7,6 +7,8 @@ extends GdUnitTestSuite
 ## スロット選択画面のUI挙動はtest_slot_select_screen.gdがカバー済みのため、
 ## 本ファイルは「シーン起動を跨いで値が繋がるか」のみを扱う。
 
+const SaveSlotTestHelpers = preload("res://tests/mocks/save_slot_test_helpers.gd")
+
 const BOOT_SCENE_PATH := "res://scenes/boot.tscn"
 const MAIN_SCENE_PATH := "res://scenes/main.tscn"
 const SLOT_SELECT_SCENE_PATH := "res://features/save_load/ui/slot_select_screen.tscn"
@@ -21,15 +23,13 @@ const SAVED_GOLD := 500
 
 func before_test() -> void:
 	GameState.reset_for_test()
-	SaveService.active_slot = -1
-	SaveService._pending_restore = {}
-	_cleanup_slots()
+	SaveService.reset_for_test()
+	SaveSlotTestHelpers.cleanup_slots()
 
 
 func after_test() -> void:
-	SaveService.active_slot = -1
-	SaveService._pending_restore = {}
-	_cleanup_slots()
+	SaveService.reset_for_test()
+	SaveSlotTestHelpers.cleanup_slots()
 	GameState.reset_for_test()
 
 
@@ -142,10 +142,3 @@ func _save_current_progress_to_slot(slot: int) -> void:
 	_load_all_master_data()
 	GameState._set_gold_for_test(SAVED_GOLD)
 	assert_bool(SaveService.save_to_slot(slot).success).is_true()
-
-
-func _cleanup_slots() -> void:
-	for slot in range(SaveService.SLOT_COUNT):
-		var path: String = SaveService._slot_path(slot)
-		if FileAccess.file_exists(path):
-			DirAccess.remove_absolute(path)

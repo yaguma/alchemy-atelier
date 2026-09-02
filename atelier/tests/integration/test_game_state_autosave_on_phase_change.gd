@@ -1,18 +1,20 @@
 extends GdUnitTestSuite
 
+const SaveSlotTestHelpers = preload("res://tests/mocks/save_slot_test_helpers.gd")
+
 const TEST_SLOT := 0
 
 
 func before_test() -> void:
 	GameState.reset_for_test()
 	# 🔵 Autoloadのため各テストで明示的に未選択へ戻す（他テストからの汚染防止）
-	SaveService.active_slot = -1
-	_cleanup_slots()
+	SaveService.reset_for_test()
+	SaveSlotTestHelpers.cleanup_slots()
 
 
 func after_test() -> void:
-	SaveService.active_slot = -1
-	_cleanup_slots()
+	SaveService.reset_for_test()
+	SaveSlotTestHelpers.cleanup_slots()
 
 
 # 正常系
@@ -66,13 +68,3 @@ func test_同一フェーズへのset_phaseでは書き込みが発生しない(
 	GameState.set_phase(&"garden")
 
 	assert_bool(FileAccess.file_exists(SaveService._slot_path(TEST_SLOT))).is_false()
-
-
-# ヘルパー
-
-
-func _cleanup_slots() -> void:
-	for slot in range(SaveService.SLOT_COUNT):
-		var path: String = SaveService._slot_path(slot)
-		if FileAccess.file_exists(path):
-			DirAccess.remove_absolute(path)

@@ -1,17 +1,17 @@
 extends GdUnitTestSuite
 
+const SaveSlotTestHelpers = preload("res://tests/mocks/save_slot_test_helpers.gd")
+
 
 func before_test() -> void:
 	GameState.reset_for_test()
-	SaveService.active_slot = -1
-	SaveService._pending_restore = {}
-	_cleanup_slots()
+	SaveService.reset_for_test()
+	SaveSlotTestHelpers.cleanup_slots()
 
 
 func after_test() -> void:
-	SaveService.active_slot = -1
-	SaveService._pending_restore = {}
-	_cleanup_slots()
+	SaveService.reset_for_test()
+	SaveSlotTestHelpers.cleanup_slots()
 
 
 # 正常系
@@ -75,7 +75,7 @@ func test_active_slot設定後のautosaveがスロットを更新する() -> voi
 func test_破損スロットのselect_slot_and_restoreは失敗しpendingを空のままにする() -> void:
 	GameState._set_gold_for_test(1234)
 	assert_bool(SaveService.save_to_slot(2).success).is_true()
-	_corrupt_slot_file(2)
+	SaveSlotTestHelpers.corrupt_slot_file(self, 2)
 
 	var result := SaveService.select_slot_and_restore(2)
 
@@ -95,32 +95,3 @@ func test_範囲外スロットのselect_slot_and_restoreは失敗する() -> vo
 	assert_bool(SaveService.select_slot_and_restore(-1).success).is_false()
 	assert_bool(SaveService.select_slot_and_restore(SaveService.SLOT_COUNT).success).is_false()
 	assert_int(SaveService.active_slot).is_equal(-1)
-
-
-# ヘルパー
-
-
-func _cleanup_slots() -> void:
-	for slot in range(SaveService.SLOT_COUNT):
-		var path: String = SaveService._slot_path(slot)
-		if FileAccess.file_exists(path):
-			DirAccess.remove_absolute(path)
-
-
-## 保存済みファイルのgold値を1文字だけ書き換え、JSONとしては正当なまま
-## チェックサムのみ不一致になる破損を作る
-func _corrupt_slot_file(slot: int) -> void:
-	var path: String = SaveService._slot_path(slot)
-	var read_file := FileAccess.open(path, FileAccess.READ)
-	var text := read_file.get_as_text()
-	read_file.close()
-
-	var marker := '"gold":'
-	var pos := text.find(marker) + marker.length()
-	assert_int(pos).is_greater(marker.length() - 1)
-	var replacement := "9" if text[pos] != "9" else "8"
-	var corrupted := text.substr(0, pos) + replacement + text.substr(pos + 1)
-
-	var write_file := FileAccess.open(path, FileAccess.WRITE)
-	write_file.store_string(corrupted)
-	write_file.close()

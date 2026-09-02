@@ -1,13 +1,15 @@
 extends GdUnitTestSuite
 
+const SaveSlotTestHelpers = preload("res://tests/mocks/save_slot_test_helpers.gd")
+
 
 func before_test() -> void:
 	GameState.reset_for_test()
-	_cleanup_slots()
+	SaveSlotTestHelpers.cleanup_slots()
 
 
 func after_test() -> void:
-	_cleanup_slots()
+	SaveSlotTestHelpers.cleanup_slots()
 
 
 # 正常系
@@ -88,7 +90,7 @@ func test_未保存スロットのload_from_slotは失敗する() -> void:
 func test_破損したファイルのload_from_slotは失敗する() -> void:
 	GameState._set_gold_for_test(1234)
 	assert_bool(SaveService.save_to_slot(0).success).is_true()
-	_corrupt_slot_file(0)
+	SaveSlotTestHelpers.corrupt_slot_file(self, 0)
 
 	var result := SaveService.load_from_slot(0)
 
@@ -98,7 +100,7 @@ func test_破損したファイルのload_from_slotは失敗する() -> void:
 func test_get_slot_summaryが破損スロットでis_corruptedを返す() -> void:
 	GameState._set_gold_for_test(1234)
 	assert_bool(SaveService.save_to_slot(0).success).is_true()
-	_corrupt_slot_file(0)
+	SaveSlotTestHelpers.corrupt_slot_file(self, 0)
 
 	var summary := SaveService.get_slot_summary(0)
 
@@ -114,32 +116,3 @@ func test_範囲外スロットのsave_to_slotは失敗する() -> void:
 func test_範囲外スロットのload_from_slotは失敗する() -> void:
 	assert_bool(SaveService.load_from_slot(-1).success).is_false()
 	assert_bool(SaveService.load_from_slot(SaveService.SLOT_COUNT).success).is_false()
-
-
-# ヘルパー
-
-
-func _cleanup_slots() -> void:
-	for slot in range(SaveService.SLOT_COUNT):
-		var path: String = SaveService._slot_path(slot)
-		if FileAccess.file_exists(path):
-			DirAccess.remove_absolute(path)
-
-
-## 保存済みファイルのgold値を1文字だけ書き換え、JSONとしては正当なまま
-## チェックサムのみ不一致になる破損を作る
-func _corrupt_slot_file(slot: int) -> void:
-	var path: String = SaveService._slot_path(slot)
-	var read_file := FileAccess.open(path, FileAccess.READ)
-	var text := read_file.get_as_text()
-	read_file.close()
-
-	var marker := '"gold":'
-	var pos := text.find(marker) + marker.length()
-	assert_int(pos).is_greater(marker.length() - 1)
-	var replacement := "9" if text[pos] != "9" else "8"
-	var corrupted := text.substr(0, pos) + replacement + text.substr(pos + 1)
-
-	var write_file := FileAccess.open(path, FileAccess.WRITE)
-	write_file.store_string(corrupted)
-	write_file.close()
