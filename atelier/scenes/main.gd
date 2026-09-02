@@ -44,6 +44,12 @@ func _enter_tree() -> void:
 	# 🔵 指定依頼の初回抽選は解禁レシピ・ランクの特性解禁状況に依存するため、
 	# ランクマスターのロード後に呼ぶ（順序を入れ替えないこと）
 	GameState.load_daily_order_master_data()
+	# 🔵 スロット選択画面で保留されたセーブデータをここで適用する。マスターデータの
+	# ロード完了後でなければならない（current_daily_order_id等のID→Resource解決に必要）。
+	# また指定依頼はload_daily_order_master_data()内で毎回抽選し直されるため、
+	# 復元は必ずその後に置くこと（前に置くと復元した指定依頼が抽選結果で上書きされる）。
+	# 🔵 スロット未選択（テスト・BootSceneを経ない直接起動）では保留が空のため空振りする
+	SaveService.apply_pending_restore()
 
 
 func _ready() -> void:
