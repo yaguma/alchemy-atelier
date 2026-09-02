@@ -34,7 +34,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | Language | GDScript |
 | Unit Test | GdUnit4を採用（2026-08-10、Godot 4.7のAsset Store移行期にGUTが導入できなかったため変更） |
 
-セーブ/ロード機能、タイトル画面・設定画面等の周辺機能は現時点の設計スコープ外（[`requirements.md`](docs/spec/atelier-alchemy-core/requirements.md) 冒頭・[`ui-design/overview.md`](docs/design/atelier-alchemy-core/ui-design/overview.md) 画面一覧参照）。
+🔴 2026-09-03修正: 本節はセーブ/ロード機能を「周辺機能・設計スコープ外」と記載したまま長期間更新されておらず、実際には`atelier/features/save_load/`・`atelier/autoload/save_service.gd`としてPR #45（`feat/save-load-system`ブランチ）で実装済みである（3固定スロット・チェックサム付き永続化・スロット選択画面）。`requirements.md`・`ui-design/overview.md`は依然としてこの実装を反映しておらず、要更新のまま残っている。タイトル画面・設定画面は引き続き未実装・設計スコープ外。
 
 ## アーキテクチャ方針（設計方針・5機能で実装済み）
 

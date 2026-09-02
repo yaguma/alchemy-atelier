@@ -153,6 +153,11 @@ func set_phase(next: StringName) -> void:
 	var previous := _current_phase
 	_current_phase = next
 	phase_changed.emit(previous, next)
+	# 🔵 フェーズが実際に変わった時のみオートセーブする（同一フェーズへの冪等な呼び出しでの
+	# 無駄な書き込みを避ける）。SaveService.active_slotが未選択（-1、既定値）のテスト環境等では
+	# SaveService.autosave()自身が即returnするため、既存テストへのファイルI/O副作用はない
+	if previous != next:
+		SaveService.autosave()
 
 
 # 🔴 500行ルール対応。以下、本番ロジックの実装本体は機能別のGameState*Delegateへ委譲する

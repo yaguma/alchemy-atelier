@@ -1,6 +1,18 @@
 class_name BootScene
 extends Control
 
+# 🔵 起動直後の遷移先。ゲーム本編（main.tscn）へ直行せずスロット選択画面を挟むことで、
+# 「続きから／新規開始」の選択がマスターデータロード（MainScene._enter_tree()）より
+# 前に確定する。復元自体はMainScene側のSaveService.apply_pending_restore()が行う
+const NEXT_SCENE_PATH := "res://features/save_load/ui/slot_select_screen.tscn"
+
+# 🟡 遷移を実際に実行するか。統合テストではシーン差し替えがGdUnit4のテストランナー自身の
+# current_sceneを巻き込むため、テスト側でfalseにして遷移要求の有無のみを検証する
+# （slot_select_screen.gdのscene_transition_enabledと同方針）
+var scene_transition_enabled: bool = true
+
+var _requested_next_scene_path: String = ""
+
 @onready var _status_label: Label = %StatusLabel
 
 
@@ -11,9 +23,17 @@ func _ready() -> void:
 	if not MasterDataLoader.validate_references([]):
 		push_error("マスターデータのID相互参照が解決できません")
 		return
+	_requested_next_scene_path = NEXT_SCENE_PATH
+	if not scene_transition_enabled:
+		return
 	# _ready()実行中（シーンツリー構築中）にchange_scene_to_fileを直接呼ぶと
 	# "Parent node is busy adding/removing children"エラーになるためcall_deferredで遅延させる
-	get_tree().change_scene_to_file.call_deferred("res://scenes/main.tscn")
+	get_tree().change_scene_to_file.call_deferred(NEXT_SCENE_PATH)
+
+
+## 🔵 遷移先として要求されたシーンパスを返す（テスト用の観測点）。未要求なら空文字列。
+func get_requested_next_scene_path() -> String:
+	return _requested_next_scene_path
 
 
 func _apply_theme() -> void:
