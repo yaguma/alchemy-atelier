@@ -19,10 +19,16 @@ const PHASE_RESULT := &"result"
 # 🔴 未知フェーズ時に「どの画面も可視でない」ことを表す番兵値（AC-001異常系）
 const PHASE_NONE := &""
 
+# 🔵 FR-103。SettingsPanelはTitleScreen・RankHud（本シーン）共通のコンポーネント
+const SettingsPanelScene := preload("res://features/settings/ui/settings_panel.tscn")
+
 # 🟡 FR-104, FR-105。工房を開く直前のフェーズを復帰先として保持する。current_phaseと
 # 一時的に二重保持になるが、GameStateへ復帰先フィールドを追加しない方針（FR-404）に沿った
 # requirements.md AC-004の許容例外。初期値は既定の復帰先である庭
 var _phase_before_workshop: StringName = PHASE_GARDEN
+
+# 🔵 FR-407。多重起動防止のガードに使う。closedを受けてnullへ戻す（title_screen.gdと同型）
+var _settings_panel: SettingsPanel = null
 
 @onready var _garden_screen: GardenScreen = %GardenScreen  # 🔵
 @onready var _alchemy_screen: AlchemyScreen = %AlchemyScreen  # 🔵
@@ -30,6 +36,9 @@ var _phase_before_workshop: StringName = PHASE_GARDEN
 @onready var _result_screen: ResultScreen = %ResultScreen  # 🔵
 @onready var _garden_tab_button: Button = %GardenTabButton  # 🔵 FR-101
 @onready var _alchemy_tab_button: Button = %AlchemyTabButton  # 🔵 FR-102
+@onready var _rank_hud: RankHud = %RankHud  # 🔵 FR-103
+# 🔵 4画面より後ろの子として配置しているため、描画順で常に最前面になる
+@onready var _settings_overlay_layer: Control = %SettingsOverlayLayer  # 🔵 FR-103
 
 
 # 🔴 FR-006。ロードを_ready()ではなく_enter_tree()で行うのは、Godotが_ready()を子→親の順で
@@ -65,6 +74,7 @@ func _ready() -> void:
 	_alchemy_screen.shop_requested.connect(_on_shop_requested)
 	_workshop_screen.screen_closed.connect(_on_workshop_closed)
 	_alchemy_screen.delivery_confirmed.connect(_on_delivery_confirmed)  # 🔵 FR-106, FR-107
+	_rank_hud.settings_requested.connect(_on_settings_requested)  # 🔵 FR-103
 
 	# 🔵 FR-108〜FR-113。この4本の接続順（記述順）を変更しないこと。
 	# commit_exam_outcome()はexam_outcome_confirmed→game_cleared/game_overの順に
@@ -179,6 +189,22 @@ func _on_workshop_closed() -> void:
 # 購読するため、MainSceneはGuildDeliveryScreenの存在を意識しない（FR-402）
 func _on_delivery_confirmed() -> void:
 	GameState.set_phase(PHASE_GARDEN)
+
+
+# 🔵 FR-103, FR-402, FR-403, FR-407。すでに開いているパネルがあれば何もしない。
+# フェーズ遷移もオートセーブも伴わないため、現在の画面表示・GameState・SaveServiceは無影響
+func _on_settings_requested() -> void:
+	if is_instance_valid(_settings_panel):
+		return
+	var panel: SettingsPanel = SettingsPanelScene.instantiate()
+	panel.closed.connect(_on_settings_panel_closed)
+	_settings_panel = panel
+	_settings_overlay_layer.add_child(panel)
+
+
+# 🔵 参照を手放し、次回の設定ボタン押下で再度開けるようにする
+func _on_settings_panel_closed() -> void:
+	_settings_panel = null
 
 
 # 🔵 FR-108, FR-201。試験は調合画面で行うためalchemyへ切り替え、あわせてタブを操作不能にして
