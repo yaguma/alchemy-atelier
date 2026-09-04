@@ -19,6 +19,7 @@ config/features=PackedStringArray("4.7")
 GameState="*res://autoload/game_state.gd"
 RngService="*res://autoload/rng_service.gd"
 SaveService="*res://autoload/save_service.gd"
+SettingsService="*res://autoload/settings_service.gd"
 
 [editor_plugins]
 

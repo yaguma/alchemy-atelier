@@ -25,3 +25,8 @@ layout_mode = 2
 [node name="GoldLabel" type="Label" parent="."]
 unique_name_in_owner = true
 layout_mode = 2
+
+[node name="SettingsButton" type="Button" parent="."]
+unique_name_in_owner = true
+layout_mode = 2
+text = "設定"
