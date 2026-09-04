@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GODOT_VERSION: 4.7.1-stable
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+          cache: pip
+          cache-dependency-path: .github/workflows/requirements.txt
+
+      - name: Install gdtoolkit
+        run: pip install -r .github/workflows/requirements.txt
+
+      - name: Run gdlint
+        working-directory: atelier
+        run: gdlint features/ shared/ autoload/
+
+      - name: Run gdformat --check
+        working-directory: atelier
+        run: gdformat --check features/ shared/ autoload/
+
+      - name: Cache Godot binary
+        id: godot-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/godot
+          key: godot-${{ env.GODOT_VERSION }}-linux-x86_64
+
+      - name: Download Godot binary
+        if: steps.godot-cache.outputs.cache-hit != 'true'
+        run: |
+          curl -fsSL -o /tmp/godot.zip \
+            "https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}/Godot_v${GODOT_VERSION}_linux.x86_64.zip"
+          mkdir -p "$HOME/godot"
+          unzip -q /tmp/godot.zip -d "$HOME/godot"
+          mv "$HOME/godot/Godot_v${GODOT_VERSION}_linux.x86_64" "$HOME/godot/godot"
+          chmod +x "$HOME/godot/godot"
+
+      - name: Set GODOT_BIN
+        run: echo "GODOT_BIN=$HOME/godot/godot" >> "$GITHUB_ENV"
+
+      - name: Import project
+        run: $GODOT_BIN --headless --path atelier --import
+
+      - name: Install Xvfb
+        run: sudo apt-get update && sudo apt-get install -y xvfb
+
+      - name: Run GdUnit4 tests
+        working-directory: atelier
+        run: |
+          set +e
+          xvfb-run --auto-servernum bash addons/gdUnit4/runtest.sh -a res://tests/ -c
+          exit_code=$?
+          set -e
+          echo "GdUnit4 exit code: $exit_code"
+          if [ "$exit_code" -ne 0 ] && [ "$exit_code" -ne 101 ]; then
+            exit "$exit_code"
+          fi
