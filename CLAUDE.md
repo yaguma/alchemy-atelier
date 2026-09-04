@@ -34,7 +34,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | Language | GDScript |
 | Unit Test | GdUnit4を採用（2026-08-10、Godot 4.7のAsset Store移行期にGUTが導入できなかったため変更） |
 
-🔴 2026-09-03修正: 本節はセーブ/ロード機能を「周辺機能・設計スコープ外」と記載したまま長期間更新されておらず、実際には`atelier/features/save_load/`・`atelier/autoload/save_service.gd`としてPR #45（`feat/save-load-system`ブランチ）で実装済みである（3固定スロット・チェックサム付き永続化・スロット選択画面）。`requirements.md`・`ui-design/overview.md`は依然としてこの実装を反映しておらず、要更新のまま残っている。タイトル画面・設定画面は引き続き未実装・設計スコープ外。
+🔴 2026-09-03修正: 本節はセーブ/ロード機能を「周辺機能・設計スコープ外」と記載したまま長期間更新されておらず、実際には`atelier/features/save_load/`・`atelier/autoload/save_service.gd`としてPR #45（`feat/save-load-system`ブランチ）で実装済みである（3固定スロット・チェックサム付き永続化・スロット選択画面）。`requirements.md`・`ui-design/overview.md`は2026-09-05付でこの実装を反映済み（`requirements.md`概要・§2「中断/撤退条件」・§8.9、`ui-design/overview.md`画面一覧SCR-007・画面遷移図）。タイトル画面・設定画面は引き続き未実装・設計スコープ外。
 
 ## アーキテクチャ方針（設計方針・5機能で実装済み）
 
@@ -70,7 +70,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 |---|---|---|
 | `docs/concept/atelier-concept.md` | コンセプト設計（v7.0） | 最新 |
 | `docs/concept/experience-core.md` | 体験コア言語化 | 古い（v4.0のまま。参照時は`atelier-concept.md`を優先） |
-| `docs/spec/atelier-alchemy-core/requirements.md` | 要件定義書 | 最新（2026-08-03作成、PRレビュー指摘反映済み） |
+| `docs/spec/atelier-alchemy-core/requirements.md` | 要件定義書 | 最新（2026-08-03作成、PRレビュー指摘反映済み。2026-09-05付でセーブ/ロード機能実装を反映済み） |
 | `docs/design/atelier-alchemy-core/architecture.md` | 技術アーキテクチャ設計 | 最新（2026-08-04新規作成） |
 | `docs/design/atelier-alchemy-core/core-systems.md` | コアシステム設計（庭/調合/ギルド納品/工房強化/ランク進行） | 最新（2026-08-04新規作成） |
 | `docs/design/atelier-alchemy-core/dataflow.md` | データフロー図 | 最新（2026-08-04新規作成） |
@@ -78,7 +78,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | `docs/design/atelier-alchemy-core/decision-log.md` | 意思決定ログ（ADR相当。各設計文書の🔵🔴を集約） | 最新（2026-08-06新規作成） |
 | `docs/design/atelier-alchemy-core/game-mechanics.md` | ゲームメカニクス設計 | 最新（2026-08-04新規作成） |
 | `docs/design/atelier-alchemy-core/balance-design.md` | バランス設計方針（数値本体は大半🟡TBD） | 最新（2026-08-04新規作成） |
-| `docs/design/atelier-alchemy-core/ui-design/` | UI設計（overview + 5画面 + input-system） | 最新（2026-08-04新規作成） |
+| `docs/design/atelier-alchemy-core/ui-design/` | UI設計（overview + 5画面 + input-system） | 最新（2026-08-04新規作成。2026-09-05付でoverview.mdにセーブ/ロード機能実装〔SCR-007スロット選択画面〕を反映済み） |
 | `docs/design/atelier-alchemy-core/data-schema.md` | ランタイム状態・マスターデータ構造 | 最新（2026-08-04新規作成） |
 | `docs/design/atelier-alchemy-core/design-interview.md` | 技術スタック決定のヒアリング記録 | **存在しない**（過去の記載は誤りだった。技術スタック決定の根拠は初回コミットメッセージのみ） |
 | `docs/design/atelier-alchemy-core/prototype-validation-report.md` | 1画面プロトタイプの検証記録 | **存在しない**（過去の記載は誤りだった。別環境の作業記録が混入していたと推測される） |
