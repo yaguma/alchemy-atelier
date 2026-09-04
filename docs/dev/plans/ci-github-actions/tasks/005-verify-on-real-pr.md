@@ -1,7 +1,7 @@
 ---
 id: "005"
 title: "実際のPRでCIワークフローの動作を検証し、必要な調整を行う"
-status: pending
+status: done
 priority: 5
 dependencies: ["002", "003", "004"]
 estimated_complexity: high
