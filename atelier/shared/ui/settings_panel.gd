@@ -107,3 +107,21 @@ func _on_close_pressed() -> void:
 	SettingsService.save_settings()
 	closed.emit()
 	queue_free()
+
+
+## 🔴 コードレビュー指摘対応（simplification）。TitleScreen（features/title/）とMainSceneで
+## 「既存インスタンスがあれば無視、新規生成してoverlay_parentへadd_child、closedで
+## 呼び出し元の参照をnullへ戻す」という多重起動防止パターン（FR-407）が一字一句近い形で
+## 重複していたため、この静的ヘルパーへ集約する。呼び出し元は戻り値を自身の参照フィールドへ
+## 代入し、on_closedコールバックでそのフィールドをnullへ戻す実装のみを担えばよい
+static func open_singleton(
+	current: SettingsPanel, overlay_parent: Node, on_closed: Callable
+) -> SettingsPanel:
+	if is_instance_valid(current):
+		return current
+	var panel: SettingsPanel = (
+		(preload("res://shared/ui/settings_panel.tscn") as PackedScene).instantiate()
+	)
+	panel.closed.connect(on_closed)
+	overlay_parent.add_child(panel)
+	return panel

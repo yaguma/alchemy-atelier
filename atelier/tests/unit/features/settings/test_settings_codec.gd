@@ -113,6 +113,38 @@ func test_型が不正な値を渡すとデフォルト値が返る(
 	_assert_is_default(SettingsCodec.parse(dict))
 
 
+# 異常系
+# 🔴 コードレビュー指摘対応。window_modeは型（int/float）だけでなく
+# DisplayServer.WindowModeの有効範囲（0〜4）チェックも必要（手動編集・破損したJSON対策）
+func test_window_modeが範囲外の値だとデフォルト値が返る(
+	invalid_mode: float,
+	_test_parameters := [
+		[-1.0],
+		[9999.0],
+	]
+) -> void:
+	var dict := _make_non_default_dict()
+	dict["window_mode"] = invalid_mode
+
+	_assert_is_default(SettingsCodec.parse(dict))
+
+
+# 境界値
+func test_window_modeの有効範囲の両端は正しく解釈される(
+	mode: int,
+	_test_parameters := [
+		[DisplayServer.WINDOW_MODE_WINDOWED],
+		[DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN],
+	]
+) -> void:
+	var dict := _make_non_default_dict()
+	dict["window_mode"] = mode
+
+	var result := SettingsCodec.parse(dict)
+
+	assert_int(result.window_mode).is_equal(mode)
+
+
 # 境界値
 func test_音量は0_0から1_0にクランプされる(
 	raw_volume: float,

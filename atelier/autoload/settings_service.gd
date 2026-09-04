@@ -15,6 +15,15 @@ const BUS_SE := "SE"
 var _data := SettingsData.new()
 
 
+## 🔴 コードレビュー指摘対応。load_settings()はAutoload自身のライフサイクルから
+## 一度も呼ばれておらず、保存済み設定が起動時に一切復元されない不具合があった
+## （テストコードからのみ呼ばれ、本番の起動経路が抜けていた）。SettingsServiceは
+## Autoloadとしてプロセス起動時に必ず一度_ready()が呼ばれるため、ここで読み込むことで
+## BootScene/MainScene等どのシーン構成からでも確実に復元される
+func _ready() -> void:
+	load_settings()
+
+
 ## 🔵 user://settings.jsonを読み込み、内部状態へ反映する。
 ## ファイル不在・オープン失敗・JSONパース失敗・型不正のいずれの場合も
 ## デフォルト値へフォールバックする（例外を投げない。FR-005, FR-008, AC-010）。

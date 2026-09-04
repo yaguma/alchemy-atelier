@@ -19,9 +19,6 @@ const PHASE_RESULT := &"result"
 # 🔴 未知フェーズ時に「どの画面も可視でない」ことを表す番兵値（AC-001異常系）
 const PHASE_NONE := &""
 
-# 🔵 FR-103。SettingsPanelはTitleScreen・RankHud（本シーン）共通のコンポーネント
-const SettingsPanelScene := preload("res://features/settings/ui/settings_panel.tscn")
-
 # 🟡 FR-104, FR-105。工房を開く直前のフェーズを復帰先として保持する。current_phaseと
 # 一時的に二重保持になるが、GameStateへ復帰先フィールドを追加しない方針（FR-404）に沿った
 # requirements.md AC-004の許容例外。初期値は既定の復帰先である庭
@@ -191,15 +188,13 @@ func _on_delivery_confirmed() -> void:
 	GameState.set_phase(PHASE_GARDEN)
 
 
-# 🔵 FR-103, FR-402, FR-403, FR-407。すでに開いているパネルがあれば何もしない。
+# 🔵 FR-103, FR-402, FR-403, FR-407。多重起動防止・生成・破棄後の参照クリアは
+# SettingsPanel.open_singleton()（shared/ui/settings_panel.gd）へ委譲する。
 # フェーズ遷移もオートセーブも伴わないため、現在の画面表示・GameState・SaveServiceは無影響
 func _on_settings_requested() -> void:
-	if is_instance_valid(_settings_panel):
-		return
-	var panel: SettingsPanel = SettingsPanelScene.instantiate()
-	panel.closed.connect(_on_settings_panel_closed)
-	_settings_panel = panel
-	_settings_overlay_layer.add_child(panel)
+	_settings_panel = SettingsPanel.open_singleton(
+		_settings_panel, _settings_overlay_layer, _on_settings_panel_closed
+	)
 
 
 # 🔵 参照を手放し、次回の設定ボタン押下で再度開けるようにする

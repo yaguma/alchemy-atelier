@@ -7,8 +7,6 @@ extends Control
 
 ## 🔵 FR-101。分岐を持たず常にスロット選択画面へ渡す
 const SLOT_SELECT_SCENE_PATH := "res://features/save_load/ui/slot_select_screen.tscn"
-## 🔵 FR-102。SettingsPanelはTitleScreen・RankHud共通のコンポーネント
-const SettingsPanelScene := preload("res://features/settings/ui/settings_panel.tscn")
 const MAIN_THEME := preload("res://shared/theme/main_theme.tres")
 
 ## 🟡 遷移を実際に実行するか。統合テストではシーン差し替えがGdUnit4のテストランナー自身の
@@ -52,14 +50,12 @@ func _on_start_pressed() -> void:
 	get_tree().change_scene_to_file.call_deferred(SLOT_SELECT_SCENE_PATH)
 
 
-## 🔵 FR-102, FR-407。すでに開いているパネルがあれば何もしない
+## 🔵 FR-102, FR-407。多重起動防止・生成・破棄後の参照クリアはSettingsPanel.open_singleton()
+## （shared/ui/settings_panel.gd）へ委譲する
 func _on_settings_pressed() -> void:
-	if is_instance_valid(_settings_panel):
-		return
-	var panel: SettingsPanel = SettingsPanelScene.instantiate()
-	panel.closed.connect(_on_settings_panel_closed)
-	_settings_panel = panel
-	_overlay_layer.add_child(panel)
+	_settings_panel = SettingsPanel.open_singleton(
+		_settings_panel, _overlay_layer, _on_settings_panel_closed
+	)
 
 
 ## 🔵 参照を手放し、次回の「せってい」押下で再度開けるようにする

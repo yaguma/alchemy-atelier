@@ -41,6 +41,19 @@ func test_設定ファイルが未作成ならload_settings後もデフォルト
 	_assert_all_defaults()
 
 
+## 🔴 コードレビュー指摘対応。load_settings()がAutoloadのどのライフサイクルからも
+## 呼ばれておらず、保存済み設定が起動時に一切復元されない不具合があった。
+## _ready()実装がload_settings()を呼ぶことを固定する回帰テスト
+func test_readyがload_settingsを呼び保存済み設定を復元する() -> void:
+	SettingsService.set_bgm_volume(0.4)
+	SettingsService.save_settings()
+	SettingsService.reset_for_test()
+
+	SettingsService._ready()
+
+	assert_float(SettingsService.get_bgm_volume()).is_equal(0.4)
+
+
 func test_set_bgm_volumeで設定した値を取得できる() -> void:
 	SettingsService.set_bgm_volume(0.5)
 

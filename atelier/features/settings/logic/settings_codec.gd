@@ -42,9 +42,26 @@ static func _is_valid(raw: Variant) -> bool:
 		return false
 	var d: Dictionary = raw
 
-	for key in ["bgm_volume", "se_volume", "window_mode"]:
+	for key in ["bgm_volume", "se_volume"]:
 		var value: Variant = d.get(key)
 		if not (value is int or value is float):
 			return false
 
+	if not _is_valid_window_mode(d.get("window_mode")):
+		return false
+
 	return d.get("reduced_effects") is bool
+
+
+## 🔴 コードレビュー指摘対応。型（int/float）だけでなくDisplayServer.WindowModeの
+## 有効範囲（WINDOW_MODE_WINDOWED〜WINDOW_MODE_EXCLUSIVE_FULLSCREEN）内かも検証する。
+## 手動編集・破損したsettings.jsonが範囲外の値を持つ場合、window_set_mode()へ
+## 未定義のenum値を渡してしまうのを防ぐ
+static func _is_valid_window_mode(value: Variant) -> bool:
+	if not (value is int or value is float):
+		return false
+	var mode := int(value)
+	return (
+		mode >= DisplayServer.WINDOW_MODE_WINDOWED
+		and mode <= DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN
+	)

@@ -1,6 +1,6 @@
 extends GdUnitTestSuite
 
-const SCENE_PATH := "res://features/settings/ui/settings_panel.tscn"
+const SCENE_PATH := "res://shared/ui/settings_panel.tscn"
 
 
 func before_test() -> void:
@@ -160,6 +160,45 @@ func test_閉じるボタン押下でパネル自身が解放予約される() -
 	_find_close_button(panel).pressed.emit()
 
 	assert_bool(panel.is_queued_for_deletion()).is_true()
+
+
+# 正常系（open_singleton、TitleScreen/MainSceneの多重起動防止共通ヘルパー）
+# 🔴 コードレビュー指摘対応。TitleScreen/MainSceneに重複していたオーバーレイ開閉ロジックを
+# SettingsPanel.open_singleton()へ集約したための単体テスト
+
+
+func test_open_singletonは現在参照がなければ新規生成しparentへ追加する() -> void:
+	var parent: Control = auto_free(Control.new())
+	add_child(parent)
+
+	var panel := SettingsPanel.open_singleton(null, parent, func() -> void: pass)
+
+	assert_object(panel).is_not_null()
+	assert_bool(parent.get_children().has(panel)).is_true()
+
+
+func test_open_singletonは既存インスタンスがあれば新規生成しない() -> void:
+	var parent: Control = auto_free(Control.new())
+	add_child(parent)
+	var existing := SettingsPanel.open_singleton(null, parent, func() -> void: pass)
+
+	var result := SettingsPanel.open_singleton(existing, parent, func() -> void: pass)
+
+	assert_object(result).is_same(existing)
+	assert_int(parent.get_children().size()).is_equal(1)
+
+
+func test_open_singletonが生成したパネルのclosedでon_closedが呼ばれる() -> void:
+	var parent: Control = auto_free(Control.new())
+	add_child(parent)
+	var closed_events: Array[bool] = []
+	var panel := SettingsPanel.open_singleton(
+		null, parent, func() -> void: closed_events.append(true)
+	)
+
+	_find_close_button(panel).pressed.emit()
+
+	assert_array(closed_events).has_size(1)
 
 
 # 異常系・境界値
