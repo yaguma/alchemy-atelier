@@ -6,6 +6,10 @@ extends Control
 ## 🟡 配置判断: 単一Featureに属さない横断UIコンポーネントのためshared/ui/に新設した。
 ## 🔵 GameStateの読み取りのみを行い、状態変更・フェーズ遷移は一切行わない（自己完結）。
 
+## 🔵 設定ボタン押下の通知のみを行う。SettingsPanelの生成・表示はMainScene側の責務であり、
+## RankHudはSettingsPanel型を一切参照しない（上記の自己完結方針を維持するため）
+signal settings_requested
+
 # 🔵 GuildDeliveryScreen.EXAM_RANK_LABEL_SUFFIXと同じpromotion-exam.md「{ランク名}昇格試験」表記。
 # 他Featureのui/を参照しない運用ルール（architecture.md）に従い定数自体は再定義する
 const EXAM_RANK_LABEL_SUFFIX := "昇格試験"
@@ -23,11 +27,16 @@ const GOLD_FORMAT := "%d G"
 @onready var _quota_bar: ProgressBar = %QuotaBar
 @onready var _turn_remaining_label: Label = %TurnRemainingLabel
 @onready var _gold_label: Label = %GoldLabel
+@onready var _settings_button: Button = %SettingsButton
 
 
 func _ready() -> void:
 	_apply_theme()
 	refresh()
+
+	# 🔵 自ノードの子が発行するsignalのため、破棄時にGodotが自動切断する
+	# （_exit_tree()での明示的なdisconnect()は不要）
+	_settings_button.pressed.connect(_on_settings_button_pressed)
 
 	# 🟡 FR-114。GameStateはAutoloadで本ノードより寿命が長いため、_exit_tree()での
 	# disconnect()が必須になる（下の_exit_tree()と1対1で対応させること）
@@ -89,12 +98,25 @@ func get_quota_ratio() -> float:
 	return _quota_bar.ratio
 
 
+## 設定ボタンを返す（🔵 テスト用。他画面からの押下可否操作を意図した公開ではない）
+func get_settings_button() -> Button:
+	return _settings_button
+
+
 # 🔵 NFR-202。色・フォントサイズはUiTheme定数経由で指定し、ハードコードしない
 func _apply_theme() -> void:
 	for label: Label in [_rank_name_label, _turn_remaining_label, _gold_label]:
 		label.add_theme_font_size_override("font_size", UiTheme.FONT_SIZE_DEFAULT)
 		label.add_theme_color_override("font_color", UiTheme.COLOR_HUD_TEXT)
 	_quota_bar.self_modulate = UiTheme.COLOR_HUD_QUOTA_BAR
+	_settings_button.add_theme_font_size_override("font_size", UiTheme.FONT_SIZE_DEFAULT)
+	_settings_button.add_theme_color_override("font_color", UiTheme.COLOR_HUD_TEXT)
+
+
+# 🔵 昇格試験中も含め常に押下可能。RankHudは通知するのみで、パネル表示や
+# フェーズ遷移といった状態変更は一切行わない
+func _on_settings_button_pressed() -> void:
+	settings_requested.emit()
 
 
 # 🔴 マスター未登録時はGameStateがdisplay_name空のフォールバックRankMasterを返すため、

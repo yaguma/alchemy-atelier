@@ -1,10 +1,10 @@
 class_name BootScene
 extends Control
 
-# 🔵 起動直後の遷移先。ゲーム本編（main.tscn）へ直行せずスロット選択画面を挟むことで、
-# 「続きから／新規開始」の選択がマスターデータロード（MainScene._enter_tree()）より
-# 前に確定する。復元自体はMainScene側のSaveService.apply_pending_restore()が行う
-const NEXT_SCENE_PATH := "res://features/save_load/ui/slot_select_screen.tscn"
+# 🔵 FR-001。起動直後の遷移先はタイトル画面。スロット選択（「続きから／新規開始」）は
+# TitleScreenの「はじめる」以降に移り、マスターデータロード（MainScene._enter_tree()）
+# より前に確定する点は変わらない。復元自体はMainScene側のSaveService.apply_pending_restore()が行う
+const NEXT_SCENE_PATH := "res://features/title/ui/title_screen.tscn"
 
 # 🟡 遷移を実際に実行するか。統合テストではシーン差し替えがGdUnit4のテストランナー自身の
 # current_sceneを巻き込むため、テスト側でfalseにして遷移要求の有無のみを検証する

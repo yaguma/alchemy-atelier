@@ -1,17 +1,15 @@
 extends GdUnitTestSuite
 
-## 起動→スロット選択→ゲーム再開/新規開始のエンドツーエンド結線を検証する。
-## BootSceneの遷移先変更と、MainScene._enter_tree()末尾での
-## SaveService.apply_pending_restore()呼び出しの2点が対象。
+## スロット選択→ゲーム再開/新規開始のエンドツーエンド結線を検証する。
+## MainScene._enter_tree()末尾でのSaveService.apply_pending_restore()呼び出しが対象。
 ## SaveService単体の保存/復元挙動はtest_save_service_pending_restore.gdが、
-## スロット選択画面のUI挙動はtest_slot_select_screen.gdがカバー済みのため、
+## スロット選択画面のUI挙動はtest_slot_select_screen.gdが、
+## BootSceneの遷移先はtest_boot_scene.gdがカバー済みのため、
 ## 本ファイルは「シーン起動を跨いで値が繋がるか」のみを扱う。
 
 const SaveSlotTestHelpers = preload("res://tests/mocks/save_slot_test_helpers.gd")
 
-const BOOT_SCENE_PATH := "res://scenes/boot.tscn"
 const MAIN_SCENE_PATH := "res://scenes/main.tscn"
-const SLOT_SELECT_SCENE_PATH := "res://features/save_load/ui/slot_select_screen.tscn"
 
 ## 🟡 実データ上「item条件・target_recipe_id=recipe_mana_tonic」の依頼。初期解禁レシピは
 ## recipe_healing_potionのみのためMainScene起動時の抽選（reroll_daily_order）では絶対に
@@ -31,21 +29,6 @@ func after_test() -> void:
 	SaveService.reset_for_test()
 	SaveSlotTestHelpers.cleanup_slots()
 	GameState.reset_for_test()
-
-
-# 正常系: BootSceneの遷移先
-
-
-func test_BootSceneはスロット選択画面への遷移を要求する() -> void:
-	var boot := _make_boot()
-
-	assert_str(boot.get_requested_next_scene_path()).is_equal(SLOT_SELECT_SCENE_PATH)
-
-
-func test_BootSceneの遷移先シーンのルートはSlotSelectScreenである() -> void:
-	var runner := scene_runner(BootScene.NEXT_SCENE_PATH)
-
-	assert_object(runner.scene() as SlotSelectScreen).is_not_null()
 
 
 # 正常系: E2Eラウンドトリップ
@@ -111,16 +94,6 @@ func test_apply_pending_restoreはmain起動後に保留を持ち越さない() 
 
 
 # ヘルパー
-
-
-## BootSceneはscene_runner()で起動すると_ready()内のchange_scene_to_fileが
-## GdUnit4のテストランナー自身のcurrent_sceneを差し替えてしまうため、
-## 手動インスタンス化して遷移抑止フラグを立ててからツリーへ追加する
-func _make_boot() -> BootScene:
-	var boot := auto_free(load(BOOT_SCENE_PATH).instantiate()) as BootScene
-	boot.scene_transition_enabled = false
-	add_child(boot)
-	return boot
 
 
 func _make_main() -> MainScene:
