@@ -5,4 +5,4 @@
 reports/
 
 # エクスポートビルド成果物（export_presets.cfgのexport_path出力先）
-build/
+/build/
