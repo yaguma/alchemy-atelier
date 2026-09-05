@@ -126,7 +126,7 @@ docs/
 | `gdlint atelier/features/ atelier/shared/ atelier/autoload/` | 静的解析（`atelier/.gdlintrc`設定を使用） |
 | `gdformat atelier/features/ atelier/shared/ atelier/autoload/` | 自動フォーマット（専用configなし、gdtoolkitデフォルト） |
 | `gdformat --check atelier/features/ atelier/shared/ atelier/autoload/` | フォーマットチェック（コミット前必須） |
-| `godot --headless --path atelier --export-release "<preset>" <output>` | エクスポートビルド（🔴 `export_presets.cfg`未作成のため現時点では未実装） |
+| `godot --headless --path atelier --export-debug "Windows Desktop" build/windows/atelier-alchemy.exe` | エクスポートビルド（Windows Desktop / Debugのみ対応。`atelier/export_presets.cfg`参照。ローカルにエクスポートテンプレート未導入の場合は先にGodotエディタから導入が必要） |
 
 コミット前チェックリスト（`.claude/rules/implement-workflow.md`）: 上記テスト・gdlint・gdformat --checkの3点すべてPass必須。
 
