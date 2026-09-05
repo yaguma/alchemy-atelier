@@ -94,7 +94,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - バランス数値（TBD項目。[`balance-design.md`](docs/design/atelier-alchemy-core/balance-design.md) の🟡🔴項目を参照）の確定
 - 1画面プロトタイプでの「調合で一瞬迷うか」の人間による検証（正式な人間プレイテストはまだ行われていない）
 - 正式なビジュアルデザインガイドの策定（[`ui-design/overview.md`](docs/design/atelier-alchemy-core/ui-design/overview.md) のカラーパレット等は暫定案）
-- CI（GitHub Actions等）・エクスポートビルド設定（`export_presets.cfg`）は未構築
+- 🔴 2026-09-06修正: 本節はCI・エクスポートビルド設定を「ともに未構築」と記載したまま更新されていなかったが、実際にはCI（GitHub Actions）はPR #47（`.github/workflows/ci.yml`）で構築済み。エクスポートビルド設定（`export_presets.cfg`）もWindows Desktop向けDebugビルドのみ整備済み（2026-09-06、[`docs/dev/plans/export-build-settings/`](docs/dev/plans/export-build-settings/)参照）。Release向け設定・他プラットフォーム対応・CIからのエクスポート自動化は未対応
 
 ---
 

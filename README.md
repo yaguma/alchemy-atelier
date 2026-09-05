@@ -41,6 +41,20 @@ Windows環境変数として設定した場合、値は`C:\Godot\godot.exe`の�
 
 Godotのバージョン文字列（例: `4.7.1.stable.official.a13da4feb`）が出力されればOK。
 
+### エクスポートテンプレート（初回のみ）
+
+Godotエディタのメニューから「エディタ > エクスポートテンプレートの管理」を開き、
+使用中のGodotバージョン（4.7系）に対応するテンプレートをダウンロード・インストールする。
+数百MB〜1GB程度のダウンロードを伴うため、CI等では別途キャッシュ戦略が必要（本READMEの対象外）。
+
+## エクスポートビルド（Windows Desktop / Debug）
+
+```bash
+godot --headless --path atelier --export-debug "Windows Desktop" build/windows/atelier-alchemy.exe
+```
+
+出力先は `atelier/build/windows/atelier-alchemy.exe`（Git管理対象外）。エクスポートテンプレート未導入の場合は上記コマンドがエラーで終了するため、先に「エクスポートテンプレート（初回のみ）」を実施すること。
+
 ## テスト実行
 
 ```bash

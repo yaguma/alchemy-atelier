@@ -152,7 +152,7 @@ cd atelier
 | `cd atelier && ./addons/gdUnit4/runtest.sh -a res://tests/unit/features/{feature}/test_{file}.gd` | 特定テストファイルのみ実行 |
 | `gdlint atelier/features/ atelier/shared/ atelier/autoload/` | 静的解析（gdtoolkit） |
 | `gdformat atelier/features/ atelier/shared/ atelier/autoload/` | 自動フォーマット |
-| `godot --headless --path atelier --export-release "<preset>" <output>` | エクスポートビルド（プリセット名は実装着手時に確定） |
+| `godot --headless --path atelier --export-debug "Windows Desktop" <output>` | エクスポートビルド（Windows Desktop向けDebugビルドのみ対応。プリセットは`atelier/export_presets.cfg`で確定済み。Release向け設定・他プラットフォームは未整備） |
 
 `GODOT_BIN`（リネーム済みのGodot実行ファイル絶対パス）はシステム環境変数として事前に設定しておく（[`README.md`](../../README.md)「開発環境セットアップ」参照）。上記コマンド例では既に設定済みであることを前提とし、コマンドごとのインライン指定は行わない。
 

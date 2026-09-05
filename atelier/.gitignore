@@ -3,3 +3,6 @@
 
 # GdUnit4 test reports (auto-generated on each test run)
 reports/
+
+# エクスポートビルド成果物（export_presets.cfgのexport_path出力先）
+/build/
