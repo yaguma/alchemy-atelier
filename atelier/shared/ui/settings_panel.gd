@@ -96,15 +96,17 @@ func _on_reduced_effects_toggled(pressed: bool) -> void:
 	SettingsService.set_reduced_effects(pressed)
 
 
-## 🔵 FR-107, FR-108。永続化してからclosedを発行し、最後に自身を解放する。
-## 解放を最後に置くのは、購読側がハンドラ内で本ノードを参照できるようにするため
+## 🔵 FR-107, FR-108。closedを発行し、最後に自身を解放する。
+## 解放を最後に置くのは、購読側がハンドラ内で本ノードを参照できるようにするため。
+## 🟡 コードレビュー指摘対応。永続化はSettingsServiceの各セッターが変更のたびに
+## 行うようになったため（force quit時のデータ消失対策）、ここでの明示的な
+## save_settings()呼び出しは削除した（重複した空書き込みを避けるため）。
 func _on_close_pressed() -> void:
 	# 🔴 queue_free()はフレーム終了まで解放を遅らせるため、同一フレーム内に届いた
-	# 2つ目の閉じる操作（Escape連打・ボタン押下との重複）で保存とclosedが二重に走りうる
+	# 2つ目の閉じる操作（Escape連打・ボタン押下との重複）でclosedが二重に発行されうる
 	if is_queued_for_deletion():
 		return
 
-	SettingsService.save_settings()
 	closed.emit()
 	queue_free()
 

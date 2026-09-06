@@ -65,28 +65,39 @@ func get_reduced_effects() -> bool:
 
 
 ## 🔵 BGM音量を0.0〜1.0へクランプして保持し、AudioServerへ即時反映する（FR-104）。
+## 🟡 コードレビュー指摘対応。従来はSettingsPanel.close()時にしか永続化しておらず、
+## 「閉じる」を経ずにアプリが終了（OSのウィンドウクローズ・強制終了）すると変更が
+## 失われていた。値の変更そのものをここで即座に保存し、UI層に永続化タイミングを
+## 委ねない（SettingsServiceが永続化の唯一の責任者になる）。
 func set_bgm_volume(value: float) -> void:
 	_data.bgm_volume = clampf(value, SettingsCodec.MIN_VOLUME, SettingsCodec.MAX_VOLUME)
 	_apply_bus_volume(BUS_BGM, _data.bgm_volume)
+	save_settings()
 
 
 ## 🔵 SE音量を0.0〜1.0へクランプして保持し、AudioServerへ即時反映する（FR-105）。
+## 🟡 set_bgm_volume()と同じ理由で変更のたびに永続化する。
 func set_se_volume(value: float) -> void:
 	_data.se_volume = clampf(value, SettingsCodec.MIN_VOLUME, SettingsCodec.MAX_VOLUME)
 	_apply_bus_volume(BUS_SE, _data.se_volume)
+	save_settings()
 
 
 ## 🔵 ウィンドウモードを保持し、DisplayServerへ即時反映する（FR-106）。
 ## 反映に失敗してもUIには通知せず、内部状態は要求値のまま保持する
 ## （設定画面のトグル表示と操作結果を一致させるため）。
+## 🟡 set_bgm_volume()と同じ理由で変更のたびに永続化する。
 func set_window_mode(mode: int) -> void:
 	_data.window_mode = mode
 	_apply_window_mode(mode)
+	save_settings()
 
 
 ## 🔵 演出簡略化フラグを保持する。既存画面への適用はスコープ外（CON-005, FR-302）。
+## 🟡 set_bgm_volume()と同じ理由で変更のたびに永続化する。
 func set_reduced_effects(value: bool) -> void:
 	_data.reduced_effects = value
+	save_settings()
 
 
 ## 🔵 SettingsServiceはAutoload（プロセス内で単一）のため、SaveServiceと同様に

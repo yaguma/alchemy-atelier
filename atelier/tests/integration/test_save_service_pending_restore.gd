@@ -98,6 +98,19 @@ func test_破損スロットのselect_slot_and_restoreは失敗しpendingを空�
 	assert_bool(SaveService._pending_restore.is_empty()).is_true()
 
 
+## 🔵 コードレビュー指摘対応。「新規スロットのselect_slot_and_restoreは前回プレイの
+## GameStateをリセットする」の破損スロット版。LABEL_CORRUPTED（「新規開始で上書き」）の
+## 意図どおり、破損スロット選択時も前回プレイの値を引き継がないことを確認する
+func test_破損スロットのselect_slot_and_restoreも前回プレイのGameStateをリセットする() -> void:
+	assert_bool(SaveService.save_to_slot(2).success).is_true()
+	SaveSlotTestHelpers.corrupt_slot_file(self, 2)
+	GameState._set_gold_for_test(999)
+
+	SaveService.select_slot_and_restore(2)
+
+	assert_int(int(GameState.get_state()["gold"])).is_equal(0)
+
+
 func test_active_slot未選択のautosaveはファイルを作らない() -> void:
 	SaveService.autosave()
 
