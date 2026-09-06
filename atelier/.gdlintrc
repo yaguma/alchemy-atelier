@@ -39,8 +39,9 @@ max-line-length: 100
 # 既に上限20ちょうどに張り付いており、調合UI向けアクセッサ1本の追加で頭打ちになったため25へ緩和した。
 # main-scene-integration Planでload_rank_master_data()・get_current_rank_elapsed_turn()の
 # 2本を追加し25を超えたため27へ再緩和し、daily-orders Planでload_daily_order_master_data()の
-# 1本を追加し27を超えたため28（現状値ちょうど）へ再緩和する
-max-public-methods: 28
+# 1本を追加し27を超えたため28へ再緩和し、title-settings-screens-extension Planで
+# reset_for_new_game()の1本を追加し28を超えたため29（現状値ちょうど）へ再緩和する
+max-public-methods: 29
 max-returns: 6
 mixed-tabs-and-spaces: null
 no-elif-return: null

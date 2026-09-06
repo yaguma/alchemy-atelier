@@ -140,8 +140,17 @@ func select_slot_and_restore(slot: int) -> Result:
 		return Result.ok(_pending_restore)
 
 	if result.error_code == ERROR_FILE_NOT_FOUND:
+		# 🔵 新規スロット（新規ゲーム）を選んだ際、前回プレイのGameStateを確実にクリアする。
+		# プロセス起動直後は元々GameStateがデフォルト値のため冪等、副作用はない
+		GameState.reset_for_new_game()
 		return Result.ok()
 
+	# 🟡 コードレビュー指摘対応。破損スロットも「そのスロットで新規開始できる」ことが
+	# 上記コメント・LABEL_CORRUPTED（「新規開始で上書き」）の意図であるため、失敗を返す前に
+	# 新規スロット分岐と同じくGameStateをリセットしておく。現状はslot_select_screen.gdが
+	# 失敗時に遷移しないため即座には到達しない経路だが、将来その制限が解消された時に
+	# 前回プレイのGameStateを引き継ぐ不具合が再発しないよう先んじて対応する
+	GameState.reset_for_new_game()
 	return Result.fail(ERROR_SAVE_DATA_CORRUPTED)
 
 

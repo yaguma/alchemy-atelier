@@ -442,39 +442,16 @@ func _set_gold_for_test(gold: int) -> void:
 
 # テスト分離専用。デバッグビルドガードは他のテスト専用API群と同じくGameStateTestSupport.guard()
 # へ一元化する（🔴 コードレビュー指摘対応。以前は本関数だけ独自にassert+push_error+returnを
-# 重複実装していた）
+# 重複実装していた）。初期化本体はreset_for_new_game()と共有するためGameStateResetDelegateへ委譲する
 func reset_for_test() -> void:
 	if not GameStateTestSupport.guard("reset_for_test"):
 		return
-	_current_phase = &"garden"
-	_gold = 0
-	_current_turn = 1
-	_garden_state = GardenState.new()
-	_seed_inventory = [
-		{"seed_id": GameBalance.INITIAL_SEED_ID, "count": GameBalance.INITIAL_SEED_COUNT}
-	]
-	_inventory = []
-	_seed_masters = {}
-	_material_masters = {}
-	_material_instance_seq = 0
-	_garden_slot_count = GameBalance.GARDEN_SLOT_COUNT
-	_recipe_masters = {}
-	_unlocked_recipe_ids = [GameBalance.INITIAL_RECIPE_ID]
-	_pending_products = []
-	_alchemy_slot_count = GameBalance.ALCHEMY_SLOT_COUNT_DEFAULT
-	_current_daily_order = null
-	_daily_order_masters = []
-	_current_rank_id = GameBalance.INITIAL_RANK_ID
-	_rank_masters = {}
-	_rank_state = RankState.new()
-	_demotion_count = 0
-	_last_rank_outcome = RankOutcome.Value.CONTINUE
-	_rank_state_initialized = false
-	_warned_missing_rank_master_ids = {}
-	_in_exam = false
-	_exam_state = ExamState.new()
-	_last_exam_outcome = ExamOutcome.Value.CONTINUE
-	_has_cleared_game = false
-	_can_purchase_permanent = false
-	_purchased_upgrade_counts = {}
-	_upgrade_masters = {}
+	GameStateResetDelegate.apply_default_state(self)
+
+
+## 🔵 本番コードパスから呼べる新規ゲーム用リセットAPI。reset_for_test()と異なり
+## OS.is_debug_build()ガードを持たない。SaveService.select_slot_and_restore()の
+## 新規スロット分岐から呼ばれる想定（「タイトルに戻る→はじめから」を繰り返した際、
+## 前回プレイの値が新規ゲームへ引き継がれてしまう不具合の修正）
+func reset_for_new_game() -> void:
+	GameStateResetDelegate.apply_default_state(self)
