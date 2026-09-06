@@ -140,6 +140,9 @@ func select_slot_and_restore(slot: int) -> Result:
 		return Result.ok(_pending_restore)
 
 	if result.error_code == ERROR_FILE_NOT_FOUND:
+		# 🔵 新規スロット（新規ゲーム）を選んだ際、前回プレイのGameStateを確実にクリアする。
+		# プロセス起動直後は元々GameStateがデフォルト値のため冪等、副作用はない
+		GameState.reset_for_new_game()
 		return Result.ok()
 
 	return Result.fail(ERROR_SAVE_DATA_CORRUPTED)

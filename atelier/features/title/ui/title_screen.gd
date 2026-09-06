@@ -1,11 +1,12 @@
 class_name TitleScreen
 extends Control
 
-## 🔵 FR-002。「はじめる」「せってい」の2項目のみを持つ起動時のトップ画面。
-## 新規／つづきの分岐はSlotSelectScreenの責務のため本画面は持たない（FR-405）。
-## ゲーム終了ボタン（FR-406）・遷移アニメーション（FR-401）も持たない。
+## 🟡 title-settings-screens-extension Planでの改訂。「はじめから」「つづきから」
+## 「せってい」「終了」の4項目を持つ起動時のトップ画面。新規／つづきの実際の判定は
+## SlotSelectScreenの責務のため、両ボタンとも同じ遷移先へ渡すのみで本画面は分岐を持たない
+## （旧FR-405の方針を維持）。旧FR-406（終了ボタンなし）はtoday's要件により撤回した。
 
-## 🔵 FR-101。分岐を持たず常にスロット選択画面へ渡す
+## 🔵 分岐を持たず常にスロット選択画面へ渡す
 const SLOT_SELECT_SCENE_PATH := "res://features/save_load/ui/slot_select_screen.tscn"
 const MAIN_THEME := preload("res://shared/theme/main_theme.tres")
 
@@ -13,21 +14,29 @@ const MAIN_THEME := preload("res://shared/theme/main_theme.tres")
 ## current_sceneを巻き込むため、テスト側でfalseにして遷移要求の有無のみを検証する
 ## （boot.gd / slot_select_screen.gdと同方針）
 var scene_transition_enabled: bool = true
+## 🟡 「終了」ボタンで実際にget_tree().quit()を実行するか。テスト実行自体を終了させないための
+## 分離フック（scene_transition_enabledと同型）
+var quit_enabled: bool = true
 
 var _requested_next_scene_path: String = ""
+var _has_requested_quit: bool = false
 ## 🔵 FR-407。多重起動防止のガードに使う。closedを受けてnullへ戻す
 var _settings_panel: SettingsPanel = null
 
 @onready var _root_container: VBoxContainer = %RootContainer
-@onready var _start_button: Button = %StartButton
+@onready var _new_game_button: Button = %NewGameButton
+@onready var _continue_button: Button = %ContinueButton
 @onready var _settings_button: Button = %SettingsButton
+@onready var _quit_button: Button = %QuitButton
 @onready var _overlay_layer: Control = %OverlayLayer
 
 
 func _ready() -> void:
 	_apply_theme()
-	_start_button.pressed.connect(_on_start_pressed)
+	_new_game_button.pressed.connect(_on_new_game_pressed)
+	_continue_button.pressed.connect(_on_continue_pressed)
 	_settings_button.pressed.connect(_on_settings_pressed)
+	_quit_button.pressed.connect(_on_quit_pressed)
 
 
 ## 🔵 遷移先として要求されたシーンパスを返す（テスト用の観測点）。未要求なら空文字列。
@@ -35,19 +44,40 @@ func get_requested_next_scene_path() -> String:
 	return _requested_next_scene_path
 
 
+## 🟡 「終了」が押されたことのテスト用観測点。quit_enabled=falseでも立つ。
+func has_requested_quit() -> bool:
+	return _has_requested_quit
+
+
 func _apply_theme() -> void:
 	theme = MAIN_THEME
 	_root_container.add_theme_constant_override("separation", UiTheme.SPACING_LIST_ENTRY)
 
 
-## 🔵 FR-101, FR-405
-func _on_start_pressed() -> void:
+## 🟡 「はじめから」「つづきから」はどちらも同じ遷移先へ渡す。新規/継続の実際の判定は
+## SlotSelectScreen側の責務のため、ボタンごとに遷移先を分けない
+func _on_new_game_pressed() -> void:
+	_go_to_slot_select()
+
+
+func _on_continue_pressed() -> void:
+	_go_to_slot_select()
+
+
+func _go_to_slot_select() -> void:
 	_requested_next_scene_path = SLOT_SELECT_SCENE_PATH
 	if not scene_transition_enabled:
 		return
 	# ボタン押下のシグナル処理中にchange_scene_to_fileを直接呼ぶと
 	# "Parent node is busy adding/removing children"エラーになるためcall_deferredで遅延させる
 	get_tree().change_scene_to_file.call_deferred(SLOT_SELECT_SCENE_PATH)
+
+
+## 🟡 quit_enabled=falseのテスト環境では実際には終了しない
+func _on_quit_pressed() -> void:
+	_has_requested_quit = true
+	if quit_enabled:
+		get_tree().quit()
 
 
 ## 🔵 FR-102, FR-407。多重起動防止・生成・破棄後の参照クリアはSettingsPanel.open_singleton()

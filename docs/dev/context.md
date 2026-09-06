@@ -30,7 +30,7 @@
 
 ```
 atelier/
-├── project.godot           # メインシーン: scenes/boot.tscn、Autoload: GameState, RngService
+├── project.godot           # メインシーン: scenes/boot.tscn、Autoload: GameState, RngService, SaveService, SettingsService（🔵 2026-09-06修正、本節は当初生成時点でSaveService/SettingsServiceの追加を反映しないまま更新されていなかった）
 ├── autoload/                # GameState（ファサード+デリゲート委譲）, RngService
 │   ├── game_state.gd
 │   ├── game_state_{garden,alchemy,guild,rank,workshop}_delegate.gd  # 機能別に委譲分割済み（500行対策）
@@ -48,7 +48,7 @@ atelier/
 │   └── loaders/master_data_loader.gd
 ├── data/                     # マスターデータ実データ（.tres）: materials, recipes, upgrades, daily_orders, ranks
 ├── scenes/
-│   ├── boot.tscn + boot.gd    # エントリポイント（マスターデータ検証→main.tscn遷移）
+│   ├── boot.tscn + boot.gd    # エントリポイント（マスターデータ検証→title_screen.tscn遷移。🔵 2026-09-06修正、タイトル画面追加に伴い遷移先がslot_select_screen.tscnから変更された）
 │   └── main.tscn               # 常駐シーン（子Control visible切替でフェーズ表示、architecture.md方針）
 ├── addons/gdUnit4/            # テストフレームワーク（唯一のアドオン）
 └── tests/

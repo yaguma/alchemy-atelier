@@ -2,8 +2,9 @@ class_name BootScene
 extends Control
 
 # 🔵 FR-001。起動直後の遷移先はタイトル画面。スロット選択（「続きから／新規開始」）は
-# TitleScreenの「はじめる」以降に移り、マスターデータロード（MainScene._enter_tree()）
-# より前に確定する点は変わらない。復元自体はMainScene側のSaveService.apply_pending_restore()が行う
+# TitleScreenの「はじめから」「つづきから」以降に移り、マスターデータロード
+# （MainScene._enter_tree()）より前に確定する点は変わらない。復元自体は
+# MainScene側のSaveService.apply_pending_restore()が行う
 const NEXT_SCENE_PATH := "res://features/title/ui/title_screen.tscn"
 
 # 🟡 遷移を実際に実行するか。統合テストではシーン差し替えがGdUnit4のテストランナー自身の

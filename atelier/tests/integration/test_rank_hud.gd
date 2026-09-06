@@ -17,15 +17,14 @@ const HUD_SIGNAL_NAMES: Array[String] = [
 	"exam_outcome_confirmed",
 ]
 
-
-var _settings_requested_count := 0
+var _menu_requested_count := 0
 var _phase_changed_count := 0
 
 
 func before_test() -> void:
 	GameState.reset_for_test()
 	_set_rank(QUOTA_MAX, QUOTA_REMAINING, LIMIT_TURN, 0)
-	_settings_requested_count = 0
+	_menu_requested_count = 0
 	_phase_changed_count = 0
 
 
@@ -34,8 +33,8 @@ func after_test() -> void:
 		GameState.phase_changed.disconnect(_on_phase_changed_for_test)
 
 
-func _on_settings_requested_for_test() -> void:
-	_settings_requested_count += 1
+func _on_menu_requested_for_test() -> void:
+	_menu_requested_count += 1
 
 
 func _on_phase_changed_for_test(_previous: StringName, _next: StringName) -> void:
@@ -134,24 +133,24 @@ func test_昇格試験中は試験ノルマと試験残ターンを表示する(
 	assert_str(hud.get_turn_remaining_text()).contains("4")
 
 
-func test_readyの時点で歯車ボタンが存在し押下可能である() -> void:
+func test_readyの時点でメニューボタンが存在し押下可能である() -> void:
 	var hud := _make_hud()
 
-	var button: Button = hud.get_settings_button()
+	var button: Button = hud.get_menu_button()
 	assert_object(button).is_not_null()
 	assert_bool(button.disabled).is_false()
 
 
-func test_歯車ボタン押下でsettings_requestedが発行される() -> void:
+func test_メニューボタン押下でmenu_requestedが発行される() -> void:
 	var hud := _make_hud()
-	hud.settings_requested.connect(_on_settings_requested_for_test)
+	hud.menu_requested.connect(_on_menu_requested_for_test)
 
-	hud.get_settings_button().pressed.emit()
+	hud.get_menu_button().pressed.emit()
 
-	assert_int(_settings_requested_count).is_equal(1)
+	assert_int(_menu_requested_count).is_equal(1)
 
 
-func test_昇格試験中でも歯車ボタンが押下可能である() -> void:
+func test_昇格試験中でもメニューボタンが押下可能である() -> void:
 	var exam_state := ExamState.new()
 	exam_state.exam_quota = 15.0
 	exam_state.exam_quota_max = 60.0
@@ -159,22 +158,22 @@ func test_昇格試験中でも歯車ボタンが押下可能である() -> void
 	exam_state.exam_turn_limit = 5
 	GameState._set_exam_state_for_test(exam_state, true)
 	var hud := _make_hud()
-	hud.settings_requested.connect(_on_settings_requested_for_test)
+	hud.menu_requested.connect(_on_menu_requested_for_test)
 
-	assert_bool(hud.get_settings_button().disabled).is_false()
-	hud.get_settings_button().pressed.emit()
+	assert_bool(hud.get_menu_button().disabled).is_false()
+	hud.get_menu_button().pressed.emit()
 
-	assert_int(_settings_requested_count).is_equal(1)
+	assert_int(_menu_requested_count).is_equal(1)
 
 
 # 🔵 RankHudの自己完結方針（状態変更・フェーズ遷移を行わない）の維持確認。
 # set_phase()はphase_changedをemitするため、その発行回数0で呼び出しなしを検証する
-func test_歯車ボタン押下でフェーズ遷移が発生しない() -> void:
+func test_メニューボタン押下でフェーズ遷移が発生しない() -> void:
 	var hud := _make_hud()
 	GameState.phase_changed.connect(_on_phase_changed_for_test)
 	var phase_before: StringName = GameState.get_state()["current_phase"]
 
-	hud.get_settings_button().pressed.emit()
+	hud.get_menu_button().pressed.emit()
 
 	assert_int(_phase_changed_count).is_equal(0)
 	assert_str(String(GameState.get_state()["current_phase"])).is_equal(String(phase_before))
@@ -183,16 +182,16 @@ func test_歯車ボタン押下でフェーズ遷移が発生しない() -> void
 # 異常系
 
 
-func test_歯車ボタン追加後もexit_treeで破棄でき購読側が発火しない() -> void:
+func test_メニューボタン追加後もexit_treeで破棄でき購読側が発火しない() -> void:
 	var hud: RankHud = (load(SCENE_PATH) as PackedScene).instantiate()
 	add_child(hud)
 	await await_idle_frame()
-	hud.settings_requested.connect(_on_settings_requested_for_test)
+	hud.menu_requested.connect(_on_menu_requested_for_test)
 
 	remove_child(hud)
 	hud.free()
 
-	assert_int(_settings_requested_count).is_equal(0)
+	assert_int(_menu_requested_count).is_equal(0)
 
 
 func test_ランクマスター未登録でもフォールバック表示になる() -> void:

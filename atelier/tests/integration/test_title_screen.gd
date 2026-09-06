@@ -1,18 +1,19 @@
 extends GdUnitTestSuite
 
-## TitleScreenの2項目メニュー（はじめる／せってい）と、
+## TitleScreenの4項目メニュー（はじめから／つづきから／せってい／終了）と、
 ## 「せってい」のSettingsPanel多重起動防止（FR-407）を検証する。
 ## SettingsPanel自体の挙動はtest_settings_panel.gdがカバー済みのため、
 ## 本ファイルは「TitleScreenからの起動・再起動可否」のみを扱う。
+## 🟡 title-settings-screens-extension Planで「はじめから」「つづきから」への分割と
+## 「終了」ボタンを追加した（旧「はじめる」1ボタン・終了ボタンなしの構成から改訂）。
 
 const TITLE_SCENE_PATH := "res://features/title/ui/title_screen.tscn"
 const SLOT_SELECT_SCENE_PATH := "res://features/save_load/ui/slot_select_screen.tscn"
 
-const LABEL_START := "はじめる"
+const LABEL_NEW_GAME := "はじめから"
+const LABEL_CONTINUE := "つづきから"
 const LABEL_SETTINGS := "せってい"
-
-## 🔵 FR-406。終了系ボタンが混入していないことを検出するための語彙
-const FORBIDDEN_BUTTON_KEYWORDS: Array[String] = ["終了", "やめる", "quit", "exit"]
+const LABEL_QUIT := "終了"
 
 
 func before_test() -> void:
@@ -28,20 +29,14 @@ func after_test() -> void:
 # 正常系: メニュー構成
 
 
-func test_ボタンははじめるとせっていの2つのみ存在する() -> void:
+func test_ボタンははじめからつづきからせってい終了の4つのみ存在する() -> void:
 	var title := _make_title()
 
 	var texts := _collect_button_texts(title)
 
-	assert_array(texts).contains_exactly_in_any_order([LABEL_START, LABEL_SETTINGS])
-
-
-func test_終了に相当するボタンが存在しない() -> void:
-	var title := _make_title()
-
-	for text in _collect_button_texts(title):
-		for keyword in FORBIDDEN_BUTTON_KEYWORDS:
-			assert_bool(text.to_lower().contains(keyword.to_lower())).is_false()
+	assert_array(texts).contains_exactly_in_any_order(
+		[LABEL_NEW_GAME, LABEL_CONTINUE, LABEL_SETTINGS, LABEL_QUIT]
+	)
 
 
 func test_初期状態では遷移が要求されていない() -> void:
@@ -50,15 +45,41 @@ func test_初期状態では遷移が要求されていない() -> void:
 	assert_str(title.get_requested_next_scene_path()).is_empty()
 
 
-# 正常系: はじめる
-
-
-func test_はじめる押下でスロット選択画面への遷移を要求する() -> void:
+func test_初期状態では終了が要求されていない() -> void:
 	var title := _make_title()
 
-	_find_button(title, LABEL_START).pressed.emit()
+	assert_bool(title.has_requested_quit()).is_false()
+
+
+# 正常系: はじめから／つづきから
+
+
+func test_はじめから押下でスロット選択画面への遷移を要求する() -> void:
+	var title := _make_title()
+
+	_find_button(title, LABEL_NEW_GAME).pressed.emit()
 
 	assert_str(title.get_requested_next_scene_path()).is_equal(SLOT_SELECT_SCENE_PATH)
+
+
+func test_つづきから押下でも同じスロット選択画面への遷移を要求する() -> void:
+	var title := _make_title()
+
+	_find_button(title, LABEL_CONTINUE).pressed.emit()
+
+	assert_str(title.get_requested_next_scene_path()).is_equal(SLOT_SELECT_SCENE_PATH)
+
+
+# 正常系: 終了
+
+
+func test_終了押下でhas_requested_quitがtrueになる() -> void:
+	var title := _make_title()
+	title.quit_enabled = false
+
+	_find_button(title, LABEL_QUIT).pressed.emit()
+
+	assert_bool(title.has_requested_quit()).is_true()
 
 
 # 正常系: せってい
@@ -112,7 +133,7 @@ func test_closed後の再押下で新しいSettingsPanelが生成される() -> 
 # ヘルパー
 
 
-## TitleScreenはscene_runner()で起動すると「はじめる」押下時のchange_scene_to_fileが
+## TitleScreenはscene_runner()で起動すると「はじめから」押下時のchange_scene_to_fileが
 ## GdUnit4のテストランナー自身のcurrent_sceneを差し替えてしまうため、
 ## boot.gdのテストと同様に手動インスタンス化して遷移抑止フラグを立ててから追加する
 func _make_title() -> TitleScreen:

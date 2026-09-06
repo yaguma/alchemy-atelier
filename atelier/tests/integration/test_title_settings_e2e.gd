@@ -14,7 +14,10 @@ const TITLE_SCENE_PATH := "res://features/title/ui/title_screen.tscn"
 const SLOT_SELECT_SCENE_PATH := "res://features/save_load/ui/slot_select_screen.tscn"
 const MAIN_SCENE_PATH := "res://scenes/main.tscn"
 
-const LABEL_START := "はじめる"
+## 🟡 title-settings-screens-extension Planで「はじめる」1ボタンが
+## 「はじめから」「つづきから」へ分割された。本ファイルの起動フロー確認は
+## どちらでも同じ遷移先に到達するため、代表して「はじめから」を使う
+const LABEL_START := "はじめから"
 const LABEL_SETTINGS := "せってい"
 
 const TEST_SLOT := 0
@@ -120,7 +123,7 @@ func test_タイトルでの設定操作はスロット選択状態へ影響し�
 # 正常系: ゲーム中の設定操作
 
 
-func test_歯車ボタン押下で設定パネルが開きフェーズが変化しない() -> void:
+func test_メニュー経由で設定パネルが開きフェーズが変化しない() -> void:
 	var main := _make_main()
 	GameState.set_phase(&"alchemy")
 	var before: StringName = GameState.get_state()["current_phase"]
@@ -217,9 +220,14 @@ func _make_main() -> MainScene:
 	return scene_runner(MAIN_SCENE_PATH).scene() as MainScene
 
 
+## 🟡 title-settings-screens-extension Planで、RankHudのボタンは直接SettingsPanelを開かず
+## PauseMenu（閉じる/設定/タイトルに戻る）を開くようになった。設定パネルまで到達するには
+## PauseMenuの「せってい」まで押下する必要がある
 func _press_hud_settings_button(main: MainScene) -> void:
 	var hud := main.find_child("RankHud", true, false) as RankHud
-	hud.get_settings_button().pressed.emit()
+	hud.get_menu_button().pressed.emit()
+	var pause_menu := main.find_child("PauseMenu", true, false) as PauseMenu
+	(pause_menu.find_child("SettingsButton", true, false) as Button).pressed.emit()
 
 
 func _collect_buttons(node: Node, result: Array[Button] = []) -> Array[Button]:

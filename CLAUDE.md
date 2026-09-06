@@ -34,7 +34,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | Language | GDScript |
 | Unit Test | GdUnit4を採用（2026-08-10、Godot 4.7のAsset Store移行期にGUTが導入できなかったため変更） |
 
-🔴 2026-09-03修正: 本節はセーブ/ロード機能を「周辺機能・設計スコープ外」と記載したまま長期間更新されておらず、実際には`atelier/features/save_load/`・`atelier/autoload/save_service.gd`としてPR #45（`feat/save-load-system`ブランチ）で実装済みである（3固定スロット・チェックサム付き永続化・スロット選択画面）。`requirements.md`・`ui-design/overview.md`は2026-09-05付でこの実装を反映済み（`requirements.md`概要・§2「中断/撤退条件」・§8.9、`ui-design/overview.md`画面一覧SCR-007・画面遷移図）。タイトル画面・設定画面は引き続き未実装・設計スコープ外。
+🔴 2026-09-03修正: 本節はセーブ/ロード機能を「周辺機能・設計スコープ外」と記載したまま長期間更新されておらず、実際には`atelier/features/save_load/`・`atelier/autoload/save_service.gd`としてPR #45（`feat/save-load-system`ブランチ）で実装済みである（3固定スロット・チェックサム付き永続化・スロット選択画面）。`requirements.md`・`ui-design/overview.md`は2026-09-05付でこの実装を反映済み（`requirements.md`概要・§2「中断/撤退条件」・§8.9、`ui-design/overview.md`画面一覧SCR-007・画面遷移図）。
+
+🔵 2026-09-06修正: 上記「タイトル画面・設定画面は引き続き未実装・設計スコープ外」という記載は誤りだった。タイトル画面・設定画面（BGM/SE音量・ウィンドウモード・演出簡略化）はPR #46（`feat/title-settings-screens`ブランチ、`feat/save-load-system`ベース）として2026-09-04に実装・マージ済みだったが、マージ先が`main`ではなく既にmainへ合流済みの`feat/save-load-system`ブランチだったため`main`へは取り込まれず宙に浮いていた（本ファイルの記載更新漏れの原因）。2026-09-06、`docs/dev/plans/title-settings-screens-extension/`のPlanで`main`基点に取り込んだ上で、「はじめから／つづきから／終了」ボタンの追加とゲーム中の一時停止メニュー（`atelier/shared/ui/pause_menu.gd`、閉じる／設定／タイトルに戻る）を拡張実装し、あわせて新規ゲーム開始時に`GameState`が前回プレイの値を引き継いでしまう不具合（`GameState.reset_for_new_game()`で修正）を解消した。新しい起動フローは`BootScene → TitleScreen → SlotSelectScreen → MainScene`（詳細は[`ui-design/overview.md`](docs/design/atelier-alchemy-core/ui-design/overview.md)参照）。BGM/SEのAudioServerバスは`project.godot`に未定義のままのため音量設定は現状no-op（🔴既知の未対応事項、将来の音声実装時にバス追加が必要）。
 
 ## アーキテクチャ方針（設計方針・5機能で実装済み）
 
@@ -95,6 +97,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 1画面プロトタイプでの「調合で一瞬迷うか」の人間による検証（正式な人間プレイテストはまだ行われていない）
 - 正式なビジュアルデザインガイドの策定（[`ui-design/overview.md`](docs/design/atelier-alchemy-core/ui-design/overview.md) のカラーパレット等は暫定案）
 - 🔴 2026-09-06修正: 本節はCI・エクスポートビルド設定を「ともに未構築」と記載したまま更新されていなかったが、実際にはCI（GitHub Actions）はPR #47（`.github/workflows/ci.yml`）で構築済み。エクスポートビルド設定（`export_presets.cfg`）もWindows Desktop向けDebugビルドのみ整備済み（2026-09-06、[`docs/dev/plans/export-build-settings/`](docs/dev/plans/export-build-settings/)参照）。Release向け設定・他プラットフォーム対応・CIからのエクスポート自動化は未対応
+- 🔵 2026-09-06追加: タイトル画面・設定画面・ゲーム中の一時停止メニューは実装済み（上記「アーキテクチャ方針」節直前の修正コメント、[`docs/dev/plans/title-settings-screens-extension/`](docs/dev/plans/title-settings-screens-extension/)参照）。BGM/SE音量設定はAudioBusLayout未整備のため現状no-op（実際の音声再生機能自体が本プロジェクトに未実装）で、将来音声を追加する際は`project.godot`へのバス追加が必要
 
 ---
 
