@@ -14,7 +14,9 @@ const TOAST_PURCHASE_FAILURE_FORMAT := "購入できませんでした（%s）" 
 
 var _active_tab: StringName = TAB_CONSUMABLE  # 🟡 既定値。初回_refresh()で状態に応じ上書きされうる
 var _has_refreshed_once: bool = false  # 🟡 初期タブ選択を「初回表示時のみ」に限定するためのガード
+var _confirm_dialog: PurchaseConfirmDialog = null  # 🔵 恒久投資の購入確認ダイアログ（PauseMenuの_settings_panelと同型）
 
+@onready var _overlay_layer: Control = %OverlayLayer  # 🔵 確認ダイアログの追加先
 @onready var _gold_label: Label = %GoldLabel  # 🔵 txt-gold
 @onready var _permanent_tab_button: Button = %PermanentTabButton  # 🔵 tab-permanent
 @onready var _consumable_tab_button: Button = %ConsumableTabButton  # 🔵 tab-consumable
@@ -123,21 +125,81 @@ func get_active_tab() -> StringName:
 	return _active_tab
 
 
-## FR-101: 購入要求を受けてGameState.apply_upgrade()を呼び出す。
+## FR-101: 購入要求を受ける。恒久投資かつ恒久投資タブが活性かつeffect定義が有効な場合のみ
+## 確認ダイアログを挟み、それ以外（消耗投資、恒久投資だがタブ非活性、またはeffect定義が不正）は
+## 即時購入する。
+## 🟡 タブ非活性時に即時実行へ落とすのは、GameState.apply_upgrade()の"workshop_closed"失敗と
+## 失敗トースト表示を検証する既存の多層防御テストを維持するため。
+## 🔴 コードレビュー指摘対応。is_valid_effect()のチェックをここに追加した。これがないと、
+## PurchaseConfirmDialog.setup()が呼ぶUpgradeEffectDescriber.describe()がGameState.apply_upgrade()
+## の検証（is_valid_effect()）より先に実行されてしまい、effect_valueが未設定/型不一致の壊れた
+## マスターデータの場合、購入確定前にダイアログを開いた時点でキャストエラーになりうる。
+## is_valid_effect()がfalseの場合は即時_execute_purchase()へ落とし、
+## apply_upgrade()側の既存の安全な失敗パス（invalid_effect失敗トースト）に委ねる
 ## upgrade_idからUpgradeMasterへの解決に失敗した場合（マスター未登録ID）は状態変更を一切行わず
 ## 早期returnする（🟡 UpgradeItemList/UpgradeItemRowは常にGameState.get_state()由来の
 ## upgrade.idしか発行しないため実運用では起こらないが、防御的分岐として残す）
 func _on_purchase_requested(upgrade_id: StringName) -> void:
 	var state := GameState.get_state()
+	var upgrade := _resolve_upgrade(state, upgrade_id)
+	if upgrade == null:
+		return
+
+	var can_purchase_permanent: bool = state["can_purchase_permanent"]
+	var should_confirm := (
+		PurchaseValidator.is_permanent_upgrade(upgrade)
+		and can_purchase_permanent
+		and PurchaseValidator.is_valid_effect(upgrade)
+	)
+	if should_confirm:
+		_confirm_dialog = PurchaseConfirmDialog.open_singleton(
+			_confirm_dialog,
+			_overlay_layer,
+			upgrade,
+			_on_purchase_confirmed,
+			_on_purchase_confirm_cancelled
+		)
+		return
+
+	_execute_purchase(upgrade)
+
+
+## 確認ダイアログの「購入する」押下時。ダイアログ表示中に状態が変わっている可能性があるため
+## upgrade_idからUpgradeMasterを再解決してから購入を実行する
+func _on_purchase_confirmed(upgrade_id: StringName) -> void:
+	_confirm_dialog = null
+	var upgrade := _resolve_upgrade(GameState.get_state(), upgrade_id)
+	if upgrade == null:
+		return
+	_execute_purchase(upgrade)
+
+
+## 確認ダイアログの「キャンセル」押下時。🟡 SettingsPanel/PauseMenuの「閉じる」と同様、
+## キャンセルは「何も起きなかった」ことが期待される通常操作のためトーストは表示しない
+func _on_purchase_confirm_cancelled() -> void:
+	_confirm_dialog = null
+
+
+## 確認ダイアログが開いているかを返す（テスト用）。🟡 get_toast_text()に倣ったテスト用ゲッター
+func is_confirm_dialog_open() -> bool:
+	return is_instance_valid(_confirm_dialog)
+
+
+static func _resolve_upgrade(state: Dictionary, upgrade_id: StringName) -> UpgradeMaster:
 	var upgrade_masters: Dictionary = state["upgrade_masters"]
 	var upgrade: Variant = upgrade_masters.get(upgrade_id)
 	if not (upgrade is UpgradeMaster):
-		return
+		return null
+	return upgrade as UpgradeMaster
 
-	var result := GameState.apply_upgrade(upgrade as UpgradeMaster)
+
+## GameState.apply_upgrade()を実行し、結果に応じて表示を更新する。
+## 即時購入経路（消耗投資）とダイアログ確認後の経路（恒久投資）の両方から呼ばれる
+func _execute_purchase(upgrade: UpgradeMaster) -> void:
+	var result := GameState.apply_upgrade(upgrade)
 	if result.success:
 		_refresh()  # 🔵 FR-102
-		_show_toast(TOAST_PURCHASE_SUCCESS_FORMAT % (upgrade as UpgradeMaster).name)
+		_show_toast(TOAST_PURCHASE_SUCCESS_FORMAT % upgrade.name)
 	else:
 		_show_toast(TOAST_PURCHASE_FAILURE_FORMAT % result.error_code)  # 🔵 FR-103
 

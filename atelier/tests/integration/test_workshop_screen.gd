@@ -163,6 +163,8 @@ func test_購入成功後にget_toast_textが購入したアイテム名を含�
 	assert_str(screen.get_toast_text()).contains("種の指名買い：鉱石の種")
 
 
+## 🔵 恒久投資は確認ダイアログを挟むため、「購入する」を押し切ってから購入結果を検証する
+## （ダイアログ自体の挙動はtest_workshop_screen_purchase_confirm.gdでカバー）
 func test_購入成功後にpurchased_countが1増加し購入済み表示になる() -> void:
 	GameState.load_workshop_master_data()
 	GameState._set_gold_for_test(1000)
@@ -170,6 +172,8 @@ func test_購入成功後にpurchased_countが1増加し購入済み表示にな
 	var screen := _make_screen()
 
 	_find_permanent_list(screen).purchase_requested.emit(&"upgrade_recipe_unlock_mana_tonic")
+	var dialog := screen.find_child("PurchaseConfirmDialog", true, false) as PurchaseConfirmDialog
+	(dialog.find_child("ConfirmButton", true, false) as Button).pressed.emit()
 
 	assert_int(GameState.get_purchased_count(&"upgrade_recipe_unlock_mana_tonic")).is_equal(1)
 

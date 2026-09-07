@@ -1,0 +1,53 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://features/workshop/ui/purchase_confirm_dialog.gd" id="1_purchase_confirm_dialog"]
+
+[node name="PurchaseConfirmDialog" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_purchase_confirm_dialog")
+
+[node name="RootContainer" type="VBoxContainer" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="TitleLabel" type="Label" parent="RootContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "購入の確認"
+
+[node name="NameLabel" type="Label" parent="RootContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="PriceLabel" type="Label" parent="RootContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="EffectLabel" type="Label" parent="RootContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 3
+
+[node name="ButtonRow" type="HBoxContainer" parent="RootContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="ConfirmButton" type="Button" parent="RootContainer/ButtonRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "購入する"
+
+[node name="CancelButton" type="Button" parent="RootContainer/ButtonRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "キャンセル"
