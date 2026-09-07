@@ -227,12 +227,17 @@ func _craft_once_in_exam(
 ## 🔵 行のノード名はupgrade_item_list.gd L61の "UpgradeItem_%s" % upgrade.id 準拠。
 ## 🔵 Button.disabledはコード経由のpressed発行を抑止しないため、押下自体は常に成立し、
 ## 実際の可否はGameState.apply_upgrade()側の再検証に委ねられる（ゴールド不足ケースの検証点）
+## 恒久強化の購入は確認ダイアログを挟むため（PurchaseConfirmDialog）、開いていれば
+## 「購入する」まで押し切って購入完了までを1操作として扱う。消耗投資はダイアログを挟まない
 func _purchase_upgrade(main: MainScene, upgrade_id: StringName) -> void:
-	var row := (
-		_workshop(main).find_child("UpgradeItem_%s" % upgrade_id, true, false) as UpgradeItemRow
-	)
+	var workshop := _workshop(main)
+	var row := workshop.find_child("UpgradeItem_%s" % upgrade_id, true, false) as UpgradeItemRow
 	assert_object(row).is_not_null()
 	_press(row, "PurchaseButton")
+
+	var dialog := workshop.find_child("PurchaseConfirmDialog", true, false) as PurchaseConfirmDialog
+	if dialog != null:
+		_press(dialog, "ConfirmButton")
 
 
 ## 実マスターデータ側の購入価格を引く。テスト内に価格をハードコードすると
