@@ -13,6 +13,10 @@ signal cancelled
 
 ## 🔵 Godot組み込みアクション。既定でEscapeキーが割り当てられている
 const ACTION_CANCEL: StringName = &"ui_cancel"
+# 🔵 workshop_screen.gd/upgrade_item_row.gdのゴールド・価格表示フォーマットを踏襲する
+# （rank_hud.gd GOLD_FORMATと同じく、他Featureのui/を参照しない運用ルールに従い
+# 定数自体をコンポーネントごとに再定義する）
+const PRICE_FORMAT := "%d G"
 
 var _upgrade_id: StringName = &""
 
@@ -43,8 +47,7 @@ func _unhandled_input(event: InputEvent) -> void:
 func setup(upgrade: UpgradeMaster) -> void:
 	_upgrade_id = upgrade.id
 	_name_label.text = upgrade.name
-	# 🔵 UpgradeItemRowと同一の価格表示フォーマット
-	_price_label.text = "%d G" % upgrade.price
+	_price_label.text = PRICE_FORMAT % upgrade.price
 	_effect_label.text = UpgradeEffectDescriber.describe(upgrade)
 
 
@@ -70,7 +73,7 @@ func _on_confirm_pressed() -> void:
 		return
 
 	confirmed.emit(_upgrade_id)
-	queue_free()
+	_detach_and_free()
 
 
 func _on_cancel_pressed() -> void:
@@ -78,6 +81,23 @@ func _on_cancel_pressed() -> void:
 		return
 
 	cancelled.emit()
+	_detach_and_free()
+
+
+## 🔴 コードレビュー指摘対応。queue_free()は実際の解放をフレーム終了まで遅延させるため、
+## その間ノードはツリーに残り続ける。同一フレーム内で別アイテムの購入要求によりopen_singleton()
+## が新規ダイアログをoverlay_parentへadd_child()すると、name一意化により新規ノードの方が
+## リネームされ、find_child("PurchaseConfirmDialog", ...)（テストヘルパーが使用）が
+## 解放待ちの本ノードに誤って一致してしまう。
+## 🔴 当初はremove_child()でツリーから即座に切り離す実装にしたが、GdUnit4のscene_runnerは
+## _unhandled_input()呼び出し直後に無条件でcurrent_scene.get_viewport()を呼ぶ実装のため
+## （GdUnitSceneRunnerImpl.gd _handle_input_event()）、ダイアログ自身がscene_runner()の
+## シーンルートであるテスト（Escapeキー押下テスト）でget_viewport()がnullを返しクラッシュした。
+## 実際に問題なのは「find_child()が名前で古いノードを誤って拾うこと」のみなので、
+## ツリーからの離脱ではなく名前の変更で解決する（ノードはツリーに残るためget_viewport()は
+## 引き続き有効。実運用上も名前が変わるだけで見た目・入力には影響しない）
+func _detach_and_free() -> void:
+	name = "PurchaseConfirmDialog_PendingFree"
 	queue_free()
 
 

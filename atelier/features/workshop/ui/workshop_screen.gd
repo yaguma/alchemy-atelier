@@ -125,10 +125,17 @@ func get_active_tab() -> StringName:
 	return _active_tab
 
 
-## FR-101: 購入要求を受ける。恒久投資かつ恒久投資タブが活性な場合のみ確認ダイアログを挟み、
-## それ以外（消耗投資、または恒久投資だがタブ非活性）は即時購入する。
+## FR-101: 購入要求を受ける。恒久投資かつ恒久投資タブが活性かつeffect定義が有効な場合のみ
+## 確認ダイアログを挟み、それ以外（消耗投資、恒久投資だがタブ非活性、またはeffect定義が不正）は
+## 即時購入する。
 ## 🟡 タブ非活性時に即時実行へ落とすのは、GameState.apply_upgrade()の"workshop_closed"失敗と
 ## 失敗トースト表示を検証する既存の多層防御テストを維持するため。
+## 🔴 コードレビュー指摘対応。is_valid_effect()のチェックをここに追加した。これがないと、
+## PurchaseConfirmDialog.setup()が呼ぶUpgradeEffectDescriber.describe()がGameState.apply_upgrade()
+## の検証（is_valid_effect()）より先に実行されてしまい、effect_valueが未設定/型不一致の壊れた
+## マスターデータの場合、購入確定前にダイアログを開いた時点でキャストエラーになりうる。
+## is_valid_effect()がfalseの場合は即時_execute_purchase()へ落とし、
+## apply_upgrade()側の既存の安全な失敗パス（invalid_effect失敗トースト）に委ねる
 ## upgrade_idからUpgradeMasterへの解決に失敗した場合（マスター未登録ID）は状態変更を一切行わず
 ## 早期returnする（🟡 UpgradeItemList/UpgradeItemRowは常にGameState.get_state()由来の
 ## upgrade.idしか発行しないため実運用では起こらないが、防御的分岐として残す）
@@ -139,7 +146,12 @@ func _on_purchase_requested(upgrade_id: StringName) -> void:
 		return
 
 	var can_purchase_permanent: bool = state["can_purchase_permanent"]
-	if PurchaseValidator.is_permanent_upgrade(upgrade) and can_purchase_permanent:
+	var should_confirm := (
+		PurchaseValidator.is_permanent_upgrade(upgrade)
+		and can_purchase_permanent
+		and PurchaseValidator.is_valid_effect(upgrade)
+	)
+	if should_confirm:
 		_confirm_dialog = PurchaseConfirmDialog.open_singleton(
 			_confirm_dialog,
 			_overlay_layer,
