@@ -1,0 +1,17 @@
+{
+  "skill_name": "screen-craft",
+  "evals": [
+    {
+      "id": 0,
+      "prompt": "工房強化・ショップ画面（atelier/features/workshop/ui/workshop_screen.gd, workshop_screen.tscn）に、アイテムを購入した時のいい感じの演出を追加してほしい。",
+      "expected_output": "購入操作に対して、既存のUiTheme/design-guideに沿った(色のハードコードなし)フィードバック演出が追加される。Tween/パーティクル等どの技法を使ったか意図が明確で、GameStateのsignal購読解除など既存のライフサイクル規約を破っていない。screens/workshop-shop.mdのアニメーション表が更新されている。",
+      "files": []
+    },
+    {
+      "id": 1,
+      "prompt": "結果画面（SCR-006、ゲームクリア/ゲームオーバー画面。atelier/features/rank/ui/result_screen.gd, result_screen.tscn）の見た目が今は味気ないので、背景とHUDまわりの演出をちゃんと設計して実装してほしい。",
+      "expected_output": "SCR-006用の画面設計書（docs/design/atelier-alchemy-core/ui-design/screens/result.md）が既存フォーマット（garden.md等）に沿って新規作成され、overview.mdの画面一覧にも反映される。背景・HUD相当の要素がレイヤーとして整理され、実装（.gd/.tscn）に反映されている。",
+      "files": []
+    }
+  ]
+}
