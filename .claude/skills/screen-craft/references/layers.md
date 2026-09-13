@@ -26,7 +26,9 @@ func _apply_theme() -> void:
 ```
 
 装飾画像を足す場合は`TextureRect`を背景の上・本体UIの下に置く（`stretch_mode`は
-`STRETCH_KEEP_ASPECT_COVERED`が画面サイズ差に強い）。**フェーズ独自の背景色をハードコードしない**
+`STRETCH_KEEP_ASPECT_COVERED`が画面サイズ差に強い）。`atelier/assets/`配下に使えるイラストが
+まだ無い場合は、プレースホルダーで済ませずSKILL.md「2. 必要な画像アセットを揃える」の通り
+`atelier-image-gen`スキルで生成する。**フェーズ独自の背景色をハードコードしない**
 （design-guide.md「フェーズ独自のカードスタイル」禁止と同じ理由）。フェーズごとの個性はアクセントカラー
 （庭=リーフグリーン等）を見出しの左バー等の小さな要素にだけ使う。
 
