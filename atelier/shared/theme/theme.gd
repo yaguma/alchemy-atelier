@@ -160,6 +160,11 @@ const _BUTTON_VARIANT_TEXTURES := {
 	ButtonVariant.TERTIARY: BUTTON_TEXTURE_TERTIARY,
 }
 
+# 🔵 2026-09-16追加: make_button_stylebox()の(variant, state)組み合わせごとの生成結果キャッシュ。
+# StyleBoxTextureは内容が同じであれば複数のButtonで安全に共有できる読み取り専用リソースのため、
+# 同じ組み合わせに対して毎回新規インスタンスを生成しない（PRレビュー指摘対応）
+static var _button_stylebox_cache: Dictionary = {}
+
 
 ## 🔵 2026-09-16追加: バリアントごとのボタン文字色を返す（design-guide.mdのボタン表に対応）
 static func get_button_text_color(variant: ButtonVariant) -> Color:
@@ -182,6 +187,10 @@ static func make_card_stylebox() -> StyleBox:
 ## HOVERはNORMALよりわずかに明るく、PRESSEDはわずかに暗く、DISABLEDは半透明化する
 ## （旧UiPanelStyleBox実装の「DISABLEDは呼び出し側modulateに委ねる」を是正し、実際に機能させる）
 static func make_button_stylebox(variant: ButtonVariant, state: ButtonState) -> StyleBoxTexture:
+	var cache_key := "%d_%d" % [variant, state]
+	if _button_stylebox_cache.has(cache_key):
+		return _button_stylebox_cache[cache_key]
+
 	var texture: Texture2D = _BUTTON_VARIANT_TEXTURES[variant]
 
 	var style := StyleBoxTexture.new()
@@ -207,4 +216,5 @@ static func make_button_stylebox(variant: ButtonVariant, state: ButtonState) -> 
 		_:
 			style.modulate_color = Color.WHITE
 
+	_button_stylebox_cache[cache_key] = style
 	return style
