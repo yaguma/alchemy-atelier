@@ -10,6 +10,10 @@ extends Control
 const SLOT_SELECT_SCENE_PATH := "res://features/save_load/ui/slot_select_screen.tscn"
 const MAIN_THEME := preload("res://shared/theme/main_theme.tres")
 
+## 🟡 ロゴ文字「アトリエ」の強調表示用フォントサイズ。design-guide.md未確定のため
+## タイトル画面専用の暫定値として定義（title-screen-designタスク006）
+const LOGO_FONT_SIZE := 40
+
 ## 🟡 遷移を実際に実行するか。統合テストではシーン差し替えがGdUnit4のテストランナー自身の
 ## current_sceneを巻き込むため、テスト側でfalseにして遷移要求の有無のみを検証する
 ## （boot.gd / slot_select_screen.gdと同方針）
@@ -29,6 +33,8 @@ var _settings_panel: SettingsPanel = null
 @onready var _settings_button: Button = %SettingsButton
 @onready var _quit_button: Button = %QuitButton
 @onready var _overlay_layer: Control = %OverlayLayer
+@onready var _logo_label: Label = %LogoLabel
+@onready var _emblem_rect: TextureRect = %EmblemRect
 
 
 func _ready() -> void:
@@ -49,9 +55,23 @@ func has_requested_quit() -> bool:
 	return _has_requested_quit
 
 
+## 🟡 title-screen-designタスク006。背景(TitleBackdrop)・ロゴは.tscn側で組み込み済みのため、
+## ここではロゴフォントとボタンスタイル（design-guide.mdの意味論、plan.md参照）の適用のみを行う
+## 🔵 title-screen-redesignタスク009。ドット絵路線への統合のため、フォントを
+## UiTheme.FONT_PIXEL_JP（DotGothic16）に差し替え、エンブレム画像にもニアレストフィルタを
+## 適用する（ボタンのニアレストフィルタはButtonStyleApplier.apply_button_style()側で設定済み）。
+## main_theme.tres自体は変更せず、ノード単位のoverrideのみで完結させる
+## 🔵 2026-09-16修正: 実機確認のユーザー指摘により、4ボタンのバリアント分け（PRIMARY/
+## SECONDARY/TERTIARY）を廃止し、全ボタンを同一スタイル（SECONDARY）に統一した
 func _apply_theme() -> void:
 	theme = MAIN_THEME
 	_root_container.add_theme_constant_override("separation", UiTheme.SPACING_LIST_ENTRY)
+	_logo_label.add_theme_font_override("font", UiTheme.FONT_PIXEL_JP)
+	_logo_label.add_theme_font_size_override("font_size", LOGO_FONT_SIZE)
+	_emblem_rect.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	for button in [_new_game_button, _continue_button, _settings_button, _quit_button]:
+		button.add_theme_font_override("font", UiTheme.FONT_PIXEL_JP)
+		ButtonStyleApplier.apply_button_style(button, UiTheme.ButtonVariant.SECONDARY)
 
 
 ## 🟡 「はじめから」「つづきから」はどちらも同じ遷移先へ渡す。新規/継続の実際の判定は

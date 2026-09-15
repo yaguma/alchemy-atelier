@@ -1,6 +1,8 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://features/title/ui/title_screen.gd" id="1_title_screen"]
+[ext_resource type="PackedScene" path="res://features/title/ui/title_backdrop.tscn" id="2_backdrop"]
+[ext_resource type="Texture2D" path="res://assets/ui/title/title_emblem.png" id="3_emblem"]
 
 [node name="TitleScreen" type="Control"]
 layout_mode = 3
@@ -11,33 +13,75 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_title_screen")
 
+[node name="TitleBackdrop" parent="." instance=ExtResource("2_backdrop")]
+layout_mode = 1
+
+[node name="LogoContainer" type="VBoxContainer" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 0.0
+anchor_top = 0.06
+anchor_right = 1.0
+anchor_bottom = 0.42
+grow_horizontal = 2
+grow_vertical = 2
+alignment = 1
+
+[node name="EmblemRect" type="TextureRect" parent="LogoContainer"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(260, 150)
+layout_mode = 2
+size_flags_horizontal = 4
+texture = ExtResource("3_emblem")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="LogoLabel" type="Label" parent="LogoContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 4
+horizontal_alignment = 1
+text = "アトリエ"
+
 [node name="RootContainer" type="VBoxContainer" parent="."]
 unique_name_in_owner = true
 layout_mode = 1
-anchors_preset = 15
+anchors_preset = -1
+anchor_left = 0.0
+anchor_top = 0.46
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+alignment = 1
 
 [node name="NewGameButton" type="Button" parent="RootContainer"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(240, 0)
 layout_mode = 2
+size_flags_horizontal = 4
 text = "はじめから"
 
 [node name="ContinueButton" type="Button" parent="RootContainer"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(240, 0)
 layout_mode = 2
+size_flags_horizontal = 4
 text = "つづきから"
 
 [node name="SettingsButton" type="Button" parent="RootContainer"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(240, 0)
 layout_mode = 2
+size_flags_horizontal = 4
 text = "せってい"
 
 [node name="QuitButton" type="Button" parent="RootContainer"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(240, 0)
 layout_mode = 2
+size_flags_horizontal = 4
 text = "終了"
 
 [node name="OverlayLayer" type="Control" parent="."]

@@ -101,6 +101,95 @@ func test_せってい押下ではシーン遷移が要求されない() -> void
 	assert_str(title.get_requested_next_scene_path()).is_empty()
 
 
+# 正常系: 新スタイル適用（title-screen-designタスク006）
+
+
+func test_背景にTitleBackdropが組み込まれている() -> void:
+	var title := _make_title()
+
+	assert_object(title.find_child("TitleBackdrop", true, false)).is_not_null()
+
+
+func test_ロゴ表示用のLogoContainerが組み込まれている() -> void:
+	var title := _make_title()
+
+	assert_object(title.find_child("LogoContainer", true, false)).is_not_null()
+
+
+func test_はじめからボタンに新スタイルが適用されている() -> void:
+	var title := _make_title()
+
+	assert_bool(_find_button(title, LABEL_NEW_GAME).has_theme_stylebox_override("normal")).is_true()
+
+
+func test_つづきからボタンに新スタイルが適用されている() -> void:
+	var title := _make_title()
+
+	assert_bool(_find_button(title, LABEL_CONTINUE).has_theme_stylebox_override("normal")).is_true()
+
+
+func test_せっていボタンに新スタイルが適用されている() -> void:
+	var title := _make_title()
+
+	assert_bool(_find_button(title, LABEL_SETTINGS).has_theme_stylebox_override("normal")).is_true()
+
+
+func test_終了ボタンに新スタイルが適用されている() -> void:
+	var title := _make_title()
+
+	assert_bool(_find_button(title, LABEL_QUIT).has_theme_stylebox_override("normal")).is_true()
+
+
+# 正常系: ドット絵スタイル統合（title-screen-redesignタスク009）
+
+
+func test_ロゴのフォントがドット絵フォントである() -> void:
+	var title := _make_title()
+
+	assert_object(title.find_child("LogoLabel", true, false).get_theme_font("font")).is_equal(
+		UiTheme.FONT_PIXEL_JP
+	)
+
+
+func test_エンブレム画像にニアレストフィルタが設定されている() -> void:
+	var title := _make_title()
+
+	var emblem_rect := title.find_child("EmblemRect", true, false) as TextureRect
+	assert_int(emblem_rect.texture_filter).is_equal(CanvasItem.TEXTURE_FILTER_NEAREST)
+
+
+func test_はじめからボタンにニアレストフィルタが設定されている() -> void:
+	var title := _make_title()
+
+	assert_int(_find_button(title, LABEL_NEW_GAME).texture_filter).is_equal(
+		CanvasItem.TEXTURE_FILTER_NEAREST
+	)
+
+
+func test_つづきからボタンにニアレストフィルタが設定されている() -> void:
+	var title := _make_title()
+
+	assert_int(_find_button(title, LABEL_CONTINUE).texture_filter).is_equal(
+		CanvasItem.TEXTURE_FILTER_NEAREST
+	)
+
+
+func test_せっていボタンにニアレストフィルタが設定されている() -> void:
+	var title := _make_title()
+
+	assert_int(_find_button(title, LABEL_SETTINGS).texture_filter).is_equal(
+		CanvasItem.TEXTURE_FILTER_NEAREST
+	)
+
+
+func test_終了ボタンにニアレストフィルタが設定されている() -> void:
+	var title := _make_title()
+
+	assert_int(_find_button(title, LABEL_QUIT).texture_filter).is_equal(
+		CanvasItem.TEXTURE_FILTER_NEAREST
+	)
+
+
 # 異常系・境界値
 
 
