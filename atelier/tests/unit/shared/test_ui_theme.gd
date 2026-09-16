@@ -1,18 +1,6 @@
 extends GdUnitTestSuite
 
 
-func test_カードスタイルボックスがUiPanelStyleBoxを返す() -> void:
-	var style := UiTheme.make_card_stylebox()
-
-	assert_object(style).is_instanceof(UiPanelStyleBox)
-
-
-func test_カードスタイルボックスの角丸半径がRADIUS_CARDと一致する() -> void:
-	var style: UiPanelStyleBox = UiTheme.make_card_stylebox()
-
-	assert_int(style.corner_radius).is_equal(UiTheme.RADIUS_CARD)
-
-
 func test_プライマリボタンのノーマル状態がStyleBoxTextureでPRIMARYテクスチャを参照する() -> void:
 	var style := UiTheme.make_button_stylebox(
 		UiTheme.ButtonVariant.PRIMARY, UiTheme.ButtonState.NORMAL

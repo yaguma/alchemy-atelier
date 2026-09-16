@@ -56,13 +56,6 @@ const COLOR_TITLE_HILL_BACK := Color("#9CAE74")
 const COLOR_TITLE_HILL_FRONT := Color("#748A54")
 const COLOR_TITLE_GRASS_FRAME := Color("#56693F")
 
-# 🟡 カード/パネル共通の角丸・縁取り値。design-guide.md未確定のため暫定値
-const RADIUS_CARD := 10
-const BORDER_WIDTH_CARD := 2
-const COLOR_CARD_BORDER := Color("#C7A669")
-const COLOR_CARD_GRADIENT_TOP := Color("#FFFCF5")
-const COLOR_CARD_GRADIENT_BOTTOM := Color("#F0E2C3")
-
 # 🟡 ボタン4種（プライマリ/セカンダリ/デンジャー/ターシャリ）のNORMAL状態カラー。
 # design-guide.mdのバリアント意味論に沿い、各top/bottom/borderの3色1セットで暫定値を定義する
 const COLOR_BUTTON_PRIMARY_TOP := Color("#93CC85")
@@ -124,34 +117,6 @@ const BUTTON_TEXTURE_MARGIN := 20
 # StyleBoxTexture.modulate_color側で直接半透明化するよう是正する
 const BUTTON_DISABLED_ALPHA := 0.5
 
-# 🟡 バリアントごとのtop/bottom/border色をまとめたテーブル（プロンプト生成時の配色情報源として維持）
-const _BUTTON_VARIANT_COLORS := {
-	ButtonVariant.PRIMARY:
-	{
-		"top": COLOR_BUTTON_PRIMARY_TOP,
-		"bottom": COLOR_BUTTON_PRIMARY_BOTTOM,
-		"border": COLOR_BUTTON_PRIMARY_BORDER,
-	},
-	ButtonVariant.SECONDARY:
-	{
-		"top": COLOR_BUTTON_SECONDARY_TOP,
-		"bottom": COLOR_BUTTON_SECONDARY_BOTTOM,
-		"border": COLOR_BUTTON_SECONDARY_BORDER,
-	},
-	ButtonVariant.DANGER:
-	{
-		"top": COLOR_BUTTON_DANGER_TOP,
-		"bottom": COLOR_BUTTON_DANGER_BOTTOM,
-		"border": COLOR_BUTTON_DANGER_BORDER,
-	},
-	ButtonVariant.TERTIARY:
-	{
-		"top": COLOR_BUTTON_TERTIARY_TOP,
-		"bottom": COLOR_BUTTON_TERTIARY_BOTTOM,
-		"border": COLOR_BUTTON_TERTIARY_BORDER,
-	},
-}
-
 # 🔵 バリアントごとのドット絵ボタンテクスチャをまとめたテーブル（make_button_stylebox()から参照）
 const _BUTTON_VARIANT_TEXTURES := {
 	ButtonVariant.PRIMARY: BUTTON_TEXTURE_PRIMARY,
@@ -169,17 +134,6 @@ static var _button_stylebox_cache: Dictionary = {}
 ## 🔵 2026-09-16追加: バリアントごとのボタン文字色を返す（design-guide.mdのボタン表に対応）
 static func get_button_text_color(variant: ButtonVariant) -> Color:
 	return _BUTTON_VARIANT_TEXT_COLORS[variant]
-
-
-## 🔵 カード/パネル用のUiPanelStyleBoxを生成する。design-guide.mdの「カード/パネル（全フェーズ共通）」規定に対応
-static func make_card_stylebox() -> StyleBox:
-	var style := UiPanelStyleBox.new()
-	style.corner_radius = RADIUS_CARD
-	style.border_width = BORDER_WIDTH_CARD
-	style.border_color = COLOR_CARD_BORDER
-	style.gradient_top_color = COLOR_CARD_GRADIENT_TOP
-	style.gradient_bottom_color = COLOR_CARD_GRADIENT_BOTTOM
-	return style
 
 
 ## 🔵 ボタン4種 × 4状態のStyleBoxTextureを生成する（ドット絵9-slice方式）。
