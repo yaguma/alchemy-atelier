@@ -18,7 +18,7 @@
 | SCR-005 | 昇格試験画面 | ランク到達時の特殊局面。庭なし・専用試験ノルマ・超短期ターンで調合画面をほぼ流用（🔵2026-08-04確定、数値は🟡TBD） | [promotion-exam.md](screens/promotion-exam.md) |
 | SCR-006 | 結果画面（ゲームクリア/ゲームオーバー） | Sランク昇格試験成功、または規定回数連続降格時の終了画面 | 🔴2026-08-05追加、PRレビューWarning対応。旧版は`architecture.md`の`ResultScene`定義と画面一覧が不整合だった。詳細設計は未作成（🟡TBD） |
 | SCR-007 | スロット選択画面 | 起動直後、3固定セーブスロットから選択する画面。空スロットは新規開始、既存スロットは復元して`SCR-001`へ進む。破損スロットは警告表示のみ行い選択自体は妨げない | 🔵2026-09-05追加、実装〔PR #45〕反映。詳細設計ファイルは未作成（実装は`atelier/features/save_load/ui/slot_select_screen.gd`参照）。SCR-008（タイトル画面）を経由した後に表示される |
-| SCR-008 | タイトル画面 | 起動直後の最初の画面。「はじめから」「つづきから」（どちらもSCR-007へ進む）「せってい」「終了」の4項目 | 🔵2026-09-06追加、実装〔PR #46・title-settings-screens-extensionプラン〕反映。詳細設計ファイルは未作成（実装は`atelier/features/title/ui/title_screen.gd`参照） |
+| SCR-008 | タイトル画面 | 起動直後の最初の画面。「はじめから」「つづきから」（どちらもSCR-007へ進む）「せってい」「終了」の4項目 | [title.md](screens/title.md)（🔵2026-09-06追加、実装〔PR #46・title-settings-screens-extensionプラン〕反映。🔵2026-09-15追記: title-screen-designプランでの水彩ファンタジー背景・ボタン装飾の実装を反映し詳細設計ファイルを新規作成。実装は`atelier/features/title/ui/title_screen.gd`参照） |
 | SCR-009 | 設定パネル／一時停止メニュー | BGM/SE音量・ウィンドウモード・演出簡略化を操作する設定パネル（`SettingsPanel`）と、ゲーム中にHUDの「メニュー」ボタンから開く一時停止メニュー（`PauseMenu`、閉じる/設定/タイトルに戻る）。設定パネルはSCR-008とゲーム中の両方から同一実装を埋め込み利用する | 🔵2026-09-06追加。詳細設計ファイルは未作成（実装は`atelier/shared/ui/settings_panel.gd`・`atelier/shared/ui/pause_menu.gd`参照） |
 
 ## 画面遷移図

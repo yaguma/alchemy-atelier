@@ -21,6 +21,14 @@ RngService="*res://autoload/rng_service.gd"
 SaveService="*res://autoload/save_service.gd"
 SettingsService="*res://autoload/settings_service.gd"
 
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=720
+window/stretch/mode="viewport"
+window/stretch/aspect="keep"
+window/stretch/scale_mode="integer"
+
 [editor_plugins]
 
 enabled=PackedStringArray("res://addons/gdUnit4/plugin.cfg")
