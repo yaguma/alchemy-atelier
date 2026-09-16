@@ -78,3 +78,23 @@ func test_ターシャリバリアント適用で文字色がCOLOR_BUTTON_TEXT_O
 	assert_object(button.get_theme_color("font_color")).is_equal(
 		UiTheme.COLOR_BUTTON_TEXT_ON_LIGHT_MUTED
 	)
+
+
+func test_セカンダリバリアント適用でフォーカス時の文字色がノーマルと同じになる() -> void:
+	var button: Button = auto_free(Button.new())
+
+	ButtonStyleApplier.apply_button_style(button, UiTheme.ButtonVariant.SECONDARY)
+
+	assert_object(button.get_theme_color("font_focus_color")).is_equal(
+		UiTheme.COLOR_BUTTON_TEXT_ON_LIGHT
+	)
+
+
+func test_セカンダリバリアント適用で無効時の文字色のアルファがBUTTON_DISABLED_ALPHAになる() -> void:
+	var button: Button = auto_free(Button.new())
+
+	ButtonStyleApplier.apply_button_style(button, UiTheme.ButtonVariant.SECONDARY)
+
+	var disabled_color: Color = button.get_theme_color("font_disabled_color")
+	assert_float(disabled_color.a).is_equal_approx(UiTheme.BUTTON_DISABLED_ALPHA, 0.001)
+	assert_float(disabled_color.r).is_equal_approx(UiTheme.COLOR_BUTTON_TEXT_ON_LIGHT.r, 0.001)
