@@ -1,8 +1,11 @@
 class_name MaterialEntryRow
-extends HBoxContainer
+extends PanelContainer
 
 ## 素材在庫一覧の1行分を表示するコンポーネント。MaterialInventoryListから動的に生成・破棄される。
 ## garden/ui/seed_entry_row.gdと同型のパターン（専用シーン化＋setup()による値注入）に揃えている。
+## 🟡 garden-alchemy-visual-refresh Planタスク008。root型をHBoxContainerからPanelContainerへ変更し、
+## UiTheme共通カードパネルスタイルボックスを適用してカード化する（実際の横並びレイアウトは
+## 内側のContent（HBoxContainer）が担う）
 
 signal place_pressed(material_instance_id: String)
 
@@ -17,6 +20,11 @@ var _material_instance_id: String = ""
 
 
 func _ready() -> void:
+	add_theme_stylebox_override("panel", UiTheme.make_panel_stylebox())
+	ButtonStyleApplier.apply_button_style(_place_button, UiTheme.ButtonVariant.SECONDARY)
+	_place_button.add_theme_font_override("font", UiTheme.FONT_PIXEL_JP)
+	for label in [_name_label, _quality_label, _trait_label]:
+		label.add_theme_font_override("font", UiTheme.FONT_PIXEL_JP)
 	_place_button.pressed.connect(_on_place_pressed)
 
 

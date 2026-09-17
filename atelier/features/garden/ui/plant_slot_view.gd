@@ -31,15 +31,26 @@ var _slot_index: int = -1
 var _status: Status = Status.EMPTY
 var _harvest_enabled: bool = false
 
+@onready var _slot_panel: PanelContainer = %SlotPanel
 @onready var _status_label: Label = %StatusLabel
 @onready var _status_icon: Label = %StatusIcon
 @onready var _harvest_button: Button = %HarvestButton
 @onready var _wait_button: Button = %WaitButton
 
 
+## 🟡 garden-alchemy-visual-refresh Plan タスク007: ドット絵カードパネル・ボタン・
+## DotGothic16フォントを統合する。HarvestButton=確定操作でPRIMARY、WaitButton=
+## 「様子を見る」という消極的な操作でSECONDARYとした（タスクファイルの暫定割り当てに従う）
 func _ready() -> void:
+	_slot_panel.add_theme_stylebox_override("panel", UiTheme.make_panel_stylebox())
 	_harvest_button.pressed.connect(_on_harvest_pressed)
 	_wait_button.pressed.connect(_on_wait_pressed)
+	ButtonStyleApplier.apply_button_style(_harvest_button, UiTheme.ButtonVariant.PRIMARY)
+	ButtonStyleApplier.apply_button_style(_wait_button, UiTheme.ButtonVariant.SECONDARY)
+	_status_label.add_theme_font_override("font", UiTheme.FONT_PIXEL_JP)
+	_status_icon.add_theme_font_override("font", UiTheme.FONT_PIXEL_JP)
+	_harvest_button.add_theme_font_override("font", UiTheme.FONT_PIXEL_JP)
+	_wait_button.add_theme_font_override("font", UiTheme.FONT_PIXEL_JP)
 	_apply_display()
 
 
@@ -141,7 +152,10 @@ func _apply_display() -> void:
 		return
 	_status_label.text = status_text(_status)
 	_status_icon.text = status_icon(_status)
-	self_modulate = status_color(_status)
+	# 🟡 旧: self_modulate = status_color(_status)（root Controlに適用、背景StyleBoxが無く
+	# 視覚的に無効化されていた）。%SlotPanelにドット絵カードパネルを敷いたことで、状態色は
+	# パネル側に適用してはじめて意味を持つようになった
+	_slot_panel.self_modulate = status_color(_status)
 	_harvest_button.disabled = not _harvest_enabled
 
 

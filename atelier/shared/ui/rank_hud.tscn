@@ -2,31 +2,34 @@
 
 [ext_resource type="Script" path="res://shared/ui/rank_hud.gd" id="1_rank_hud"]
 
-[node name="RankHud" type="HBoxContainer"]
+[node name="RankHud" type="PanelContainer"]
 anchors_preset = 10
 anchor_right = 1.0
 offset_bottom = 32.0
 grow_horizontal = 2
 script = ExtResource("1_rank_hud")
 
-[node name="RankNameLabel" type="Label" parent="."]
+[node name="HBoxContainer" type="HBoxContainer" parent="."]
+layout_mode = 2
+
+[node name="RankNameLabel" type="Label" parent="HBoxContainer"]
 unique_name_in_owner = true
 layout_mode = 2
 
-[node name="QuotaBar" type="ProgressBar" parent="."]
+[node name="QuotaBar" type="ProgressBar" parent="HBoxContainer"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="TurnRemainingLabel" type="Label" parent="."]
+[node name="TurnRemainingLabel" type="Label" parent="HBoxContainer"]
 unique_name_in_owner = true
 layout_mode = 2
 
-[node name="GoldLabel" type="Label" parent="."]
+[node name="GoldLabel" type="Label" parent="HBoxContainer"]
 unique_name_in_owner = true
 layout_mode = 2
 
-[node name="MenuButton" type="Button" parent="."]
+[node name="MenuButton" type="Button" parent="HBoxContainer"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "メニュー"

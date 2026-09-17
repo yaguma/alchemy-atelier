@@ -26,6 +26,10 @@ func _find_button(view: PlantSlotView, node_name: String) -> Button:
 	return view.find_child(node_name) as Button
 
 
+func _find_slot_panel(view: PlantSlotView) -> PanelContainer:
+	return view.find_child("SlotPanel") as PanelContainer
+
+
 # 正常系
 
 
@@ -44,6 +48,57 @@ func test_setup_emptyで空き状態の色とアイコンとテキストが表�
 	)
 	assert_str(_find_label(view, "StatusLabel").text).is_not_empty()
 	assert_str(_find_label(view, "StatusIcon").text).is_not_empty()
+
+
+# garden-alchemy-visual-refresh Plan タスク007: %SlotPanelのカード化を検証する
+
+
+func test_setup_emptyでSlotPanelのself_modulateがCOLOR_SLOT_EMPTYになる() -> void:
+	var view := _make_view()
+
+	view.setup_empty(0)
+
+	assert_object(_find_slot_panel(view).self_modulate).is_equal(UiTheme.COLOR_SLOT_EMPTY)
+	# 旧実装はrootのself_modulateに適用しており、背景StyleBoxが無く無効化されていた。
+	# rootは既定色（白・不透明）から変化していないことを確認する
+	assert_object(view.self_modulate).is_equal(Color(1, 1, 1, 1))
+
+
+func test_収穫可能状態でSlotPanelのself_modulateがCOLOR_SLOT_HARVESTABLEになる() -> void:
+	var view := _make_view()
+	var plant := PlantState.new(2, &"seed_herb", 3, true)
+
+	view.setup(plant, _make_master(3, 4))
+
+	assert_int(view.get_status()).is_equal(PlantSlotView.Status.HARVESTABLE)
+	assert_object(_find_slot_panel(view).self_modulate).is_equal(UiTheme.COLOR_SLOT_HARVESTABLE)
+
+
+func test_setup_data_errorでSlotPanelのself_modulateがCOLOR_SLOT_DATA_ERRORになる() -> void:
+	var view := _make_view()
+
+	view.setup_data_error(2)
+
+	assert_object(_find_slot_panel(view).self_modulate).is_equal(UiTheme.COLOR_SLOT_DATA_ERROR)
+
+
+func test_SlotPanelにmake_panel_styleboxと同一のStyleBoxTextureが設定されている() -> void:
+	var view := _make_view()
+
+	assert_object(_find_slot_panel(view).get_theme_stylebox("panel")).is_equal(
+		UiTheme.make_panel_stylebox()
+	)
+
+
+func test_収穫ボタンと待機ボタンにNEARESTのtexture_filterが設定されている() -> void:
+	var view := _make_view()
+
+	assert_int(_find_button(view, "HarvestButton").texture_filter).is_equal(
+		CanvasItem.TEXTURE_FILTER_NEAREST
+	)
+	assert_int(_find_button(view, "WaitButton").texture_filter).is_equal(
+		CanvasItem.TEXTURE_FILTER_NEAREST
+	)
 
 
 func test_未成熟のPlantStateをsetupすると生育中状態で表示される() -> void:

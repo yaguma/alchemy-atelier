@@ -21,6 +21,10 @@ func _find_button(view: AlchemySlotView, node_name: String) -> Button:
 	return view.find_child(node_name) as Button
 
 
+func _find_panel(view: AlchemySlotView) -> PanelContainer:
+	return view.find_child("SlotPanel") as PanelContainer
+
+
 # 正常系
 
 
@@ -82,6 +86,38 @@ func test_空きと投入済みで異なる表示色とテキストが割り当�
 	assert_str(AlchemySlotView.status_text(AlchemySlotView.Status.EMPTY)).is_not_equal(
 		AlchemySlotView.status_text(AlchemySlotView.Status.FILLED)
 	)
+
+
+# 🟡 garden-alchemy-visual-refresh Planタスク008。背景が無く無効化されていたルートControlの
+# self_modulateではなく、新設%SlotPanel（カード化された前面パネル）へ状態色を適用する
+func test_setup_emptyでSlotPanelのself_modulateがEMPTY色になる() -> void:
+	var view := _make_view()
+
+	view.setup_empty(0)
+
+	var panel := _find_panel(view)
+	assert_object(panel).is_not_null()
+	assert_bool(panel.self_modulate == UiTheme.COLOR_ALCHEMY_SLOT_EMPTY).is_true()
+	# ルートControl自体の色は状態に依存して変化しないこと（旧実装からの移設確認）
+	assert_bool(view.self_modulate == UiTheme.COLOR_ALCHEMY_SLOT_EMPTY).is_false()
+
+
+func test_setupでSlotPanelのself_modulateがFILLED色になる() -> void:
+	var view := _make_view()
+	var tags: Array[StringName] = []
+
+	view.setup(0, _make_material(3, tags))
+
+	var panel := _find_panel(view)
+	assert_bool(panel.self_modulate == UiTheme.COLOR_ALCHEMY_SLOT_FILLED).is_true()
+
+
+func test_SlotPanelにUiThemeの共通カードパネルスタイルボックスが適用されている() -> void:
+	var view := _make_view()
+
+	var panel := _find_panel(view)
+
+	assert_object(panel.get_theme_stylebox("panel")).is_same(UiTheme.make_panel_stylebox())
 
 
 # 異常系

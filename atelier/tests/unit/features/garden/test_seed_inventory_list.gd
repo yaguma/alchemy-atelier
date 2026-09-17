@@ -22,12 +22,14 @@ func _find_row(list: SeedInventoryList, seed_id: StringName) -> Control:
 
 func _find_plant_button(list: SeedInventoryList, seed_id: StringName) -> Button:
 	var row := _find_row(list, seed_id)
-	return row.get_node("PlantButton") as Button
+	# 🟡 garden-alchemy-visual-refresh Plan タスク007: SeedEntryRowのカード化でPlantButtonが
+	# Content配下に移動し直下パスでは取得できなくなったため、find_child()に更新した
+	return row.find_child("PlantButton", true, false) as Button
 
 
 func _find_name_label(list: SeedInventoryList, seed_id: StringName) -> Label:
 	var row := _find_row(list, seed_id)
-	return row.get_node("NameLabel") as Label
+	return row.find_child("NameLabel", true, false) as Label
 
 
 # 正常系

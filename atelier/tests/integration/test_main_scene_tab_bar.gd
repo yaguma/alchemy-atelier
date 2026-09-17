@@ -136,6 +136,50 @@ func test_alchemy_screenのsignal宣言がshop_requestedとdelivery_confirmedの
 	assert_bool(source.contains("signal delivery_confirmed")).is_true()
 
 
+# 正常系: ドット絵ボタンスタイル統合（garden-alchemy-visual-refresh タスク010）
+
+
+func test_庭タブボタンにニアレストフィルタが設定されている() -> void:
+	var main := _make_main()
+
+	assert_int(_garden_tab(main).texture_filter).is_equal(CanvasItem.TEXTURE_FILTER_NEAREST)
+
+
+func test_調合タブボタンにニアレストフィルタが設定されている() -> void:
+	var main := _make_main()
+
+	assert_int(_alchemy_tab(main).texture_filter).is_equal(CanvasItem.TEXTURE_FILTER_NEAREST)
+
+
+func test_庭タブボタンが4状態全てにStyleBoxTextureオーバーライドを保持する() -> void:
+	var main := _make_main()
+	var button := _garden_tab(main)
+
+	for state_name in ["normal", "hover", "pressed", "disabled"]:
+		assert_bool(button.has_theme_stylebox_override(state_name)).is_true()
+		assert_object(button.get_theme_stylebox(state_name)).is_instanceof(StyleBoxTexture)
+
+
+func test_調合タブボタンが4状態全てにStyleBoxTextureオーバーライドを保持する() -> void:
+	var main := _make_main()
+	var button := _alchemy_tab(main)
+
+	for state_name in ["normal", "hover", "pressed", "disabled"]:
+		assert_bool(button.has_theme_stylebox_override(state_name)).is_true()
+		assert_object(button.get_theme_stylebox(state_name)).is_instanceof(StyleBoxTexture)
+
+
+func test_タブボタンのフォントサイズがUiTheme規定値になっている() -> void:
+	var main := _make_main()
+
+	assert_int(_garden_tab(main).get_theme_font_size("font_size")).is_equal(
+		UiTheme.BUTTON_FONT_SIZE
+	)
+	assert_int(_alchemy_tab(main).get_theme_font_size("font_size")).is_equal(
+		UiTheme.BUTTON_FONT_SIZE
+	)
+
+
 # 試験中のタブ制御（FR-201, FR-202）
 
 
