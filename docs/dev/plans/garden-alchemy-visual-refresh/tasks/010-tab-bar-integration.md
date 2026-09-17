@@ -1,7 +1,7 @@
 ---
 id: "010"
 title: "TabBarのタブボタンにドット絵ボタンスタイル・フォントを適用する"
-status: pending
+status: done
 priority: 3
 dependencies: ["004"]
 estimated_complexity: medium

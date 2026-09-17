@@ -1,7 +1,7 @@
 ---
 id: "011"
 title: "design-guide.mdのドット絵適用範囲を庭・調合・共通UIに拡大する"
-status: pending
+status: done
 priority: 4
 dependencies: ["007", "008", "009", "010"]
 estimated_complexity: low

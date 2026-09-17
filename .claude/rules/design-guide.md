@@ -2,13 +2,14 @@
 
 > 🔴 2026-08-06改訂: 技術スタックがGodot 4.x + GDScriptに確定済み（`CLAUDE.md`参照）のため、コード例をTypeScript importからGDScriptの`UiTheme`参照構文に更新した。デザイン原則・カラー体系自体は変更なし。
 > 🔴 2026-09-16改訂: タイトル画面がドット絵（ピクセルアート）技法を採用したため（`docs/dev/plans/title-screen-redesign/`参照）、本ファイルにその技法選択の分岐を追記した。**プロジェクト全体のデフォルトは引き続き水彩ファンタジースタイルであり、タイトル画面のみの限定的な分岐である**。他画面（庭・調合・ギルド納品・工房強化等）を水彩からドット絵へ統一するものではない。
+> 🔴 2026-09-18改訂: `docs/dev/plans/garden-alchemy-visual-refresh/`にて、タイトル画面のドット絵技法を**庭・調合の2画面、および両画面と常時同時表示される共通UI（`RankHud`・`TabBar`）**にも展開した。これによりドット絵技法の適用範囲は「タイトル画面のみ」から「タイトル・庭・調合・共通UI（RankHud/TabBar）」に拡大したが、**guild（ギルド納品）・rank（ランク進行・昇格試験）・workshop（工房強化）の3画面は引き続き水彩ファンタジースタイルがデフォルトのまま**であり、対象外である。以降の本ファイル中の「タイトル画面のみの例外」という記述は、上記の拡大後の範囲（タイトル・庭・調合・共通UI）を指すものと読み替えること。
 
 ## 概要
 
 本プロジェクトは「水彩ファンタジースタイル」を採用する。
 詳細は `docs/design/atelier-alchemy-core/ui-design/` を参照。
 
-> 🔵 タイトル画面のみ、ドット絵（ピクセルアート）技法を採用した例外（`docs/design/atelier-alchemy-core/ui-design/screens/title.md`参照）。背景・ボタン・ロゴをドット絵アセット＋`texture_filter`のnearest設定で構成し、フォントもDotGothic16（ドット絵風日本語フォント）を使用する。他のフェーズ画面は本節の水彩ファンタジースタイルを引き続き適用する。
+> 🔵 タイトル・庭・調合の3画面、および共通UI（`RankHud`・`TabBar`）は、ドット絵（ピクセルアート）技法を採用した例外（`docs/design/atelier-alchemy-core/ui-design/screens/title.md`, `garden.md`, `alchemy.md`参照。2026-09-16にタイトル画面から開始し、2026-09-18に`docs/dev/plans/garden-alchemy-visual-refresh/`で庭・調合・共通UIへ拡大）。背景・ボタン・カードパネルをドット絵アセット＋`texture_filter`のnearest設定で構成し、フォントもDotGothic16（ドット絵風日本語フォント）を使用する。**guild（ギルド納品）・rank（ランク進行・昇格試験）・workshop（工房強化）の3画面は対象外**で、本節の水彩ファンタジースタイルを引き続き適用する。
 
 ---
 
@@ -99,7 +100,7 @@ var border := Color("#ffd54f")
 
 角丸なし（0px）は原則使用しない。
 
-> 🔵 ドット絵アセット（タイトル画面）の角は、角丸ではなくピクセル単位の面取りで表現する。上記`RADIUS_*`トークンは水彩StyleBoxにのみ適用され、ドット絵StyleBoxTexture/9-sliceには適用しない。
+> 🔵 ドット絵アセット（タイトル・庭・調合・共通UI）の角は、角丸ではなくピクセル単位の面取りで表現する。上記`RADIUS_*`トークンは水彩StyleBoxにのみ適用され、ドット絵StyleBoxTexture/9-sliceには適用しない。
 
 ---
 

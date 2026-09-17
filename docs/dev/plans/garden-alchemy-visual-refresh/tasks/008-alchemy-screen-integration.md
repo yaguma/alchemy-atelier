@@ -1,7 +1,7 @@
 ---
 id: "008"
 title: "調合画面にドット絵背景・カードパネル・ボタン・フォントを統合する"
-status: pending
+status: done
 priority: 3
 dependencies: ["004", "006"]
 estimated_complexity: high

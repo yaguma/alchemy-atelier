@@ -1,7 +1,7 @@
 ---
 id: "009"
 title: "RankHudをカードパネル・ドット絵フォントで統合する"
-status: pending
+status: done
 priority: 3
 dependencies: ["004"]
 estimated_complexity: medium

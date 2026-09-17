@@ -3,6 +3,8 @@
 作成日: 2026-08-04
 準拠要件: [`../../../../spec/atelier-alchemy-core/requirements.md`](../../../../spec/atelier-alchemy-core/requirements.md) §3「庭（仕込み層）」
 
+> 🔵 2026-09-18追記: `docs/dev/plans/garden-alchemy-visual-refresh/`にて、本画面はタイトル画面と同じドット絵（ピクセルアート）技法に刷新済み（背景・カードパネル・ボタンをドット絵アセット化、`../../../../.claude/rules/design-guide.md`参照）。以下のワイヤーフレーム自体は構成要素の配置を示すもので、水彩/ドット絵いずれの技法にも共通する。
+
 ## 基本情報
 
 | 項目 | 値 |

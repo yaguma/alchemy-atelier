@@ -1,7 +1,7 @@
 ---
 id: "007"
 title: "庭画面にドット絵背景・カードパネル・ボタン・フォントを統合する"
-status: pending
+status: done
 priority: 3
 dependencies: ["004", "005"]
 estimated_complexity: high
