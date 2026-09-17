@@ -60,3 +60,39 @@ func test_全バリアントでボタンスタイルボックスがnullになら
 	var style := UiTheme.make_button_stylebox(variant, UiTheme.ButtonState.NORMAL)
 
 	assert_object(style).is_not_null()
+
+
+func test_パネルスタイルボックスがStyleBoxTextureを返す() -> void:
+	var style := UiTheme.make_panel_stylebox()
+
+	assert_object(style).is_instanceof(StyleBoxTexture)
+
+
+func test_パネルスタイルボックスのテクスチャがPANEL_TEXTURE_PIXELと一致する() -> void:
+	var style := UiTheme.make_panel_stylebox()
+
+	assert_object(style.texture).is_equal(UiTheme.PANEL_TEXTURE_PIXEL)
+
+
+func test_パネルスタイルボックスは2回呼び出しても同一インスタンスを返す() -> void:
+	var first := UiTheme.make_panel_stylebox()
+	var second := UiTheme.make_panel_stylebox()
+
+	assert_object(first).is_same(second)
+
+
+func test_パネルスタイルボックスのテクスチャマージンがPANEL_TEXTURE_MARGINと一致する() -> void:
+	var style := UiTheme.make_panel_stylebox()
+
+	# StyleBoxTexture.texture_margin_*はfloat型プロパティのため、assert_intではなくassert_floatで比較する
+	assert_float(style.texture_margin_left).is_equal_approx(UiTheme.PANEL_TEXTURE_MARGIN, 0.001)
+	assert_float(style.texture_margin_top).is_equal_approx(UiTheme.PANEL_TEXTURE_MARGIN, 0.001)
+	assert_float(style.texture_margin_right).is_equal_approx(UiTheme.PANEL_TEXTURE_MARGIN, 0.001)
+	assert_float(style.texture_margin_bottom).is_equal_approx(UiTheme.PANEL_TEXTURE_MARGIN, 0.001)
+
+
+func test_パネルスタイルボックスの伸縮モードがタイルになっている() -> void:
+	var style := UiTheme.make_panel_stylebox()
+
+	assert_int(style.axis_stretch_horizontal).is_equal(StyleBoxTexture.AXIS_STRETCH_MODE_TILE)
+	assert_int(style.axis_stretch_vertical).is_equal(StyleBoxTexture.AXIS_STRETCH_MODE_TILE)

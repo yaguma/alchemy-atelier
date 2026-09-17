@@ -125,10 +125,25 @@ const _BUTTON_VARIANT_TEXTURES := {
 	ButtonVariant.TERTIARY: BUTTON_TEXTURE_TERTIARY,
 }
 
+# 🔵 garden-alchemy-visual-refresh Plan タスク004: カードパネル共通のドット絵9-sliceテクスチャ。
+# ボタンと異なりバリアント分岐が無いため単一テクスチャのみ
+const PANEL_TEXTURE_PIXEL: Texture2D = preload("res://assets/ui/pixel/panel_pixel.png")
+
+# 🔴 2026-09-18: panel_pixel.pngをGEMINI_API_KEY設定後にatelier-image-genで本番アセットへ差し替え、
+# それに伴い枠幅を再計測した（旧: Pillowプレースホルダーの実測値14px）。Gemini生成の1024x1024画像を
+# 既存ボタンテクスチャと同じ64x64にNEARESTでダウンサンプルした後、中央帯（y=30-34）を平均して
+# Pillowで色解析した結果、外周の枠から中央のほぼ均一なクリーム領域に落ち着くまでの幅は上下左右
+# 対称に約8pxだった（BUTTON_TEXTURE_MARGINと同じ「トリミング＋色解析」手順）。安全マージンを
+# 2px加えて10pxを採用する。テクスチャを再生成する場合は本値も再計測すること
+const PANEL_TEXTURE_MARGIN := 10
+
 # 🔵 2026-09-16追加: make_button_stylebox()の(variant, state)組み合わせごとの生成結果キャッシュ。
 # StyleBoxTextureは内容が同じであれば複数のButtonで安全に共有できる読み取り専用リソースのため、
 # 同じ組み合わせに対して毎回新規インスタンスを生成しない（PRレビュー指摘対応）
 static var _button_stylebox_cache: Dictionary = {}
+
+# 🟡 make_panel_stylebox()の生成結果キャッシュ。バリアントが無いため単一インスタンスでよい
+static var _panel_stylebox_cache: StyleBoxTexture = null
 
 
 ## 🔵 2026-09-16追加: バリアントごとのボタン文字色を返す（design-guide.mdのボタン表に対応）
@@ -171,4 +186,24 @@ static func make_button_stylebox(variant: ButtonVariant, state: ButtonState) -> 
 			style.modulate_color = Color.WHITE
 
 	_button_stylebox_cache[cache_key] = style
+	return style
+
+
+## 🟡 make_button_stylebox()と同型のStyleBoxTexture 9-slice生成。カードパネル共通アセットは
+## バリアント・状態を持たないため引数なしで単一インスタンスを返す
+static func make_panel_stylebox() -> StyleBoxTexture:
+	if _panel_stylebox_cache != null:
+		return _panel_stylebox_cache
+
+	var style := StyleBoxTexture.new()
+	style.texture = PANEL_TEXTURE_PIXEL
+	style.texture_margin_left = PANEL_TEXTURE_MARGIN
+	style.texture_margin_top = PANEL_TEXTURE_MARGIN
+	style.texture_margin_right = PANEL_TEXTURE_MARGIN
+	style.texture_margin_bottom = PANEL_TEXTURE_MARGIN
+	# ドット絵のにじみ防止のため伸縮ではなくタイル（反復）で拡縮する（ボタンと同じ方針）
+	style.axis_stretch_horizontal = StyleBoxTexture.AXIS_STRETCH_MODE_TILE
+	style.axis_stretch_vertical = StyleBoxTexture.AXIS_STRETCH_MODE_TILE
+
+	_panel_stylebox_cache = style
 	return style
