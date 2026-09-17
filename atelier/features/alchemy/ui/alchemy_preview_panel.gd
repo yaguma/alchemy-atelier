@@ -27,8 +27,8 @@ var _value_text: String = ""
 func _ready() -> void:
 	# 🟡 プレビュー全体を1枚のカードで囲む。make_panel_stylebox()はキャッシュ済みの単一インスタンス
 	_preview_panel.add_theme_stylebox_override("panel", UiTheme.make_panel_stylebox())
-	for label in [_quality_label, _traits_label, _value_label, _order_match_label]:
-		label.add_theme_font_override("font", UiTheme.FONT_PIXEL_JP)
+	for label: Label in [_quality_label, _traits_label, _value_label, _order_match_label]:
+		UiTheme.apply_pixel_font(label)
 	if _quality_text.is_empty():
 		show_empty()
 	else:

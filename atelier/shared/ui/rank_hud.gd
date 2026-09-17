@@ -122,11 +122,11 @@ func get_menu_button() -> Button:
 func _apply_theme() -> void:
 	add_theme_stylebox_override("panel", UiTheme.make_panel_stylebox())
 	for label: Label in [_rank_name_label, _turn_remaining_label, _gold_label]:
-		label.add_theme_font_override("font", UiTheme.FONT_PIXEL_JP)
+		UiTheme.apply_pixel_font(label)
 		label.add_theme_font_size_override("font_size", UiTheme.FONT_SIZE_DEFAULT)
 		label.add_theme_color_override("font_color", UiTheme.COLOR_HUD_TEXT)
 	_quota_bar.self_modulate = UiTheme.COLOR_HUD_QUOTA_BAR
-	_menu_button.add_theme_font_override("font", UiTheme.FONT_PIXEL_JP)
+	UiTheme.apply_pixel_font(_menu_button)
 	ButtonStyleApplier.apply_button_style(_menu_button, UiTheme.ButtonVariant.TERTIARY)
 
 

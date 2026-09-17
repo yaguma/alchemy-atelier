@@ -47,10 +47,10 @@ func _ready() -> void:
 	_wait_button.pressed.connect(_on_wait_pressed)
 	ButtonStyleApplier.apply_button_style(_harvest_button, UiTheme.ButtonVariant.PRIMARY)
 	ButtonStyleApplier.apply_button_style(_wait_button, UiTheme.ButtonVariant.SECONDARY)
-	_status_label.add_theme_font_override("font", UiTheme.FONT_PIXEL_JP)
-	_status_icon.add_theme_font_override("font", UiTheme.FONT_PIXEL_JP)
-	_harvest_button.add_theme_font_override("font", UiTheme.FONT_PIXEL_JP)
-	_wait_button.add_theme_font_override("font", UiTheme.FONT_PIXEL_JP)
+	UiTheme.apply_pixel_font(_status_label)
+	UiTheme.apply_pixel_font(_status_icon)
+	UiTheme.apply_pixel_font(_harvest_button)
+	UiTheme.apply_pixel_font(_wait_button)
 	_apply_display()
 
 

@@ -10,8 +10,4 @@ const BACKDROP_TEXTURE: Texture2D = preload("res://assets/ui/title/title_backdro
 
 ## 🔵 ドット絵テクスチャを画面全体にカバー表示し、ボタン操作を妨げないようクリックを透過する
 func _ready() -> void:
-	texture = BACKDROP_TEXTURE
-	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	PixelBackdropApplier.apply(self, BACKDROP_TEXTURE)

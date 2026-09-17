@@ -29,10 +29,10 @@ func _ready() -> void:
 	# 呼び出しごとの再生成コストは無い（UiTheme.make_panel_stylebox()実装参照）
 	_slot_panel.add_theme_stylebox_override("panel", UiTheme.make_panel_stylebox())
 	# 🟡 カード内の最も控えめなアクションのためTERTIARYを採用（design-guide.mdのボタン表）
-	_clear_button.add_theme_font_override("font", UiTheme.FONT_PIXEL_JP)
+	UiTheme.apply_pixel_font(_clear_button)
 	ButtonStyleApplier.apply_button_style(_clear_button, UiTheme.ButtonVariant.TERTIARY)
-	_status_label.add_theme_font_override("font", UiTheme.FONT_PIXEL_JP)
-	_material_label.add_theme_font_override("font", UiTheme.FONT_PIXEL_JP)
+	UiTheme.apply_pixel_font(_status_label)
+	UiTheme.apply_pixel_font(_material_label)
 	_clear_button.pressed.connect(_on_clear_pressed)
 	_apply_display()
 
