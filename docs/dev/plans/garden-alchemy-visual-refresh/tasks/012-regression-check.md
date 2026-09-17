@@ -1,7 +1,7 @@
 ---
 id: "012"
 title: "全体の回帰確認（gdlint/gdformat/GdUnit4全件、実測補正・目視確認を含む）を実施する"
-status: pending
+status: done
 priority: 5
 dependencies: ["011"]
 estimated_complexity: medium
