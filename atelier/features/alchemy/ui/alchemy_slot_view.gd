@@ -18,12 +18,21 @@ var _slot_index: int = -1
 var _status: Status = Status.EMPTY
 var _material_text: String = ""
 
+@onready var _slot_panel: PanelContainer = %SlotPanel  # 🟡 garden-alchemy-visual-refresh Plan タスク008
 @onready var _status_label: Label = %StatusLabel
 @onready var _material_label: Label = %MaterialLabel
 @onready var _clear_button: Button = %ClearButton
 
 
 func _ready() -> void:
+	# 🟡 make_panel_stylebox()はバリアント無しの単一キャッシュ済みStyleBoxTextureを返すため、
+	# 呼び出しごとの再生成コストは無い（UiTheme.make_panel_stylebox()実装参照）
+	_slot_panel.add_theme_stylebox_override("panel", UiTheme.make_panel_stylebox())
+	# 🟡 カード内の最も控えめなアクションのためTERTIARYを採用（design-guide.mdのボタン表）
+	_clear_button.add_theme_font_override("font", UiTheme.FONT_PIXEL_JP)
+	ButtonStyleApplier.apply_button_style(_clear_button, UiTheme.ButtonVariant.TERTIARY)
+	_status_label.add_theme_font_override("font", UiTheme.FONT_PIXEL_JP)
+	_material_label.add_theme_font_override("font", UiTheme.FONT_PIXEL_JP)
 	_clear_button.pressed.connect(_on_clear_pressed)
 	_apply_display()
 
@@ -85,7 +94,9 @@ func _apply_display() -> void:
 		return
 	_status_label.text = status_text(_status)
 	_material_label.text = _material_text
-	self_modulate = status_color(_status)
+	# 🟡 旧実装はルートControl（背景を持たない）へself_modulateを適用しており視覚的に無効化されていた。
+	# カード化された%SlotPanelへ移設することで状態色（NFR-201）が実際に見えるようにする
+	_slot_panel.self_modulate = status_color(_status)
 	_clear_button.disabled = _status == Status.EMPTY
 
 

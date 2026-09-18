@@ -1,7 +1,8 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://features/garden/ui/garden_screen.gd" id="1_garden_screen"]
 [ext_resource type="PackedScene" path="res://features/garden/ui/seed_inventory_list.tscn" id="2_seed_inventory_list"]
+[ext_resource type="PackedScene" path="res://features/garden/ui/garden_backdrop.tscn" id="3_backdrop"]
 
 [node name="GardenScreen" type="Control"]
 layout_mode = 3
@@ -11,6 +12,9 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_garden_screen")
+
+[node name="GardenBackdrop" parent="." instance=ExtResource("3_backdrop")]
+layout_mode = 1
 
 [node name="VBoxContainer" type="VBoxContainer" parent="."]
 layout_mode = 1

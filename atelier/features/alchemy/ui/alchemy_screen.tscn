@@ -1,9 +1,10 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://features/alchemy/ui/alchemy_screen.gd" id="1_alchemy_screen"]
 [ext_resource type="PackedScene" path="res://features/alchemy/ui/material_inventory_list.tscn" id="2_material_inventory_list"]
 [ext_resource type="PackedScene" path="res://features/alchemy/ui/alchemy_preview_panel.tscn" id="3_alchemy_preview_panel"]
 [ext_resource type="PackedScene" path="res://features/guild/ui/guild_delivery_screen.tscn" id="4_guild_delivery_screen"]
+[ext_resource type="PackedScene" path="res://features/alchemy/ui/alchemy_backdrop.tscn" id="5_alchemy_backdrop"]
 
 [node name="AlchemyScreen" type="Control"]
 layout_mode = 3
@@ -13,6 +14,9 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_alchemy_screen")
+
+[node name="AlchemyBackdrop" parent="." instance=ExtResource("5_alchemy_backdrop")]
+layout_mode = 1
 
 [node name="VBoxContainer" type="VBoxContainer" parent="."]
 layout_mode = 1

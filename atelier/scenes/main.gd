@@ -85,6 +85,10 @@ func _ready() -> void:
 	GameState.game_cleared.connect(_on_game_cleared)  # 🔵 FR-111, FR-113
 	GameState.game_over.connect(_on_game_over)  # 🔵 FR-112, FR-113
 
+	# 🔵 garden-alchemy-visual-refresh タスク010。タイトル画面（title_screen.gd）と同じパターンで
+	# タブボタンにドット絵ボタンスタイル・フォントを適用する。新規アセットは生成しない
+	_apply_tab_bar_style()
+
 	# 🔵 FR-004。起動時点のcurrent_phaseに表示を合わせる。.tscn側の初期visibleに依存すると
 	# 「シーンの初期値」と「GameStateの実際のフェーズ」が二重管理になるため、必ずここで揃える
 	_apply_visible_phase(GameState.get_state()["current_phase"])
@@ -246,6 +250,18 @@ func _on_game_over(_demotion_count: int) -> void:
 func _set_tabs_disabled(disabled: bool) -> void:
 	_garden_tab_button.disabled = disabled
 	_alchemy_tab_button.disabled = disabled
+
+
+# 🔵 garden-alchemy-visual-refresh タスク010。title_screen.gd _apply_theme()と同じパターンで
+# ButtonStyleApplierを適用する。新規アセットは生成せず既存のドット絵ボタンテクスチャを流用する。
+# 🔴 両タブとも同一のButtonVariant.SECONDARY（クリーム系）を適用する組み合わせは仮決定。
+# 選択中タブの表現はtoggle_modeのpressedステート（暗化）に委ねる既存方針を維持するため、
+# 選択中/非選択で異なるバリアントを割り当てることはしない（実機確認で視認性不十分なら
+# 012-regression-checkで再検討）
+func _apply_tab_bar_style() -> void:
+	for button in [_garden_tab_button, _alchemy_tab_button]:
+		button.add_theme_font_override("font", UiTheme.FONT_PIXEL_JP)
+		ButtonStyleApplier.apply_button_style(button, UiTheme.ButtonVariant.SECONDARY)
 
 
 # 🟡 NFR-201。Buttonのtoggle_mode（button_pressed）とテーマのpressedステートスタイルを流用し、

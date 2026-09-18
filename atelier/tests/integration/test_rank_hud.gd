@@ -76,6 +76,27 @@ func test_readyの時点でランク名がマスターの表示名になる() ->
 	assert_str(hud.get_rank_name_text()).is_equal(RANK_DISPLAY_NAME)
 
 
+# 🟡 garden-alchemy-visual-refresh Planタスク009。ルート型変更（HBoxContainer→
+# PanelContainer）の回帰確認。共通カードパネル適用の確認も兼ねる
+func test_ルートノードがPanelContainerになっている() -> void:
+	var hud := _make_hud()
+
+	assert_object(hud).is_instanceof(PanelContainer)
+
+
+func test_ルートのpanelスタイルがUiThemeの共通カードパネルと同一インスタンスである() -> void:
+	var hud := _make_hud()
+
+	var style: StyleBox = hud.get_theme_stylebox("panel")
+	assert_object(style).is_same(UiTheme.make_panel_stylebox())
+
+
+func test_メニューボタンにニアレストテクスチャフィルタが設定される() -> void:
+	var hud := _make_hud()
+
+	assert_int(hud.get_menu_button().texture_filter).is_equal(CanvasItem.TEXTURE_FILTER_NEAREST)
+
+
 func test_readyの時点でゴールドと残ターンが初期値を反映する() -> void:
 	GameState._set_gold_for_test(120)
 	var hud := _make_hud()

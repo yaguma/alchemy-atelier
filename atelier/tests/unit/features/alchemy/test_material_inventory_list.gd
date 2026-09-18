@@ -19,12 +19,15 @@ func _find_row(list: MaterialInventoryList, instance_id: String) -> Control:
 	return list.find_child("MaterialEntry_%s" % instance_id, true, false) as Control
 
 
+# 🟡 garden-alchemy-visual-refresh Planタスク008でMaterialEntryRowをカード化した際、
+# PlaceButton等がroot直下ではなく内側のContentコンテナ配下へ移動したため、
+# get_node()の直接子参照からfind_child()の再帰探索へ変更した（ノード構造への依存を減らす）
 func _find_place_button(list: MaterialInventoryList, instance_id: String) -> Button:
-	return _find_row(list, instance_id).get_node("PlaceButton") as Button
+	return _find_row(list, instance_id).find_child("PlaceButton") as Button
 
 
 func _find_label(list: MaterialInventoryList, instance_id: String, label_name: String) -> Label:
-	return _find_row(list, instance_id).get_node(label_name) as Label
+	return _find_row(list, instance_id).find_child(label_name) as Label
 
 
 # 正常系
@@ -87,6 +90,20 @@ func test_setupを再実行すると前回のエントリが残らない() -> vo
 
 	assert_int(list.get_entry_count()).is_equal(1)
 	assert_object(_find_row(list, "mat_1")).is_null()
+
+
+# 正常系
+# 🟡 garden-alchemy-visual-refresh Planタスク008。MaterialEntryRow自体をカード化する
+# （root型をPanelContainerへ変更しUiTheme共通パネルスタイルボックスを適用する）
+func test_各エントリがカード化されUiThemeの共通パネルスタイルボックスを保持する() -> void:
+	var list := _make_list()
+	var no_tags: Array[StringName] = []
+	var materials: Array[MaterialInstance] = [_make_material("mat_1", &"herb_common", 3, no_tags)]
+
+	list.setup(materials)
+
+	var row := _find_row(list, "mat_1")
+	assert_object(row.get_theme_stylebox("panel")).is_same(UiTheme.make_panel_stylebox())
 
 
 # 異常系

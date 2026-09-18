@@ -31,7 +31,9 @@ func _find_slot_view(screen: GardenScreen, slot_index: int) -> PlantSlotView:
 
 func _find_seed_plant_button(screen: GardenScreen, seed_id: StringName) -> Button:
 	var row := screen.find_child("SeedEntry_%s" % seed_id, true, false) as Control
-	return row.get_node("PlantButton") as Button
+	# 🟡 garden-alchemy-visual-refresh Plan タスク007: SeedEntryRowのカード化でPlantButtonが
+	# Content配下に移動し直下パスでは取得できなくなったため、find_child()に更新した
+	return row.find_child("PlantButton", true, false) as Button
 
 
 # 正常系（種植えフロー）

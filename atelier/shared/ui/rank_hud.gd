@@ -1,10 +1,16 @@
 class_name RankHud
-extends Control
+extends PanelContainer
 
 ## 全フェーズ共通で常時表示するヘッダー（FR-002）。ランク名・ノルマ残量バー・残ターン・
 ## 所持ゴールドの4要素を、GameStateの6 signalに追随して再描画する（FR-114）。
 ## 🟡 配置判断: 単一Featureに属さない横断UIコンポーネントのためshared/ui/に新設した。
 ## 🔵 GameStateの読み取りのみを行い、状態変更・フェーズ遷移は一切行わない（自己完結）。
+
+## 🟡 garden-alchemy-visual-refresh Plan タスク009。ルート型をHBoxContainerから
+## PanelContainerへ変更し、共通カードパネル（UiTheme.make_panel_stylebox()）を適用する。
+## PanelContainerは単一の子しかレイアウトできないため、既存の5要素は.tscn側で
+## 子HBoxContainerの下に据え直した（%UniqueNameでの参照は深さに依存しないため
+## 本スクリプトの@onready var群は変更不要）。
 
 ## 🟡 title-settings-screens-extension Planで「設定」ボタンを「メニュー」ボタンへ改称した。
 ## MainSceneが開くものがSettingsPanel直接からPauseMenu（閉じる/設定/タイトルに戻る）に
@@ -107,13 +113,21 @@ func get_menu_button() -> Button:
 
 
 # 🔵 NFR-202。色・フォントサイズはUiTheme定数経由で指定し、ハードコードしない
+# 🟡 garden-alchemy-visual-refresh Planタスク009。自身がPanelContainerになったため
+# 共通カードパネル（UiTheme.make_panel_stylebox()）を直接自ノードへ適用し、
+# テキスト要素にはtitle_screen.gdと同じDotGothic16（UiTheme.FONT_PIXEL_JP）を適用する。
+# MenuButtonは_menu_button.add_theme_*_override()の個別指定をやめ、
+# ButtonStyleApplier.apply_button_style()に委譲する（フォントサイズ・文字色・
+# StyleBox・texture_filterを一括で他画面のボタンと揃える。TERTIARY選定は🔴仮決定）
 func _apply_theme() -> void:
+	add_theme_stylebox_override("panel", UiTheme.make_panel_stylebox())
 	for label: Label in [_rank_name_label, _turn_remaining_label, _gold_label]:
+		label.add_theme_font_override("font", UiTheme.FONT_PIXEL_JP)
 		label.add_theme_font_size_override("font_size", UiTheme.FONT_SIZE_DEFAULT)
 		label.add_theme_color_override("font_color", UiTheme.COLOR_HUD_TEXT)
 	_quota_bar.self_modulate = UiTheme.COLOR_HUD_QUOTA_BAR
-	_menu_button.add_theme_font_size_override("font_size", UiTheme.FONT_SIZE_DEFAULT)
-	_menu_button.add_theme_color_override("font_color", UiTheme.COLOR_HUD_TEXT)
+	_menu_button.add_theme_font_override("font", UiTheme.FONT_PIXEL_JP)
+	ButtonStyleApplier.apply_button_style(_menu_button, UiTheme.ButtonVariant.TERTIARY)
 
 
 # 🔵 昇格試験中も含め常に押下可能。RankHudは通知するのみで、パネル表示や

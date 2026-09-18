@@ -69,6 +69,7 @@ var _slot_views: Array[AlchemySlotView] = []
 
 
 func _ready() -> void:
+	_apply_theme()
 	_recipe_option_button.item_selected.connect(_on_recipe_selected)
 	_execute_button.pressed.connect(_on_execute_pressed)
 	_end_turn_button.pressed.connect(_on_end_turn_pressed)
@@ -98,6 +99,32 @@ func _exit_tree() -> void:
 	# 🟡 子ノードへの接続はGodotが自動切断するが、_ready()の接続と対にして可読性を揃える
 	if _guild_delivery_screen.screen_closed.is_connected(_on_delivery_screen_closed):
 		_guild_delivery_screen.screen_closed.disconnect(_on_delivery_screen_closed)
+
+
+## ドット絵アセット（AlchemyBackdropPixel・9-sliceカードパネル）に合わせ、既存ボタンへ
+## ButtonStyleApplier、テキスト要素へDotGothic16フォント（UiTheme.FONT_PIXEL_JP）を適用する。
+## 🔵 実行=PRIMARY（確定操作）は本タスクのInterfacesで暫定決定済み。
+## 🔵 EndTurnButton（ターンを終了する）はdesign-guide.mdのボタン表「日終了・破棄→デンジャー」に
+## 明示的に対応するためDANGERを採用する。
+## 🟡 AdvanceExamTurnButtonはEndTurnButtonと排他表示（試験中のみ表示）でターン消費という
+## 同じ意味論を持つため、同じDANGERに揃える。
+## 🟡 ShopButtonは他画面への導線（確定・危険操作のいずれでもない）のためSECONDARYとする
+func _apply_theme() -> void:
+	for label in [_daily_order_label, _toast_label, _exam_turn_label, _exam_guidance_label]:
+		label.add_theme_font_override("font", UiTheme.FONT_PIXEL_JP)
+	_recipe_option_button.add_theme_font_override("font", UiTheme.FONT_PIXEL_JP)
+
+	_execute_button.add_theme_font_override("font", UiTheme.FONT_PIXEL_JP)
+	ButtonStyleApplier.apply_button_style(_execute_button, UiTheme.ButtonVariant.PRIMARY)
+
+	_end_turn_button.add_theme_font_override("font", UiTheme.FONT_PIXEL_JP)
+	ButtonStyleApplier.apply_button_style(_end_turn_button, UiTheme.ButtonVariant.DANGER)
+
+	_advance_exam_turn_button.add_theme_font_override("font", UiTheme.FONT_PIXEL_JP)
+	ButtonStyleApplier.apply_button_style(_advance_exam_turn_button, UiTheme.ButtonVariant.DANGER)
+
+	_shop_button.add_theme_font_override("font", UiTheme.FONT_PIXEL_JP)
+	ButtonStyleApplier.apply_button_style(_shop_button, UiTheme.ButtonVariant.SECONDARY)
 
 
 ## 現在表示中のトーストメッセージを返す（テスト用）。🔵 GardenScreen.get_toast_text()踏襲

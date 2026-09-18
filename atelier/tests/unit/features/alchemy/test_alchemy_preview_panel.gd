@@ -13,6 +13,10 @@ func _find_label(panel: AlchemyPreviewPanel, node_name: String) -> Label:
 	return panel.find_child(node_name) as Label
 
 
+func _find_panel_container(panel: AlchemyPreviewPanel) -> PanelContainer:
+	return panel.find_child("PreviewPanel") as PanelContainer
+
+
 # 正常系
 
 
@@ -61,6 +65,16 @@ func test_発現特性が空でもクラッシュせず特性なし相当の表�
 		AlchemyPreviewPanel.TRAITS_NONE_TEXT
 	)
 	assert_str(_find_label(panel, "QualityLabel").text).contains("2")
+
+
+# 🟡 garden-alchemy-visual-refresh Planタスク008。プレビュー全体を1枚のカードで囲む新設%PreviewPanel
+func test_PreviewPanelにUiThemeの共通カードパネルスタイルボックスが適用されている() -> void:
+	var panel := _make_panel()
+
+	var container := _find_panel_container(panel)
+
+	assert_object(container).is_not_null()
+	assert_object(container.get_theme_stylebox("panel")).is_same(UiTheme.make_panel_stylebox())
 
 
 func test_複数の発現特性がすべて表示される() -> void:

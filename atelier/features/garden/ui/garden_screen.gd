@@ -19,6 +19,7 @@ var _slot_views: Array[PlantSlotView] = []
 
 
 func _ready() -> void:
+	_apply_theme()
 	_end_turn_button.pressed.connect(_on_end_turn_pressed)
 	_shop_button.pressed.connect(_on_shop_pressed)
 	_seed_inventory_list.seed_plant_requested.connect(_on_seed_plant_requested)
@@ -47,6 +48,18 @@ func _exit_tree() -> void:
 		GameState.plants_withered.disconnect(_on_plants_withered)
 	if GameState.turn_growth_advanced.is_connected(_on_turn_growth_advanced):
 		GameState.turn_growth_advanced.disconnect(_on_turn_growth_advanced)
+
+
+## 🟡 garden-alchemy-visual-refresh Plan タスク007: EndTurnButton=ターン終了という確定操作で
+## PRIMARY、ShopButton=補助的な導線でSECONDARYとした（タスクファイルの暫定割り当てに従う）。
+## title_screen.gdと同じくButtonStyleApplier適用後にFONT_PIXEL_JPを個別override（main_theme.tres
+## 自体は変更しない方針を維持する）
+func _apply_theme() -> void:
+	ButtonStyleApplier.apply_button_style(_end_turn_button, UiTheme.ButtonVariant.PRIMARY)
+	ButtonStyleApplier.apply_button_style(_shop_button, UiTheme.ButtonVariant.SECONDARY)
+	_end_turn_button.add_theme_font_override("font", UiTheme.FONT_PIXEL_JP)
+	_shop_button.add_theme_font_override("font", UiTheme.FONT_PIXEL_JP)
+	_toast_label.add_theme_font_override("font", UiTheme.FONT_PIXEL_JP)
 
 
 ## 現在表示中のトーストメッセージを返す（テスト用）。🔵
