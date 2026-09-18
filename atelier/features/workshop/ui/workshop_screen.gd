@@ -17,6 +17,7 @@ var _has_refreshed_once: bool = false  # 🟡 初期タブ選択を「初回表�
 var _confirm_dialog: PurchaseConfirmDialog = null  # 🔵 恒久投資の購入確認ダイアログ（PauseMenuの_settings_panelと同型）
 
 @onready var _overlay_layer: Control = %OverlayLayer  # 🔵 確認ダイアログの追加先
+@onready var _content_panel: PanelContainer = %ContentPanel  # 🟡 task008で新設
 @onready var _gold_label: Label = %GoldLabel  # 🔵 txt-gold
 @onready var _permanent_tab_button: Button = %PermanentTabButton  # 🔵 tab-permanent
 @onready var _consumable_tab_button: Button = %ConsumableTabButton  # 🔵 tab-consumable
@@ -27,6 +28,7 @@ var _confirm_dialog: PurchaseConfirmDialog = null  # 🔵 恒久投資の購入�
 
 
 func _ready() -> void:
+	_apply_theme()
 	_permanent_tab_button.pressed.connect(_on_permanent_tab_pressed)
 	_consumable_tab_button.pressed.connect(_on_consumable_tab_pressed)
 	# 🔵 本タスクで追加: 両リストからの購入要求を受ける
@@ -34,6 +36,21 @@ func _ready() -> void:
 	_consumable_list.purchase_requested.connect(_on_purchase_requested)
 	_close_button.pressed.connect(_on_close_pressed)  # 🔵 本タスクで追加
 	_refresh()
+
+
+## ドット絵アセット（WorkshopBackdropPixel・9-sliceカードパネル）に合わせ、%ContentPanelへ
+## カードパネル、タブボタン・CloseButtonへButtonStyleApplier、ルート配下のテキスト要素へ
+## DotGothic16フォント（UiTheme.FONT_PIXEL_JP）を適用する。
+## 🔴 タブボタン・CloseButtonは確定/危険操作のいずれでもない補助的な導線のためSECONDARYとする
+## （PurchaseButtonのみ購入確定操作としてPRIMARY。upgrade_item_row.gd参照）。
+## 🟡 タブボタンはtoggle_modeではなくdisabledのみで制御されており「選択中タブ」の視覚差は
+## 本タスクでは付与しない（既知の未対応事項。012の回帰確認タスクで実機確認予定）
+func _apply_theme() -> void:
+	_content_panel.add_theme_stylebox_override("panel", UiTheme.make_panel_stylebox())
+	ButtonStyleApplier.apply_button_style(_permanent_tab_button, UiTheme.ButtonVariant.SECONDARY)
+	ButtonStyleApplier.apply_button_style(_consumable_tab_button, UiTheme.ButtonVariant.SECONDARY)
+	ButtonStyleApplier.apply_button_style(_close_button, UiTheme.ButtonVariant.SECONDARY)
+	UiTheme.apply_pixel_font(self)
 
 
 ## 現在表示中のトーストメッセージを返す（テスト用）。🔵 GardenScreen.get_toast_text()踏襲

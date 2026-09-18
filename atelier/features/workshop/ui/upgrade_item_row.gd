@@ -13,13 +13,22 @@ const LABEL_MAX_REACHED := "購入済み"  # 🟡 同上
 
 var _upgrade_id: StringName = &""
 
+@onready var _row_panel: PanelContainer = %RowPanel  # 🟡 pixel-art-remaining-screens task008で新設
 @onready var _name_label: Label = %NameLabel  # 🔵
 @onready var _price_label: Label = %PriceLabel  # 🔵
 @onready var _purchase_button: Button = %PurchaseButton  # 🔵 btn-purchase-{upgrade_id}相当
 
 
+## ドット絵アセット（9-sliceカードパネル）に合わせ、%RowPanelへカードパネル、PurchaseButtonへ
+## ButtonStyleApplier、テキスト要素へDotGothic16フォントを適用する。
+## 🔵 PurchaseButton=購入確定操作としてPRIMARY（design-guide.mdボタン表の意味論に一致）
 func _ready() -> void:  # 🔵 自ノードsignalのため_exit_tree()でのdisconnect不要
+	_row_panel.add_theme_stylebox_override("panel", UiTheme.make_panel_stylebox())
 	_purchase_button.pressed.connect(_on_purchase_pressed)
+	ButtonStyleApplier.apply_button_style(_purchase_button, UiTheme.ButtonVariant.PRIMARY)
+	UiTheme.apply_pixel_font(_name_label)
+	UiTheme.apply_pixel_font(_price_label)
+	UiTheme.apply_pixel_font(_purchase_button)
 
 
 ## upgrade: 表示対象。gold: 現在の所持ゴールド。already_purchased_count: 購入済み回数。

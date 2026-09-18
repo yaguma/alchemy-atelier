@@ -303,3 +303,61 @@ func test_昇格試験中の通常ランクノルマ変化はノルマバーへ�
 	screen.display_results([] as Array[ProductInstance], [] as Array[DeliveryResult])
 
 	assert_float(_quota_bar(screen).value).is_equal(15.0)
+
+
+# ドット絵統合（pixel-art-remaining-screens タスク007）
+
+
+func test_背景ノードがContentPanelより背面のツリー順に配置されている() -> void:
+	var screen := _make_screen()
+
+	var backdrop := screen.get_node("GuildDeliveryBackdrop")
+	var content_panel := screen.get_node("%ContentPanel")
+
+	assert_object(backdrop).is_not_null()
+	assert_int(backdrop.get_index()).is_less(content_panel.get_index())
+
+
+func test_ContentPanelがUiThemeのパネルStyleBoxTextureを保持する() -> void:
+	var screen := _make_screen()
+
+	var content_panel := screen.get_node("%ContentPanel") as PanelContainer
+
+	assert_object(content_panel.get_theme_stylebox("panel")).is_same(UiTheme.make_panel_stylebox())
+
+
+func test_続けるボタンにNEARESTフィルタが設定されている() -> void:
+	var screen := _make_screen()
+
+	var button := screen.find_child("ContinueButton", true, false) as Button
+
+	assert_int(button.texture_filter).is_equal(CanvasItem.TEXTURE_FILTER_NEAREST)
+
+
+func test_display_results後に各行がUiThemeのパネルStyleBoxTextureを保持する() -> void:
+	var screen := _make_screen()
+	var products: Array[ProductInstance] = [
+		_make_product(RECIPE_A, 3),
+		_make_product(RECIPE_B, 4),
+	]
+	var results: Array[DeliveryResult] = [
+		_make_result(10.0, 5.0),
+		_make_result(20.0, 6.0),
+	]
+
+	screen.display_results(products, results)
+
+	for index in range(2):
+		var row := _find_row(screen, index)
+		assert_object(row.get_theme_stylebox("panel")).is_same(UiTheme.make_panel_stylebox())
+
+
+func test_0件のdisplay_results後もContentPanelと背景の表示が破綻しない() -> void:
+	var screen := _make_screen()
+
+	screen.display_results([] as Array[ProductInstance], [] as Array[DeliveryResult])
+
+	var content_panel := screen.get_node("%ContentPanel") as PanelContainer
+	assert_object(content_panel.get_theme_stylebox("panel")).is_same(UiTheme.make_panel_stylebox())
+	assert_object(screen.get_node("GuildDeliveryBackdrop")).is_not_null()
+	assert_int(screen.get_item_count()).is_equal(0)

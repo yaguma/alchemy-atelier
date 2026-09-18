@@ -105,3 +105,24 @@ func test_降格回数0でもゲームオーバー文言は変わらない() -> 
 
 	assert_int(screen.get_result_kind()).is_equal(ResultScreen.ResultKind.OVER)
 	assert_str(_message_text(screen)).is_equal(ResultScreen.OVER_MESSAGE_TEXT)
+
+
+# ドット絵統合（pixel-art-remaining-screens タスク010）
+
+
+func test_背景ノードがContentPanelより背面のツリー順に配置されている() -> void:
+	var screen := _make_screen()
+
+	var backdrop := screen.get_node("RankResultBackdrop")
+	var content_panel := screen.get_node("%ContentPanel")
+
+	assert_object(backdrop).is_not_null()
+	assert_int(backdrop.get_index()).is_less(content_panel.get_index())
+
+
+func test_ContentPanelがUiThemeのパネルStyleBoxTextureを保持する() -> void:
+	var screen := _make_screen()
+
+	var content_panel := screen.get_node("%ContentPanel") as PanelContainer
+
+	assert_object(content_panel.get_theme_stylebox("panel")).is_same(UiTheme.make_panel_stylebox())

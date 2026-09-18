@@ -3,6 +3,8 @@
 作成日: 2026-08-04
 準拠要件: [`../../../../spec/atelier-alchemy-core/requirements.md`](../../../../spec/atelier-alchemy-core/requirements.md) §3「工房強化・ショップ」、§4「ショップ／工房強化」
 
+> 🔵 2026-09-19追記: `docs/dev/plans/pixel-art-remaining-screens/`にて、本画面はタイトル・庭・調合画面と同じドット絵（ピクセルアート）技法に刷新済み（背景・カードパネル・ボタンをドット絵アセット化、購入確認ダイアログを含む。`../../../../.claude/rules/design-guide.md`参照）。以下のワイヤーフレーム自体は構成要素の配置を示すもので、水彩/ドット絵いずれの技法にも共通する。
+
 ## 基本情報
 
 | 項目 | 値 |

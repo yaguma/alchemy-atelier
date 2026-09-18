@@ -1,10 +1,14 @@
 class_name GuildDeliveryResultRow
-extends HBoxContainer
+extends PanelContainer
 
 ## 納品結果リストの1項目（調合物名・品質・発現特性・指定依頼合致・貢献度・報酬）を表示する
 ## 表示専用コンポーネント（FR-003, FR-201, FR-202）。
 ## 🔵 GameStateにもDomain層（DeliveryResolver等）にも一切依存しない。呼び出し元がProductInstance/
 ## DeliveryResultから取り出したプリミティブ値をsetup()で受け取って表示するのみ。
+## 🟡 pixel-art-remaining-screens Plan タスク007: root型をHBoxContainerからPanelContainerへ変更し、
+## UiTheme共通カードパネルスタイルボックスを適用してカード化する（garden/ui/seed_entry_row.gd・
+## alchemy/ui/material_entry_row.gdと同型のパターン。横並びレイアウトは内側のContent
+## （HBoxContainer）が担う）
 
 const ORDER_MATCHED_TEXT := "指定合致"
 const TRAITS_NONE_TEXT := "なし"
@@ -18,6 +22,14 @@ const TRAIT_SEPARATOR := ", "
 @onready var _traits_label: Label = %DeliveryTraitsLabel
 @onready var _order_match_label: Label = %DeliveryOrderMatchLabel
 @onready var _value_label: Label = %DeliveryValueLabel
+
+
+func _ready() -> void:
+	add_theme_stylebox_override("panel", UiTheme.make_panel_stylebox())
+	for label: Label in [
+		_name_label, _quality_label, _traits_label, _order_match_label, _value_label
+	]:
+		UiTheme.apply_pixel_font(label)
 
 
 ## 納品結果1件の表示内容を設定する。add_child()後に呼ぶこと（@onready参照の解決後である必要がある）。

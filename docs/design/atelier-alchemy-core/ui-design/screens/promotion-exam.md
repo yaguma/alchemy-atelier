@@ -4,6 +4,8 @@
 準拠要件: [`../../../../spec/atelier-alchemy-core/requirements.md`](../../../../spec/atelier-alchemy-core/requirements.md) §2「勝敗条件」・§3「昇格試験」・§4「昇格試験（Exam）」
 
 > 🔵2026-08-04のヒアリングにより、昇格試験は「通常ターンループの調合・納品をそのまま流用した、庭なし・専用ノルマ・超短期ターンの一発勝負」として確定した。そのため本画面は[`alchemy.md`](./alchemy.md)・[`guild-delivery.md`](./guild-delivery.md)の**UI要素をほぼそのまま再利用**し、庭タブと試験ノルマバーの有無だけが通常画面と異なる。
+>
+> 🔵 2026-09-19追記: `docs/dev/plans/pixel-art-remaining-screens/`にて、結果画面（`ResultScreen`）はタイトル・庭・調合画面と同じドット絵（ピクセルアート）技法に刷新済み（背景・カードパネルをドット絵アセット化。`../../../../.claude/rules/design-guide.md`参照）。試験進行中の調合・納品UIは上記の通り`alchemy.md`・`guild-delivery.md`をそのまま再利用するため、両画面の刷新がそのまま反映される。以下のワイヤーフレーム自体は構成要素の配置を示すもので、水彩/ドット絵いずれの技法にも共通する。
 
 ## 基本情報
 

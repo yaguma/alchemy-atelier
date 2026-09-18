@@ -15,9 +15,12 @@ const INITIAL_MESSAGE_TEXT := ""  # 🟡 シグナル未発行時は結果種別
 var _result_kind: ResultKind = ResultKind.NONE
 
 @onready var _result_message_label: Label = %ResultMessageLabel
+@onready var _content_panel: PanelContainer = %ContentPanel
 
 
 func _ready() -> void:  # 🔵 FR-001
+	_content_panel.add_theme_stylebox_override("panel", UiTheme.make_panel_stylebox())
+	UiTheme.apply_pixel_font(self)
 	_apply_result_kind()
 	# 🔵 GameStateはAutoloadのため_exit_tree()での明示的disconnect()が必須（ui-components.md）
 	GameState.game_over.connect(_on_game_over)

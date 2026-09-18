@@ -22,6 +22,7 @@ var _item_count: int = 0
 var _total_contribution: float = 0.0
 var _total_reward: float = 0.0
 
+@onready var _content_panel: PanelContainer = %ContentPanel
 @onready var _entry_container: VBoxContainer = %EntryContainer
 @onready var _total_label: Label = %TotalLabel
 @onready var _rank_name_label: Label = %RankNameLabel
@@ -29,9 +30,16 @@ var _total_reward: float = 0.0
 @onready var _continue_button: Button = %ContinueButton
 
 
+## 🟡 pixel-art-remaining-screens Plan タスク007: ドット絵背景・カードパネル・ボタン・
+## DotGothic16フォントを統合する。ContinueButton=結果確認を締めくくる確定操作としてPRIMARYを採用
+## （rank/ui/result_screen.gdと同型のパターン。%ContentPanelへのスタイル適用・
+## apply_pixel_font(self)のルート一括適用を踏襲する）
 func _ready() -> void:
+	_content_panel.add_theme_stylebox_override("panel", UiTheme.make_panel_stylebox())
 	_entry_container.add_theme_constant_override("separation", ENTRY_SEPARATION)
 	_continue_button.pressed.connect(_on_continue_pressed)
+	ButtonStyleApplier.apply_button_style(_continue_button, UiTheme.ButtonVariant.PRIMARY)
+	UiTheme.apply_pixel_font(self)
 	_refresh_rank_quota()
 	_apply_totals()
 
