@@ -96,3 +96,11 @@ func test_パネルスタイルボックスの伸縮モードがタイルにな�
 
 	assert_int(style.axis_stretch_horizontal).is_equal(StyleBoxTexture.AXIS_STRETCH_MODE_TILE)
 	assert_int(style.axis_stretch_vertical).is_equal(StyleBoxTexture.AXIS_STRETCH_MODE_TILE)
+
+
+func test_apply_pixel_fontでfontオーバーライドがFONT_PIXEL_JPになる() -> void:
+	var label: Label = auto_free(Label.new())
+
+	UiTheme.apply_pixel_font(label)
+
+	assert_object(label.get_theme_font("font")).is_equal(UiTheme.FONT_PIXEL_JP)

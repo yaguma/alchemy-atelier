@@ -50,16 +50,17 @@ func _exit_tree() -> void:
 		GameState.turn_growth_advanced.disconnect(_on_turn_growth_advanced)
 
 
-## 🟡 garden-alchemy-visual-refresh Plan タスク007: EndTurnButton=ターン終了という確定操作で
-## PRIMARY、ShopButton=補助的な導線でSECONDARYとした（タスクファイルの暫定割り当てに従う）。
-## title_screen.gdと同じくButtonStyleApplier適用後にFONT_PIXEL_JPを個別override（main_theme.tres
-## 自体は変更しない方針を維持する）
+## 🔴 コードレビュー指摘対応: EndTurnButtonは当初PRIMARY（確定操作）だったが、
+## alchemy_screen.gd（同じくEndTurnButton、同じ「ターンを終了する」操作）はdesign-guide.mdの
+## ボタン表「日終了・破棄→デンジャー」に明示的に対応するためDANGERを採用しており、
+## 同一アクションで画面ごとにバリアントが割れていた。design-guide.mdの表に従いDANGERへ揃える。
+## ShopButton=補助的な導線でSECONDARYとした（タスクファイルの暫定割り当てに従う）
 func _apply_theme() -> void:
-	ButtonStyleApplier.apply_button_style(_end_turn_button, UiTheme.ButtonVariant.PRIMARY)
+	ButtonStyleApplier.apply_button_style(_end_turn_button, UiTheme.ButtonVariant.DANGER)
 	ButtonStyleApplier.apply_button_style(_shop_button, UiTheme.ButtonVariant.SECONDARY)
-	_end_turn_button.add_theme_font_override("font", UiTheme.FONT_PIXEL_JP)
-	_shop_button.add_theme_font_override("font", UiTheme.FONT_PIXEL_JP)
-	_toast_label.add_theme_font_override("font", UiTheme.FONT_PIXEL_JP)
+	UiTheme.apply_pixel_font(_end_turn_button)
+	UiTheme.apply_pixel_font(_shop_button)
+	UiTheme.apply_pixel_font(_toast_label)
 
 
 ## 現在表示中のトーストメッセージを返す（テスト用）。🔵

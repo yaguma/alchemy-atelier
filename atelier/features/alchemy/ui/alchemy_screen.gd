@@ -110,20 +110,20 @@ func _exit_tree() -> void:
 ## 同じ意味論を持つため、同じDANGERに揃える。
 ## 🟡 ShopButtonは他画面への導線（確定・危険操作のいずれでもない）のためSECONDARYとする
 func _apply_theme() -> void:
-	for label in [_daily_order_label, _toast_label, _exam_turn_label, _exam_guidance_label]:
-		label.add_theme_font_override("font", UiTheme.FONT_PIXEL_JP)
-	_recipe_option_button.add_theme_font_override("font", UiTheme.FONT_PIXEL_JP)
+	for label: Label in [_daily_order_label, _toast_label, _exam_turn_label, _exam_guidance_label]:
+		UiTheme.apply_pixel_font(label)
+	UiTheme.apply_pixel_font(_recipe_option_button)
 
-	_execute_button.add_theme_font_override("font", UiTheme.FONT_PIXEL_JP)
+	UiTheme.apply_pixel_font(_execute_button)
 	ButtonStyleApplier.apply_button_style(_execute_button, UiTheme.ButtonVariant.PRIMARY)
 
-	_end_turn_button.add_theme_font_override("font", UiTheme.FONT_PIXEL_JP)
+	UiTheme.apply_pixel_font(_end_turn_button)
 	ButtonStyleApplier.apply_button_style(_end_turn_button, UiTheme.ButtonVariant.DANGER)
 
-	_advance_exam_turn_button.add_theme_font_override("font", UiTheme.FONT_PIXEL_JP)
+	UiTheme.apply_pixel_font(_advance_exam_turn_button)
 	ButtonStyleApplier.apply_button_style(_advance_exam_turn_button, UiTheme.ButtonVariant.DANGER)
 
-	_shop_button.add_theme_font_override("font", UiTheme.FONT_PIXEL_JP)
+	UiTheme.apply_pixel_font(_shop_button)
 	ButtonStyleApplier.apply_button_style(_shop_button, UiTheme.ButtonVariant.SECONDARY)
 
 

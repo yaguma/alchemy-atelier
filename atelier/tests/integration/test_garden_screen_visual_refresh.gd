@@ -44,3 +44,15 @@ func test_ショップボタンにニアレストフィルタが設定されて�
 	var button := screen.find_child("ShopButton", true, false) as Button
 
 	assert_int(button.texture_filter).is_equal(CanvasItem.TEXTURE_FILTER_NEAREST)
+
+
+## コードレビュー指摘対応: alchemy_screen.gdのEndTurnButton（同じ「ターンを終了する」操作、
+## design-guide.mdのボタン表「日終了・破棄→デンジャー」に対応）とバリアントが食い違っていたため、
+## DANGERへ統一したことを固定する回帰テスト
+func test_ターン終了ボタンがDANGERバリアントになっている() -> void:
+	var screen := _make_screen()
+
+	var button := screen.find_child("EndTurnButton", true, false) as Button
+	var style: StyleBoxTexture = button.get_theme_stylebox("normal")
+
+	assert_object(style.texture).is_equal(UiTheme.BUTTON_TEXTURE_DANGER)

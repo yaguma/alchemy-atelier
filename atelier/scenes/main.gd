@@ -254,22 +254,33 @@ func _set_tabs_disabled(disabled: bool) -> void:
 
 # 🔵 garden-alchemy-visual-refresh タスク010。title_screen.gd _apply_theme()と同じパターンで
 # ButtonStyleApplierを適用する。新規アセットは生成せず既存のドット絵ボタンテクスチャを流用する。
-# 🔴 両タブとも同一のButtonVariant.SECONDARY（クリーム系）を適用する組み合わせは仮決定。
-# 選択中タブの表現はtoggle_modeのpressedステート（暗化）に委ねる既存方針を維持するため、
-# 選択中/非選択で異なるバリアントを割り当てることはしない（実機確認で視認性不十分なら
-# 012-regression-checkで再検討）
+# 🔴 コードレビュー指摘対応: 当初は両タブとも同一のButtonVariant.SECONDARYを適用し、選択中タブは
+# toggle_modeのpressedステート（8%暗化のみ）で表現していたが、ドット絵テクスチャ上では
+# 差が視認しづらいため、フォント適用のみをここで行い、バリアント自体の切り替えは
+# _update_tab_selected_visual()に委ねる（選択中=PRIMARY/非選択=SECONDARYで明確な色差を出す）
 func _apply_tab_bar_style() -> void:
-	for button in [_garden_tab_button, _alchemy_tab_button]:
-		button.add_theme_font_override("font", UiTheme.FONT_PIXEL_JP)
-		ButtonStyleApplier.apply_button_style(button, UiTheme.ButtonVariant.SECONDARY)
+	for button: Button in [_garden_tab_button, _alchemy_tab_button]:
+		UiTheme.apply_pixel_font(button)
 
 
 # 🟡 NFR-201。Buttonのtoggle_mode（button_pressed）とテーマのpressedステートスタイルを流用し、
 # 現在フェーズと一致するタブのみを押下状態にする。_apply_visible_phase()と同じく比較結果を
-# 直接代入するため、タブバー対象外のフェーズ（workshop/result）では両方が非選択になる
+# 直接代入するため、タブバー対象外のフェーズ（workshop/result）では両方が非選択になる。
+# 🔴 コードレビュー指摘対応: 選択中/非選択の差をtoggle_modeの暗化だけに頼らず、
+# ButtonVariant自体をPRIMARY（選択中）/SECONDARY（非選択）で切り替えて明確な色差を付ける
 func _update_tab_selected_visual(phase: StringName) -> void:
-	_garden_tab_button.button_pressed = phase == PHASE_GARDEN
-	_alchemy_tab_button.button_pressed = phase == PHASE_ALCHEMY
+	var garden_selected := phase == PHASE_GARDEN
+	var alchemy_selected := phase == PHASE_ALCHEMY
+	_garden_tab_button.button_pressed = garden_selected
+	_alchemy_tab_button.button_pressed = alchemy_selected
+	ButtonStyleApplier.apply_button_style(
+		_garden_tab_button,
+		UiTheme.ButtonVariant.PRIMARY if garden_selected else UiTheme.ButtonVariant.SECONDARY
+	)
+	ButtonStyleApplier.apply_button_style(
+		_alchemy_tab_button,
+		UiTheme.ButtonVariant.PRIMARY if alchemy_selected else UiTheme.ButtonVariant.SECONDARY
+	)
 
 
 # 🔵 FR-001, FR-004, FR-103。各画面のvisibleを「phaseと一致するか」の比較結果で直接上書きする。

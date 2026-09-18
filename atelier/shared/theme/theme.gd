@@ -189,6 +189,14 @@ static func make_button_stylebox(variant: ButtonVariant, state: ButtonState) -> 
 	return style
 
 
+## 🔴 コードレビュー指摘対応: `control.add_theme_font_override("font", UiTheme.FONT_PIXEL_JP)`が
+## garden-alchemy-visual-refresh Planの各画面（8ファイル以上）へ個別にコピーされていたため、
+## 単一の呼び出し口へ集約する。将来フォント自体や追加のoverride（サイズ等）を変える場合の
+## 変更漏れを防ぐ
+static func apply_pixel_font(control: Control) -> void:
+	control.add_theme_font_override("font", FONT_PIXEL_JP)
+
+
 ## 🟡 make_button_stylebox()と同型のStyleBoxTexture 9-slice生成。カードパネル共通アセットは
 ## バリアント・状態を持たないため引数なしで単一インスタンスを返す
 static func make_panel_stylebox() -> StyleBoxTexture:

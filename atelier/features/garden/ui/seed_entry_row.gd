@@ -19,13 +19,17 @@ var _seed_id: StringName = &""
 @onready var _plant_button: Button = %PlantButton
 
 
+# 🔴 コードレビュー指摘対応: PlantButtonは「種を庭スロットへ植える（配置する）」操作であり、
+# ターンの最終確定操作ではない。material_entry_row.gdのPlaceButton（素材を調合枠へ配置する、
+# 同じく「スロットへの配置」操作）とSECONDARYで揃え、PRIMARY（確定操作）はEndTurnButton/
+# ExecuteButtonのような「そのフェーズの決定打」に限定する
 func _ready() -> void:
 	add_theme_stylebox_override("panel", UiTheme.make_panel_stylebox())
 	_plant_button.pressed.connect(_on_plant_pressed)
-	ButtonStyleApplier.apply_button_style(_plant_button, UiTheme.ButtonVariant.PRIMARY)
-	_name_label.add_theme_font_override("font", UiTheme.FONT_PIXEL_JP)
-	_count_label.add_theme_font_override("font", UiTheme.FONT_PIXEL_JP)
-	_plant_button.add_theme_font_override("font", UiTheme.FONT_PIXEL_JP)
+	ButtonStyleApplier.apply_button_style(_plant_button, UiTheme.ButtonVariant.SECONDARY)
+	UiTheme.apply_pixel_font(_name_label)
+	UiTheme.apply_pixel_font(_count_label)
+	UiTheme.apply_pixel_font(_plant_button)
 
 
 ## 表示名・在庫数を設定する。行のnodeのnameは呼び出し元がSeedEntry_<seed_id>形式で設定する。🔵

@@ -35,27 +35,29 @@ unique_name_in_owner = true
 visible = false
 layout_mode = 1
 
-[node name="RankHud" parent="." instance=ExtResource("6_rank_hud")]
-unique_name_in_owner = true
-layout_mode = 1
-
-[node name="TabBar" type="HBoxContainer" parent="."]
+[node name="HeaderBar" type="VBoxContainer" parent="."]
 unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 10
 anchor_right = 1.0
-offset_top = 32.0
-offset_bottom = 76.0
 grow_horizontal = 2
+
+[node name="RankHud" parent="HeaderBar" instance=ExtResource("6_rank_hud")]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="TabBar" type="HBoxContainer" parent="HeaderBar"]
+unique_name_in_owner = true
+layout_mode = 2
 mouse_filter = 2
 
-[node name="GardenTabButton" type="Button" parent="TabBar"]
+[node name="GardenTabButton" type="Button" parent="HeaderBar/TabBar"]
 unique_name_in_owner = true
 layout_mode = 2
 toggle_mode = true
 text = "庭"
 
-[node name="AlchemyTabButton" type="Button" parent="TabBar"]
+[node name="AlchemyTabButton" type="Button" parent="HeaderBar/TabBar"]
 unique_name_in_owner = true
 layout_mode = 2
 toggle_mode = true

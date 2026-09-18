@@ -169,6 +169,25 @@ func test_調合タブボタンが4状態全てにStyleBoxTextureオーバーラ
 		assert_object(button.get_theme_stylebox(state_name)).is_instanceof(StyleBoxTexture)
 
 
+## コードレビュー指摘対応: 両タブに同一のButtonVariant.SECONDARYを適用し選択状態を
+## pressedステートの8%暗化のみで表現していたため視認性が不十分だった。選択中タブはPRIMARY、
+## 非選択タブはSECONDARYのテクスチャになるよう動的切り替えしたことを固定する回帰テスト
+func test_選択中のタブはPRIMARYテクスチャ非選択タブはSECONDARYテクスチャになる() -> void:
+	var main := _make_main()
+
+	var garden_style: StyleBoxTexture = _garden_tab(main).get_theme_stylebox("normal")
+	var alchemy_style: StyleBoxTexture = _alchemy_tab(main).get_theme_stylebox("normal")
+	assert_object(garden_style.texture).is_equal(UiTheme.BUTTON_TEXTURE_PRIMARY)
+	assert_object(alchemy_style.texture).is_equal(UiTheme.BUTTON_TEXTURE_SECONDARY)
+
+	GameState.set_phase(&"alchemy")
+
+	garden_style = _garden_tab(main).get_theme_stylebox("normal")
+	alchemy_style = _alchemy_tab(main).get_theme_stylebox("normal")
+	assert_object(garden_style.texture).is_equal(UiTheme.BUTTON_TEXTURE_SECONDARY)
+	assert_object(alchemy_style.texture).is_equal(UiTheme.BUTTON_TEXTURE_PRIMARY)
+
+
 func test_タブボタンのフォントサイズがUiTheme規定値になっている() -> void:
 	var main := _make_main()
 

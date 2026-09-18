@@ -19,12 +19,15 @@ var _material_instance_id: String = ""
 @onready var _place_button: Button = %PlaceButton
 
 
+# 🔵 PlaceButtonは「素材を調合枠へ配置する」操作であり、調合フェーズの確定操作である
+# ExecuteButton（PRIMARY）とは区別する。garden/ui/seed_entry_row.gdのPlantButton
+# （種を庭スロットへ配置する、同じく「スロットへの配置」操作）とSECONDARYで揃える
 func _ready() -> void:
 	add_theme_stylebox_override("panel", UiTheme.make_panel_stylebox())
 	ButtonStyleApplier.apply_button_style(_place_button, UiTheme.ButtonVariant.SECONDARY)
-	_place_button.add_theme_font_override("font", UiTheme.FONT_PIXEL_JP)
-	for label in [_name_label, _quality_label, _trait_label]:
-		label.add_theme_font_override("font", UiTheme.FONT_PIXEL_JP)
+	UiTheme.apply_pixel_font(_place_button)
+	for label: Label in [_name_label, _quality_label, _trait_label]:
+		UiTheme.apply_pixel_font(label)
 	_place_button.pressed.connect(_on_place_pressed)
 
 

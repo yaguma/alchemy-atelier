@@ -58,3 +58,14 @@ func test_在庫数0では植えるボタンが無効化される() -> void:
 
 	var button := row.find_child("PlantButton", true, false) as Button
 	assert_bool(button.disabled).is_true()
+
+
+## コードレビュー指摘対応: material_entry_row.gdのPlaceButton（同じ「スロットへの配置」操作）が
+## SECONDARYなのに対しPlantButtonはPRIMARYで割れていたため、SECONDARYへ統一したことを固定する
+func test_植えるボタンがSECONDARYバリアントになっている() -> void:
+	var row := _make_row()
+
+	var button := row.find_child("PlantButton", true, false) as Button
+	var style: StyleBoxTexture = button.get_theme_stylebox("normal")
+
+	assert_object(style.texture).is_equal(UiTheme.BUTTON_TEXTURE_SECONDARY)
