@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://features/guild/ui/guild_delivery_screen.gd" id="1_guild_delivery_screen"]
+[ext_resource type="PackedScene" path="res://features/guild/ui/guild_delivery_backdrop.tscn" id="2_backdrop"]
 
 [node name="GuildDeliveryScreen" type="Control"]
 layout_mode = 3
@@ -11,40 +12,51 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_guild_delivery_screen")
 
-[node name="VBoxContainer" type="VBoxContainer" parent="."]
+[node name="GuildDeliveryBackdrop" parent="." instance=ExtResource("2_backdrop")]
+layout_mode = 1
+
+[node name="ContentPanel" type="PanelContainer" parent="."]
+unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+offset_left = 32.0
+offset_top = 32.0
+offset_right = -32.0
+offset_bottom = -32.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="RankRow" type="HBoxContainer" parent="VBoxContainer"]
+[node name="VBoxContainer" type="VBoxContainer" parent="ContentPanel"]
 layout_mode = 2
 
-[node name="RankNameLabel" type="Label" parent="VBoxContainer/RankRow"]
+[node name="RankRow" type="HBoxContainer" parent="ContentPanel/VBoxContainer"]
+layout_mode = 2
+
+[node name="RankNameLabel" type="Label" parent="ContentPanel/VBoxContainer/RankRow"]
 unique_name_in_owner = true
 layout_mode = 2
 
-[node name="QuotaBar" type="ProgressBar" parent="VBoxContainer/RankRow"]
+[node name="QuotaBar" type="ProgressBar" parent="ContentPanel/VBoxContainer/RankRow"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="ScrollContainer" type="ScrollContainer" parent="VBoxContainer"]
+[node name="ScrollContainer" type="ScrollContainer" parent="ContentPanel/VBoxContainer"]
 layout_mode = 2
 size_flags_vertical = 3
 
-[node name="EntryContainer" type="VBoxContainer" parent="VBoxContainer/ScrollContainer"]
+[node name="EntryContainer" type="VBoxContainer" parent="ContentPanel/VBoxContainer/ScrollContainer"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="TotalLabel" type="Label" parent="VBoxContainer"]
+[node name="TotalLabel" type="Label" parent="ContentPanel/VBoxContainer"]
 unique_name_in_owner = true
 layout_mode = 2
 
-[node name="ContinueButton" type="Button" parent="VBoxContainer"]
+[node name="ContinueButton" type="Button" parent="ContentPanel/VBoxContainer"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "続ける"

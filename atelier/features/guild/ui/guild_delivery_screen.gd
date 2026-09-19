@@ -22,6 +22,7 @@ var _item_count: int = 0
 var _total_contribution: float = 0.0
 var _total_reward: float = 0.0
 
+@onready var _content_panel: PanelContainer = %ContentPanel
 @onready var _entry_container: VBoxContainer = %EntryContainer
 @onready var _total_label: Label = %TotalLabel
 @onready var _rank_name_label: Label = %RankNameLabel
@@ -29,9 +30,20 @@ var _total_reward: float = 0.0
 @onready var _continue_button: Button = %ContinueButton
 
 
+## 🟡 pixel-art-remaining-screens Plan タスク007: ドット絵背景・カードパネル・ボタン・
+## DotGothic16フォントを統合する。ContinueButton=結果確認を締めくくる確定操作としてPRIMARYを採用
+## （rank/ui/result_screen.gdと同型のパターン）。
+## 🔴 コードレビュー指摘対応: apply_pixel_font(self)はGodotのadd_theme_font_overrideが
+## 子孫へ伝播しないため実質no-opだった（ルート自身はテキストを持たない）。garden_screen.gd等の
+## 既存実装と同じく、テキストを持つ各ノードへ個別に適用する
 func _ready() -> void:
+	UiTheme.apply_panel_style(_content_panel)
 	_entry_container.add_theme_constant_override("separation", ENTRY_SEPARATION)
 	_continue_button.pressed.connect(_on_continue_pressed)
+	ButtonStyleApplier.apply_button_style(_continue_button, UiTheme.ButtonVariant.PRIMARY)
+	UiTheme.apply_pixel_font(_rank_name_label)
+	UiTheme.apply_pixel_font(_total_label)
+	UiTheme.apply_pixel_font(_continue_button)
 	_refresh_rank_quota()
 	_apply_totals()
 

@@ -24,6 +24,10 @@ func _find_label(row: UpgradeItemRow, node_name: String) -> Label:
 	return row.find_child(node_name, true, false) as Label
 
 
+func _find_row_panel(row: UpgradeItemRow) -> PanelContainer:
+	return row.find_child("RowPanel", true, false) as PanelContainer
+
+
 # 正常系
 
 
@@ -151,3 +155,22 @@ func test_ゴールド不足かつ購入済み上限到達の両方に該当す�
 
 	assert_bool(row.is_purchase_button_disabled()).is_true()
 	assert_str(row.get_purchase_button_text()).is_equal(UpgradeItemRow.LABEL_MAX_REACHED)
+
+
+# ドット絵統合（pixel-art-remaining-screens タスク008）
+
+
+func test_RowPanelがUiThemeのパネルStyleBoxTextureを保持する() -> void:
+	var row := _make_row()
+
+	var row_panel := _find_row_panel(row)
+
+	assert_object(row_panel.get_theme_stylebox("panel")).is_same(UiTheme.make_panel_stylebox())
+
+
+func test_PurchaseButtonにニアレストフィルタが設定されている() -> void:
+	var row := _make_row()
+
+	var purchase_button := row.find_child("PurchaseButton", true, false) as Button
+
+	assert_int(purchase_button.texture_filter).is_equal(CanvasItem.TEXTURE_FILTER_NEAREST)

@@ -17,6 +17,14 @@ func _find_label(row: GuildDeliveryResultRow, node_name: String) -> Label:
 
 # 正常系
 
+# ドット絵統合（pixel-art-remaining-screens タスク007）
+
+
+func test_行のルートがUiThemeのパネルStyleBoxTextureを保持する() -> void:
+	var row := _make_row()
+
+	assert_object(row.get_theme_stylebox("panel")).is_same(UiTheme.make_panel_stylebox())
+
 
 func test_setupで名称と品質と特性と貢献度と報酬が表示に反映される() -> void:
 	var row := _make_row()

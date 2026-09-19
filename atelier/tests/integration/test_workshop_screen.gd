@@ -299,3 +299,111 @@ func test_マスター未登録のupgrade_idで購入要求してもクラッシ
 
 	assert_int(GameState.get_state()["gold"]).is_equal(1000)
 	assert_str(screen.get_toast_text()).is_equal("")
+
+
+# ドット絵統合（pixel-art-remaining-screens タスク008）
+
+
+func test_WorkshopBackdropがContentPanelより背面のツリー順に配置されている() -> void:
+	var screen := _make_screen()
+
+	var backdrop := screen.get_node("WorkshopBackdrop")
+	var content_panel := screen.get_node("%ContentPanel")
+
+	assert_object(backdrop).is_not_null()
+	assert_int(backdrop.get_index()).is_less(content_panel.get_index())
+
+
+func test_ContentPanelがUiThemeのパネルStyleBoxTextureを保持する() -> void:
+	var screen := _make_screen()
+
+	var content_panel := screen.get_node("%ContentPanel") as PanelContainer
+
+	assert_object(content_panel.get_theme_stylebox("panel")).is_same(UiTheme.make_panel_stylebox())
+
+
+func test_タブボタンとCloseButtonにニアレストフィルタが設定されている() -> void:
+	var screen := _make_screen()
+
+	assert_int(_find_permanent_tab_button(screen).texture_filter).is_equal(
+		CanvasItem.TEXTURE_FILTER_NEAREST
+	)
+	assert_int(_find_consumable_tab_button(screen).texture_filter).is_equal(
+		CanvasItem.TEXTURE_FILTER_NEAREST
+	)
+	assert_int(_find_close_button(screen).texture_filter).is_equal(
+		CanvasItem.TEXTURE_FILTER_NEAREST
+	)
+
+
+## refresh()で再生成された各UpgradeItemRowの%RowPanelがContentPanelと同一のStyleBoxTextureを
+## 保持し、購入ボタンにButtonStyleApplier適用済みであること
+func test_refresh後に生成された行のRowPanelとPurchaseButtonにスタイルが適用されている() -> void:
+	GameState.load_workshop_master_data()
+	var screen := _make_screen()
+
+	var row := (
+		_find_consumable_list(screen).find_child(
+			"UpgradeItem_upgrade_seed_name_purchase_ore", true, false
+		)
+		as UpgradeItemRow
+	)
+	var row_panel := row.find_child("RowPanel", true, false) as PanelContainer
+	var purchase_button := row.find_child("PurchaseButton", true, false) as Button
+
+	assert_object(row_panel.get_theme_stylebox("panel")).is_same(UiTheme.make_panel_stylebox())
+	assert_int(purchase_button.texture_filter).is_equal(CanvasItem.TEXTURE_FILTER_NEAREST)
+
+
+# 境界値（ドット絵統合）
+
+
+## can_purchase_permanentがfalse（初期状態）の間、PermanentTabButtonはdisabledのままであり、
+## その状態でもButtonStyleApplier適用後のDISABLED用StyleBoxTexture（TERTIARY×DISABLED）が
+## normalスロットではなくdisabledスロットに正しく設定されていること
+## 🔴 コードレビュー指摘対応（PR#58）: SECONDARYからTERTIARYへ変更したため期待値を更新
+func test_PermanentTabButtonが非活性の間もDISABLED用StyleBoxTextureが設定されている() -> void:
+	GameState.load_workshop_master_data()
+	var screen := _make_screen()
+
+	var button := _find_permanent_tab_button(screen)
+
+	assert_bool(button.disabled).is_true()
+	assert_object(button.get_theme_stylebox("disabled")).is_same(
+		UiTheme.make_button_stylebox(UiTheme.ButtonVariant.TERTIARY, UiTheme.ButtonState.DISABLED)
+	)
+
+
+# コードレビュー指摘対応（PR#58）
+
+
+## 🔴 %ContentPanelが画面全体を不透明タイル(panel_pixel.png, alpha=255)で覆うと、背後の
+## WorkshopBackdropが完全に不可視になる回帰があったため、余白（offset）を設けたことを確認する
+func test_ContentPanelが画面全体を覆わずに余白を持つ() -> void:
+	var screen := _make_screen()
+
+	var content_panel := screen.get_node("%ContentPanel") as PanelContainer
+
+	assert_float(content_panel.offset_left).is_greater(0.0)
+	assert_float(content_panel.offset_top).is_greater(0.0)
+	assert_float(content_panel.offset_right).is_less(0.0)
+	assert_float(content_panel.offset_bottom).is_less(0.0)
+
+
+## 🔴 apply_pixel_font(self)はGodotの仕様上子孫へ伝播しないため実質no-opだった。
+## テキストを持つ各ノードへ個別適用されていることを確認する
+func test_タイトルとゴールドラベルとタブボタンと閉じるボタンにドット絵フォントが適用されている() -> void:
+	var screen := _make_screen()
+
+	var title_label := screen.get_node("%TitleLabel") as Label
+	var gold_label := screen.get_node("%GoldLabel") as Label
+
+	assert_object(title_label.get_theme_font("font")).is_same(UiTheme.FONT_PIXEL_JP)
+	assert_object(gold_label.get_theme_font("font")).is_same(UiTheme.FONT_PIXEL_JP)
+	assert_object(_find_permanent_tab_button(screen).get_theme_font("font")).is_same(
+		UiTheme.FONT_PIXEL_JP
+	)
+	assert_object(_find_consumable_tab_button(screen).get_theme_font("font")).is_same(
+		UiTheme.FONT_PIXEL_JP
+	)
+	assert_object(_find_close_button(screen).get_theme_font("font")).is_same(UiTheme.FONT_PIXEL_JP)

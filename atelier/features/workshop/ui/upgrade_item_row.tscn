@@ -9,16 +9,24 @@ anchor_right = 1.0
 grow_horizontal = 2
 script = ExtResource("1_upgrade_item_row")
 
-[node name="NameLabel" type="Label" parent="."]
+[node name="RowPanel" type="PanelContainer" parent="."]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="PriceLabel" type="Label" parent="."]
+[node name="Content" type="HBoxContainer" parent="RowPanel"]
+layout_mode = 2
+
+[node name="NameLabel" type="Label" parent="RowPanel/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="PriceLabel" type="Label" parent="RowPanel/Content"]
 unique_name_in_owner = true
 layout_mode = 2
 
-[node name="PurchaseButton" type="Button" parent="."]
+[node name="PurchaseButton" type="Button" parent="RowPanel/Content"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "購入する"

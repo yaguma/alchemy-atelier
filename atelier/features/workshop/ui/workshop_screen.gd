@@ -17,6 +17,8 @@ var _has_refreshed_once: bool = false  # 🟡 初期タブ選択を「初回表�
 var _confirm_dialog: PurchaseConfirmDialog = null  # 🔵 恒久投資の購入確認ダイアログ（PauseMenuの_settings_panelと同型）
 
 @onready var _overlay_layer: Control = %OverlayLayer  # 🔵 確認ダイアログの追加先
+@onready var _content_panel: PanelContainer = %ContentPanel  # 🟡 task008で新設
+@onready var _title_label: Label = %TitleLabel  # 🔴 コードレビュー指摘対応で新設（フォント個別適用のため）
 @onready var _gold_label: Label = %GoldLabel  # 🔵 txt-gold
 @onready var _permanent_tab_button: Button = %PermanentTabButton  # 🔵 tab-permanent
 @onready var _consumable_tab_button: Button = %ConsumableTabButton  # 🔵 tab-consumable
@@ -27,6 +29,7 @@ var _confirm_dialog: PurchaseConfirmDialog = null  # 🔵 恒久投資の購入�
 
 
 func _ready() -> void:
+	_apply_theme()
 	_permanent_tab_button.pressed.connect(_on_permanent_tab_pressed)
 	_consumable_tab_button.pressed.connect(_on_consumable_tab_pressed)
 	# 🔵 本タスクで追加: 両リストからの購入要求を受ける
@@ -34,6 +37,37 @@ func _ready() -> void:
 	_consumable_list.purchase_requested.connect(_on_purchase_requested)
 	_close_button.pressed.connect(_on_close_pressed)  # 🔵 本タスクで追加
 	_refresh()
+
+
+## ドット絵アセット（WorkshopBackdropPixel・9-sliceカードパネル）に合わせ、%ContentPanelへ
+## カードパネル、タブボタン・CloseButtonへButtonStyleApplier、ルート配下のテキスト要素へ
+## DotGothic16フォント（UiTheme.FONT_PIXEL_JP）を適用する。
+## 🔴 コードレビュー指摘対応: タブボタン・CloseButtonは当初design-guide.mdの「セカンダリ=
+## キャンセル・戻る」から外れる形でSECONDARYを採用していたが、design-guide.mdの
+## 「ターシャリ=設定など最も控えめなアクション」の方が実態に合致し、かつ既存コードベースにも
+## 同種の受動的ナビゲーション要素（rank_hud.gdの_menu_button、alchemy_slot_view.gdの
+## _clear_button）でTERTIARYを採用する直接の前例があったため、TERTIARYへ修正する
+## （PurchaseButtonのみ購入確定操作としてPRIMARY。upgrade_item_row.gd参照）。
+## 🟡 タブボタンに「選択中タブ」の視覚的インジケータは一切付与しない（既知の未対応事項）。
+## 🔴 コードレビュー指摘対応: 本コメントは以前「disabledのみで制御」と記載しており、あたかも
+## disabledが選択状態を部分的に表現しているかのように読めたが誤りだった。disabled（L83,
+## can_purchase_permanent由来）は購入可否のみを表す既存ロジック（FR-201/202）で選択状態とは
+## 無関係。選択中タブの表現は_update_tab_visibility()の.visibleトグルのみで、ボタン自体には
+## 一切の視覚差が無い（012の回帰確認タスクで実機確認予定）
+## 🔴 コードレビュー指摘対応: apply_pixel_font(self)はGodotのadd_theme_font_overrideが
+## 子孫へ伝播しないため実質no-opだった。テキストを持つ各ノードへ個別に適用する
+## （_toast_label/PermanentList/ConsumableList内の行は各コンポーネント自身が適用済み）
+func _apply_theme() -> void:
+	UiTheme.apply_panel_style(_content_panel)
+	ButtonStyleApplier.apply_button_style(_permanent_tab_button, UiTheme.ButtonVariant.TERTIARY)
+	ButtonStyleApplier.apply_button_style(_consumable_tab_button, UiTheme.ButtonVariant.TERTIARY)
+	ButtonStyleApplier.apply_button_style(_close_button, UiTheme.ButtonVariant.TERTIARY)
+	UiTheme.apply_pixel_font(_title_label)
+	UiTheme.apply_pixel_font(_gold_label)
+	UiTheme.apply_pixel_font(_toast_label)
+	UiTheme.apply_pixel_font(_permanent_tab_button)
+	UiTheme.apply_pixel_font(_consumable_tab_button)
+	UiTheme.apply_pixel_font(_close_button)
 
 
 ## 現在表示中のトーストメッセージを返す（テスト用）。🔵 GardenScreen.get_toast_text()踏襲

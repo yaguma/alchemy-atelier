@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://features/rank/ui/result_screen.gd" id="1_result_screen"]
+[ext_resource type="PackedScene" path="res://features/rank/ui/rank_result_backdrop.tscn" id="2_backdrop"]
 
 [node name="ResultScreen" type="Control"]
 layout_mode = 3
@@ -11,7 +12,10 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_result_screen")
 
-[node name="CenterContainer" type="CenterContainer" parent="."]
+[node name="RankResultBackdrop" parent="." instance=ExtResource("2_backdrop")]
+layout_mode = 1
+
+[node name="CenterWrapper" type="CenterContainer" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -19,6 +23,13 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="ResultMessageLabel" type="Label" parent="CenterContainer"]
+[node name="ContentPanel" type="PanelContainer" parent="CenterWrapper"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="CenterContainer" type="CenterContainer" parent="CenterWrapper/ContentPanel"]
+layout_mode = 2
+
+[node name="ResultMessageLabel" type="Label" parent="CenterWrapper/ContentPanel/CenterContainer"]
 unique_name_in_owner = true
 layout_mode = 2

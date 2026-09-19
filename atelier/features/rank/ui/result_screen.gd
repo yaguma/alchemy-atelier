@@ -15,9 +15,14 @@ const INITIAL_MESSAGE_TEXT := ""  # 🟡 シグナル未発行時は結果種別
 var _result_kind: ResultKind = ResultKind.NONE
 
 @onready var _result_message_label: Label = %ResultMessageLabel
+@onready var _content_panel: PanelContainer = %ContentPanel
 
 
 func _ready() -> void:  # 🔵 FR-001
+	UiTheme.apply_panel_style(_content_panel)
+	# 🔴 コードレビュー指摘対応: apply_pixel_font(self)はGodotのadd_theme_font_overrideが
+	# 子孫へ伝播しないため実質no-opだった。テキストを持つResultMessageLabelへ個別に適用する
+	UiTheme.apply_pixel_font(_result_message_label)
 	_apply_result_kind()
 	# 🔵 GameStateはAutoloadのため_exit_tree()での明示的disconnect()が必須（ui-components.md）
 	GameState.game_over.connect(_on_game_over)

@@ -215,3 +215,10 @@ static func make_panel_stylebox() -> StyleBoxTexture:
 
 	_panel_stylebox_cache = style
 	return style
+
+
+## 🔴 コードレビュー指摘対応（PR#58）: `panel.add_theme_stylebox_override("panel",
+## UiTheme.make_panel_stylebox())`が12ファイルへ個別にコピーされていたため、apply_pixel_font()と
+## 同じ方針で単一の呼び出し口へ集約する。将来カードパネルの適用方法を変える場合の変更漏れを防ぐ
+static func apply_panel_style(panel: PanelContainer) -> void:
+	panel.add_theme_stylebox_override("panel", make_panel_stylebox())

@@ -35,6 +35,10 @@ func _find_cancel_button(dialog: PurchaseConfirmDialog) -> Button:
 	return dialog.find_child("CancelButton", true, false) as Button
 
 
+func _find_dialog_panel(dialog: PurchaseConfirmDialog) -> PanelContainer:
+	return dialog.find_child("DialogPanel", true, false) as PanelContainer
+
+
 ## confirmedシグナルの発行を同期的に観測する。ハンドラがqueue_free()まで行うため、
 ## awaitを挟むmonitor_signals/assert_signalでは解放済みノードへアクセスしうる
 func _watch_confirmed(dialog: PurchaseConfirmDialog) -> Array[StringName]:
@@ -256,3 +260,56 @@ func test_価格0のアイテムでも価格表示が崩れない() -> void:
 
 	assert_str(dialog.get_price_text()).is_equal("0 G")
 	assert_str(dialog.get_effect_text()).is_equal("触媒素材を1個獲得します")
+
+
+# pixel-art-remaining-screens Plan タスク009: DialogPanel・ボタン・フォントのドット絵統合を検証する
+
+
+func test_DialogPanelにmake_panel_styleboxと同一のStyleBoxTextureが設定されている() -> void:
+	var dialog := _make_dialog()
+
+	assert_object(_find_dialog_panel(dialog).get_theme_stylebox("panel")).is_equal(
+		UiTheme.make_panel_stylebox()
+	)
+
+
+func test_購入するボタンとキャンセルボタンにNEARESTのtexture_filterが設定されている() -> void:
+	var dialog := _make_dialog()
+
+	assert_int(_find_confirm_button(dialog).texture_filter).is_equal(
+		CanvasItem.TEXTURE_FILTER_NEAREST
+	)
+	assert_int(_find_cancel_button(dialog).texture_filter).is_equal(
+		CanvasItem.TEXTURE_FILTER_NEAREST
+	)
+
+
+func test_DialogPanelがCenterContainer経由で画面中央に配置される() -> void:
+	var dialog := _make_dialog()
+
+	var panel := _find_dialog_panel(dialog)
+	assert_object(panel.get_parent()).is_instanceof(CenterContainer)
+
+
+# コードレビュー指摘対応（PR#58）
+
+
+## 🔴 apply_pixel_font(self)はGodotの仕様上子孫へ伝播しないため実質no-opだった。
+## テキストを持つ各ノードへ個別適用されていることを確認する
+func test_タイトルと本文ラベルとボタンにドット絵フォントが適用されている() -> void:
+	var dialog := _make_dialog()
+	dialog.setup(_make_default_upgrade())
+
+	var title_label := dialog.find_child("TitleLabel", true, false) as Label
+	var name_label := dialog.find_child("NameLabel", true, false) as Label
+	var price_label := dialog.find_child("PriceLabel", true, false) as Label
+	var effect_label := dialog.find_child("EffectLabel", true, false) as Label
+
+	assert_object(title_label.get_theme_font("font")).is_same(UiTheme.FONT_PIXEL_JP)
+	assert_object(name_label.get_theme_font("font")).is_same(UiTheme.FONT_PIXEL_JP)
+	assert_object(price_label.get_theme_font("font")).is_same(UiTheme.FONT_PIXEL_JP)
+	assert_object(effect_label.get_theme_font("font")).is_same(UiTheme.FONT_PIXEL_JP)
+	assert_object(_find_confirm_button(dialog).get_theme_font("font")).is_same(
+		UiTheme.FONT_PIXEL_JP
+	)
+	assert_object(_find_cancel_button(dialog).get_theme_font("font")).is_same(UiTheme.FONT_PIXEL_JP)

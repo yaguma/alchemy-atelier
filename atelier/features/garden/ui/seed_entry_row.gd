@@ -24,7 +24,7 @@ var _seed_id: StringName = &""
 # 同じく「スロットへの配置」操作）とSECONDARYで揃え、PRIMARY（確定操作）はEndTurnButton/
 # ExecuteButtonのような「そのフェーズの決定打」に限定する
 func _ready() -> void:
-	add_theme_stylebox_override("panel", UiTheme.make_panel_stylebox())
+	UiTheme.apply_panel_style(self)
 	_plant_button.pressed.connect(_on_plant_pressed)
 	ButtonStyleApplier.apply_button_style(_plant_button, UiTheme.ButtonVariant.SECONDARY)
 	UiTheme.apply_pixel_font(_name_label)
