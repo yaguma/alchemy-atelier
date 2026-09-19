@@ -18,6 +18,7 @@ var _confirm_dialog: PurchaseConfirmDialog = null  # 🔵 恒久投資の購入�
 
 @onready var _overlay_layer: Control = %OverlayLayer  # 🔵 確認ダイアログの追加先
 @onready var _content_panel: PanelContainer = %ContentPanel  # 🟡 task008で新設
+@onready var _title_label: Label = %TitleLabel  # 🔴 コードレビュー指摘対応で新設（フォント個別適用のため）
 @onready var _gold_label: Label = %GoldLabel  # 🔵 txt-gold
 @onready var _permanent_tab_button: Button = %PermanentTabButton  # 🔵 tab-permanent
 @onready var _consumable_tab_button: Button = %ConsumableTabButton  # 🔵 tab-consumable
@@ -43,14 +44,26 @@ func _ready() -> void:
 ## DotGothic16フォント（UiTheme.FONT_PIXEL_JP）を適用する。
 ## 🔴 タブボタン・CloseButtonは確定/危険操作のいずれでもない補助的な導線のためSECONDARYとする
 ## （PurchaseButtonのみ購入確定操作としてPRIMARY。upgrade_item_row.gd参照）。
-## 🟡 タブボタンはtoggle_modeではなくdisabledのみで制御されており「選択中タブ」の視覚差は
-## 本タスクでは付与しない（既知の未対応事項。012の回帰確認タスクで実機確認予定）
+## 🟡 タブボタンに「選択中タブ」の視覚的インジケータは一切付与しない（既知の未対応事項）。
+## 🔴 コードレビュー指摘対応: 本コメントは以前「disabledのみで制御」と記載しており、あたかも
+## disabledが選択状態を部分的に表現しているかのように読めたが誤りだった。disabled（L83,
+## can_purchase_permanent由来）は購入可否のみを表す既存ロジック（FR-201/202）で選択状態とは
+## 無関係。選択中タブの表現は_update_tab_visibility()の.visibleトグルのみで、ボタン自体には
+## 一切の視覚差が無い（012の回帰確認タスクで実機確認予定）
+## 🔴 コードレビュー指摘対応: apply_pixel_font(self)はGodotのadd_theme_font_overrideが
+## 子孫へ伝播しないため実質no-opだった。テキストを持つ各ノードへ個別に適用する
+## （_toast_label/PermanentList/ConsumableList内の行は各コンポーネント自身が適用済み）
 func _apply_theme() -> void:
 	_content_panel.add_theme_stylebox_override("panel", UiTheme.make_panel_stylebox())
 	ButtonStyleApplier.apply_button_style(_permanent_tab_button, UiTheme.ButtonVariant.SECONDARY)
 	ButtonStyleApplier.apply_button_style(_consumable_tab_button, UiTheme.ButtonVariant.SECONDARY)
 	ButtonStyleApplier.apply_button_style(_close_button, UiTheme.ButtonVariant.SECONDARY)
-	UiTheme.apply_pixel_font(self)
+	UiTheme.apply_pixel_font(_title_label)
+	UiTheme.apply_pixel_font(_gold_label)
+	UiTheme.apply_pixel_font(_toast_label)
+	UiTheme.apply_pixel_font(_permanent_tab_button)
+	UiTheme.apply_pixel_font(_consumable_tab_button)
+	UiTheme.apply_pixel_font(_close_button)
 
 
 ## 現在表示中のトーストメッセージを返す（テスト用）。🔵 GardenScreen.get_toast_text()踏襲

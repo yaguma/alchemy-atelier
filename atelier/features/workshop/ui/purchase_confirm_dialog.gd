@@ -21,6 +21,7 @@ const PRICE_FORMAT := "%d G"
 var _upgrade_id: StringName = &""
 
 @onready var _dialog_panel: PanelContainer = %DialogPanel
+@onready var _title_label: Label = %TitleLabel  # 🔴 コードレビュー指摘対応で新設（フォント個別適用のため）
 @onready var _name_label: Label = %NameLabel
 @onready var _price_label: Label = %PriceLabel
 @onready var _effect_label: Label = %EffectLabel
@@ -31,6 +32,8 @@ var _upgrade_id: StringName = &""
 ## 🟡 pixel-art-remaining-screens Plan タスク009: 共通カードパネル・ボタン・DotGothic16
 ## フォントを統合する。ConfirmButton=確定操作でPRIMARY、CancelButton=キャンセルでSECONDARY
 ## （design-guide.mdのボタン表の意味論にそのまま一致）
+## 🔴 コードレビュー指摘対応: apply_pixel_font(self)はGodotのadd_theme_font_overrideが
+## 子孫へ伝播しないため実質no-opだった。テキストを持つ各ノードへ個別に適用する
 func _ready() -> void:
 	_dialog_panel.add_theme_stylebox_override("panel", UiTheme.make_panel_stylebox())
 	# 🔵 自ノード配下のsignalのため_exit_tree()でのdisconnectは不要
@@ -38,7 +41,12 @@ func _ready() -> void:
 	_cancel_button.pressed.connect(_on_cancel_pressed)
 	ButtonStyleApplier.apply_button_style(_confirm_button, UiTheme.ButtonVariant.PRIMARY)
 	ButtonStyleApplier.apply_button_style(_cancel_button, UiTheme.ButtonVariant.SECONDARY)
-	UiTheme.apply_pixel_font(self)
+	UiTheme.apply_pixel_font(_title_label)
+	UiTheme.apply_pixel_font(_name_label)
+	UiTheme.apply_pixel_font(_price_label)
+	UiTheme.apply_pixel_font(_effect_label)
+	UiTheme.apply_pixel_font(_confirm_button)
+	UiTheme.apply_pixel_font(_cancel_button)
 
 
 ## 🟡 SettingsPanel._unhandled_input()と同じ扱い。確認ダイアログでのEscape既定動作は

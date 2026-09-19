@@ -289,3 +289,27 @@ func test_DialogPanelがCenterContainer経由で画面中央に配置される()
 
 	var panel := _find_dialog_panel(dialog)
 	assert_object(panel.get_parent()).is_instanceof(CenterContainer)
+
+
+# コードレビュー指摘対応（PR#58）
+
+
+## 🔴 apply_pixel_font(self)はGodotの仕様上子孫へ伝播しないため実質no-opだった。
+## テキストを持つ各ノードへ個別適用されていることを確認する
+func test_タイトルと本文ラベルとボタンにドット絵フォントが適用されている() -> void:
+	var dialog := _make_dialog()
+	dialog.setup(_make_default_upgrade())
+
+	var title_label := dialog.find_child("TitleLabel", true, false) as Label
+	var name_label := dialog.find_child("NameLabel", true, false) as Label
+	var price_label := dialog.find_child("PriceLabel", true, false) as Label
+	var effect_label := dialog.find_child("EffectLabel", true, false) as Label
+
+	assert_object(title_label.get_theme_font("font")).is_same(UiTheme.FONT_PIXEL_JP)
+	assert_object(name_label.get_theme_font("font")).is_same(UiTheme.FONT_PIXEL_JP)
+	assert_object(price_label.get_theme_font("font")).is_same(UiTheme.FONT_PIXEL_JP)
+	assert_object(effect_label.get_theme_font("font")).is_same(UiTheme.FONT_PIXEL_JP)
+	assert_object(_find_confirm_button(dialog).get_theme_font("font")).is_same(
+		UiTheme.FONT_PIXEL_JP
+	)
+	assert_object(_find_cancel_button(dialog).get_theme_font("font")).is_same(UiTheme.FONT_PIXEL_JP)

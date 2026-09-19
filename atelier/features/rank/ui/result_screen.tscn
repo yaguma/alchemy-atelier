@@ -15,8 +15,7 @@ script = ExtResource("1_result_screen")
 [node name="RankResultBackdrop" parent="." instance=ExtResource("2_backdrop")]
 layout_mode = 1
 
-[node name="ContentPanel" type="PanelContainer" parent="."]
-unique_name_in_owner = true
+[node name="CenterWrapper" type="CenterContainer" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -24,9 +23,13 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="CenterContainer" type="CenterContainer" parent="ContentPanel"]
+[node name="ContentPanel" type="PanelContainer" parent="CenterWrapper"]
+unique_name_in_owner = true
 layout_mode = 2
 
-[node name="ResultMessageLabel" type="Label" parent="ContentPanel/CenterContainer"]
+[node name="CenterContainer" type="CenterContainer" parent="CenterWrapper/ContentPanel"]
+layout_mode = 2
+
+[node name="ResultMessageLabel" type="Label" parent="CenterWrapper/ContentPanel/CenterContainer"]
 unique_name_in_owner = true
 layout_mode = 2

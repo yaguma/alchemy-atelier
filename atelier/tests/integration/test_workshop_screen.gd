@@ -371,3 +371,38 @@ func test_PermanentTabButtonが非活性の間もDISABLED用StyleBoxTextureが�
 	assert_object(button.get_theme_stylebox("disabled")).is_same(
 		UiTheme.make_button_stylebox(UiTheme.ButtonVariant.SECONDARY, UiTheme.ButtonState.DISABLED)
 	)
+
+
+# コードレビュー指摘対応（PR#58）
+
+
+## 🔴 %ContentPanelが画面全体を不透明タイル(panel_pixel.png, alpha=255)で覆うと、背後の
+## WorkshopBackdropが完全に不可視になる回帰があったため、余白（offset）を設けたことを確認する
+func test_ContentPanelが画面全体を覆わずに余白を持つ() -> void:
+	var screen := _make_screen()
+
+	var content_panel := screen.get_node("%ContentPanel") as PanelContainer
+
+	assert_float(content_panel.offset_left).is_greater(0.0)
+	assert_float(content_panel.offset_top).is_greater(0.0)
+	assert_float(content_panel.offset_right).is_less(0.0)
+	assert_float(content_panel.offset_bottom).is_less(0.0)
+
+
+## 🔴 apply_pixel_font(self)はGodotの仕様上子孫へ伝播しないため実質no-opだった。
+## テキストを持つ各ノードへ個別適用されていることを確認する
+func test_タイトルとゴールドラベルとタブボタンと閉じるボタンにドット絵フォントが適用されている() -> void:
+	var screen := _make_screen()
+
+	var title_label := screen.get_node("%TitleLabel") as Label
+	var gold_label := screen.get_node("%GoldLabel") as Label
+
+	assert_object(title_label.get_theme_font("font")).is_same(UiTheme.FONT_PIXEL_JP)
+	assert_object(gold_label.get_theme_font("font")).is_same(UiTheme.FONT_PIXEL_JP)
+	assert_object(_find_permanent_tab_button(screen).get_theme_font("font")).is_same(
+		UiTheme.FONT_PIXEL_JP
+	)
+	assert_object(_find_consumable_tab_button(screen).get_theme_font("font")).is_same(
+		UiTheme.FONT_PIXEL_JP
+	)
+	assert_object(_find_close_button(screen).get_theme_font("font")).is_same(UiTheme.FONT_PIXEL_JP)

@@ -113,11 +113,15 @@ func test_降格回数0でもゲームオーバー文言は変わらない() -> 
 func test_背景ノードがContentPanelより背面のツリー順に配置されている() -> void:
 	var screen := _make_screen()
 
+	# 🔵 修正: %ContentPanelはCenterWrapper（CenterContainer）の子になったため、
+	# 直接のきょうだいであるCenterWrapper自体のインデックスをbackdropと比較する
+	# （%ContentPanel.get_index()はCenterWrapper内での順序を返すだけで、backdropとの
+	# ツリー順比較には使えないため）
 	var backdrop := screen.get_node("RankResultBackdrop")
-	var content_panel := screen.get_node("%ContentPanel")
+	var center_wrapper := screen.get_node("CenterWrapper")
 
 	assert_object(backdrop).is_not_null()
-	assert_int(backdrop.get_index()).is_less(content_panel.get_index())
+	assert_int(backdrop.get_index()).is_less(center_wrapper.get_index())
 
 
 func test_ContentPanelがUiThemeのパネルStyleBoxTextureを保持する() -> void:
@@ -126,3 +130,27 @@ func test_ContentPanelがUiThemeのパネルStyleBoxTextureを保持する() -> 
 	var content_panel := screen.get_node("%ContentPanel") as PanelContainer
 
 	assert_object(content_panel.get_theme_stylebox("panel")).is_same(UiTheme.make_panel_stylebox())
+
+
+# コードレビュー指摘対応（PR#58）
+
+
+## 🔴 %ContentPanelが画面全体を不透明タイル(panel_pixel.png, alpha=255)で覆うと、背後の
+## RankResultBackdropが完全に不可視になる回帰があったため、CenterWrapper(CenterContainer)配下で
+## 内容サイズに縮小配置されることを確認する（purchase_confirm_dialog.tscnのDialogPanelと同型）
+func test_ContentPanelがCenterWrapper経由で画面中央にサイズ縮小配置される() -> void:
+	var screen := _make_screen()
+
+	var content_panel := screen.get_node("%ContentPanel") as PanelContainer
+
+	assert_object(content_panel.get_parent()).is_instanceof(CenterContainer)
+
+
+## 🔴 apply_pixel_font(self)はGodotの仕様上子孫へ伝播しないため実質no-opだった。
+## ResultMessageLabelへ個別適用されていることを確認する
+func test_結果メッセージラベルにドット絵フォントが適用されている() -> void:
+	var screen := _make_screen()
+
+	var label := screen.get_node("%ResultMessageLabel") as Label
+
+	assert_object(label.get_theme_font("font")).is_same(UiTheme.FONT_PIXEL_JP)

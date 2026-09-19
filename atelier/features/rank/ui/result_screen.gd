@@ -20,7 +20,9 @@ var _result_kind: ResultKind = ResultKind.NONE
 
 func _ready() -> void:  # 🔵 FR-001
 	_content_panel.add_theme_stylebox_override("panel", UiTheme.make_panel_stylebox())
-	UiTheme.apply_pixel_font(self)
+	# 🔴 コードレビュー指摘対応: apply_pixel_font(self)はGodotのadd_theme_font_overrideが
+	# 子孫へ伝播しないため実質no-opだった。テキストを持つResultMessageLabelへ個別に適用する
+	UiTheme.apply_pixel_font(_result_message_label)
 	_apply_result_kind()
 	# 🔵 GameStateはAutoloadのため_exit_tree()での明示的disconnect()が必須（ui-components.md）
 	GameState.game_over.connect(_on_game_over)

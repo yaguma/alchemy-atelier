@@ -361,3 +361,33 @@ func test_0件のdisplay_results後もContentPanelと背景の表示が破綻し
 	assert_object(content_panel.get_theme_stylebox("panel")).is_same(UiTheme.make_panel_stylebox())
 	assert_object(screen.get_node("GuildDeliveryBackdrop")).is_not_null()
 	assert_int(screen.get_item_count()).is_equal(0)
+
+
+# コードレビュー指摘対応（PR#58）
+
+
+## 🔴 %ContentPanelが画面全体を不透明タイル(panel_pixel.png, alpha=255)で覆うと、背後の
+## GuildDeliveryBackdropが完全に不可視になる回帰があったため、余白（offset）を設けたことを確認する
+func test_ContentPanelが画面全体を覆わずに余白を持つ() -> void:
+	var screen := _make_screen()
+
+	var content_panel := screen.get_node("%ContentPanel") as PanelContainer
+
+	assert_float(content_panel.offset_left).is_greater(0.0)
+	assert_float(content_panel.offset_top).is_greater(0.0)
+	assert_float(content_panel.offset_right).is_less(0.0)
+	assert_float(content_panel.offset_bottom).is_less(0.0)
+
+
+## 🔴 apply_pixel_font(self)はGodotの仕様上子孫へ伝播しないため実質no-opだった。
+## テキストを持つ各ノードへ個別適用されていることを確認する
+func test_見出しと合計ラベルと続けるボタンにドット絵フォントが適用されている() -> void:
+	var screen := _make_screen()
+
+	var rank_name_label := screen.get_node("%RankNameLabel") as Label
+	var total_label := screen.get_node("%TotalLabel") as Label
+	var continue_button := screen.get_node("%ContinueButton") as Button
+
+	assert_object(rank_name_label.get_theme_font("font")).is_same(UiTheme.FONT_PIXEL_JP)
+	assert_object(total_label.get_theme_font("font")).is_same(UiTheme.FONT_PIXEL_JP)
+	assert_object(continue_button.get_theme_font("font")).is_same(UiTheme.FONT_PIXEL_JP)
