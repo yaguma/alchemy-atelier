@@ -37,7 +37,7 @@ var _total_reward: float = 0.0
 ## 子孫へ伝播しないため実質no-opだった（ルート自身はテキストを持たない）。garden_screen.gd等の
 ## 既存実装と同じく、テキストを持つ各ノードへ個別に適用する
 func _ready() -> void:
-	_content_panel.add_theme_stylebox_override("panel", UiTheme.make_panel_stylebox())
+	UiTheme.apply_panel_style(_content_panel)
 	_entry_container.add_theme_constant_override("separation", ENTRY_SEPARATION)
 	_continue_button.pressed.connect(_on_continue_pressed)
 	ButtonStyleApplier.apply_button_style(_continue_button, UiTheme.ButtonVariant.PRIMARY)

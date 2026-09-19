@@ -104,3 +104,12 @@ func test_apply_pixel_fontでfontオーバーライドがFONT_PIXEL_JPになる(
 	UiTheme.apply_pixel_font(label)
 
 	assert_object(label.get_theme_font("font")).is_equal(UiTheme.FONT_PIXEL_JP)
+
+
+## 🔴 コードレビュー指摘対応（PR#58）: apply_panel_style()の新規追加に伴うテスト
+func test_apply_panel_styleでpanelスロットにmake_panel_styleboxと同一のStyleBoxTextureが設定される() -> void:
+	var panel: PanelContainer = auto_free(PanelContainer.new())
+
+	UiTheme.apply_panel_style(panel)
+
+	assert_object(panel.get_theme_stylebox("panel")).is_same(UiTheme.make_panel_stylebox())

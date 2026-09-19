@@ -42,7 +42,7 @@ var _harvest_enabled: bool = false
 ## DotGothic16フォントを統合する。HarvestButton=確定操作でPRIMARY、WaitButton=
 ## 「様子を見る」という消極的な操作でSECONDARYとした（タスクファイルの暫定割り当てに従う）
 func _ready() -> void:
-	_slot_panel.add_theme_stylebox_override("panel", UiTheme.make_panel_stylebox())
+	UiTheme.apply_panel_style(_slot_panel)
 	_harvest_button.pressed.connect(_on_harvest_pressed)
 	_wait_button.pressed.connect(_on_wait_pressed)
 	ButtonStyleApplier.apply_button_style(_harvest_button, UiTheme.ButtonVariant.PRIMARY)

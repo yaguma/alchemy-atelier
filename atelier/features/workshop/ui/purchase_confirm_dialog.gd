@@ -35,7 +35,7 @@ var _upgrade_id: StringName = &""
 ## 🔴 コードレビュー指摘対応: apply_pixel_font(self)はGodotのadd_theme_font_overrideが
 ## 子孫へ伝播しないため実質no-opだった。テキストを持つ各ノードへ個別に適用する
 func _ready() -> void:
-	_dialog_panel.add_theme_stylebox_override("panel", UiTheme.make_panel_stylebox())
+	UiTheme.apply_panel_style(_dialog_panel)
 	# 🔵 自ノード配下のsignalのため_exit_tree()でのdisconnectは不要
 	_confirm_button.pressed.connect(_on_confirm_pressed)
 	_cancel_button.pressed.connect(_on_cancel_pressed)

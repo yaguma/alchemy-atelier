@@ -23,7 +23,7 @@ var _material_instance_id: String = ""
 # ExecuteButton（PRIMARY）とは区別する。garden/ui/seed_entry_row.gdのPlantButton
 # （種を庭スロットへ配置する、同じく「スロットへの配置」操作）とSECONDARYで揃える
 func _ready() -> void:
-	add_theme_stylebox_override("panel", UiTheme.make_panel_stylebox())
+	UiTheme.apply_panel_style(self)
 	ButtonStyleApplier.apply_button_style(_place_button, UiTheme.ButtonVariant.SECONDARY)
 	UiTheme.apply_pixel_font(_place_button)
 	for label: Label in [_name_label, _quality_label, _trait_label]:

@@ -120,7 +120,7 @@ func get_menu_button() -> Button:
 # ButtonStyleApplier.apply_button_style()に委譲する（フォントサイズ・文字色・
 # StyleBox・texture_filterを一括で他画面のボタンと揃える。TERTIARY選定は🔴仮決定）
 func _apply_theme() -> void:
-	add_theme_stylebox_override("panel", UiTheme.make_panel_stylebox())
+	UiTheme.apply_panel_style(self)
 	for label: Label in [_rank_name_label, _turn_remaining_label, _gold_label]:
 		UiTheme.apply_pixel_font(label)
 		label.add_theme_font_size_override("font_size", UiTheme.FONT_SIZE_DEFAULT)

@@ -42,7 +42,11 @@ func _ready() -> void:
 ## ドット絵アセット（WorkshopBackdropPixel・9-sliceカードパネル）に合わせ、%ContentPanelへ
 ## カードパネル、タブボタン・CloseButtonへButtonStyleApplier、ルート配下のテキスト要素へ
 ## DotGothic16フォント（UiTheme.FONT_PIXEL_JP）を適用する。
-## 🔴 タブボタン・CloseButtonは確定/危険操作のいずれでもない補助的な導線のためSECONDARYとする
+## 🔴 コードレビュー指摘対応: タブボタン・CloseButtonは当初design-guide.mdの「セカンダリ=
+## キャンセル・戻る」から外れる形でSECONDARYを採用していたが、design-guide.mdの
+## 「ターシャリ=設定など最も控えめなアクション」の方が実態に合致し、かつ既存コードベースにも
+## 同種の受動的ナビゲーション要素（rank_hud.gdの_menu_button、alchemy_slot_view.gdの
+## _clear_button）でTERTIARYを採用する直接の前例があったため、TERTIARYへ修正する
 ## （PurchaseButtonのみ購入確定操作としてPRIMARY。upgrade_item_row.gd参照）。
 ## 🟡 タブボタンに「選択中タブ」の視覚的インジケータは一切付与しない（既知の未対応事項）。
 ## 🔴 コードレビュー指摘対応: 本コメントは以前「disabledのみで制御」と記載しており、あたかも
@@ -54,10 +58,10 @@ func _ready() -> void:
 ## 子孫へ伝播しないため実質no-opだった。テキストを持つ各ノードへ個別に適用する
 ## （_toast_label/PermanentList/ConsumableList内の行は各コンポーネント自身が適用済み）
 func _apply_theme() -> void:
-	_content_panel.add_theme_stylebox_override("panel", UiTheme.make_panel_stylebox())
-	ButtonStyleApplier.apply_button_style(_permanent_tab_button, UiTheme.ButtonVariant.SECONDARY)
-	ButtonStyleApplier.apply_button_style(_consumable_tab_button, UiTheme.ButtonVariant.SECONDARY)
-	ButtonStyleApplier.apply_button_style(_close_button, UiTheme.ButtonVariant.SECONDARY)
+	UiTheme.apply_panel_style(_content_panel)
+	ButtonStyleApplier.apply_button_style(_permanent_tab_button, UiTheme.ButtonVariant.TERTIARY)
+	ButtonStyleApplier.apply_button_style(_consumable_tab_button, UiTheme.ButtonVariant.TERTIARY)
+	ButtonStyleApplier.apply_button_style(_close_button, UiTheme.ButtonVariant.TERTIARY)
 	UiTheme.apply_pixel_font(_title_label)
 	UiTheme.apply_pixel_font(_gold_label)
 	UiTheme.apply_pixel_font(_toast_label)

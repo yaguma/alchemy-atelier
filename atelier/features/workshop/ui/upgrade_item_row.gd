@@ -23,7 +23,7 @@ var _upgrade_id: StringName = &""
 ## ButtonStyleApplier、テキスト要素へDotGothic16フォントを適用する。
 ## 🔵 PurchaseButton=購入確定操作としてPRIMARY（design-guide.mdボタン表の意味論に一致）
 func _ready() -> void:  # 🔵 自ノードsignalのため_exit_tree()でのdisconnect不要
-	_row_panel.add_theme_stylebox_override("panel", UiTheme.make_panel_stylebox())
+	UiTheme.apply_panel_style(_row_panel)
 	_purchase_button.pressed.connect(_on_purchase_pressed)
 	ButtonStyleApplier.apply_button_style(_purchase_button, UiTheme.ButtonVariant.PRIMARY)
 	UiTheme.apply_pixel_font(_name_label)

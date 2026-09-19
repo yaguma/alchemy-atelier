@@ -27,7 +27,7 @@ var _material_text: String = ""
 func _ready() -> void:
 	# 🟡 make_panel_stylebox()はバリアント無しの単一キャッシュ済みStyleBoxTextureを返すため、
 	# 呼び出しごとの再生成コストは無い（UiTheme.make_panel_stylebox()実装参照）
-	_slot_panel.add_theme_stylebox_override("panel", UiTheme.make_panel_stylebox())
+	UiTheme.apply_panel_style(_slot_panel)
 	# 🟡 カード内の最も控えめなアクションのためTERTIARYを採用（design-guide.mdのボタン表）
 	UiTheme.apply_pixel_font(_clear_button)
 	ButtonStyleApplier.apply_button_style(_clear_button, UiTheme.ButtonVariant.TERTIARY)

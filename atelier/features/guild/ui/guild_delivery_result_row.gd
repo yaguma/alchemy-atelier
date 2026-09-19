@@ -25,7 +25,7 @@ const TRAIT_SEPARATOR := ", "
 
 
 func _ready() -> void:
-	add_theme_stylebox_override("panel", UiTheme.make_panel_stylebox())
+	UiTheme.apply_panel_style(self)
 	for label: Label in [
 		_name_label, _quality_label, _traits_label, _order_match_label, _value_label
 	]:

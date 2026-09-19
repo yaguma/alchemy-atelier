@@ -359,8 +359,9 @@ func test_refresh後に生成された行のRowPanelとPurchaseButtonにスタ�
 
 
 ## can_purchase_permanentがfalse（初期状態）の間、PermanentTabButtonはdisabledのままであり、
-## その状態でもButtonStyleApplier適用後のDISABLED用StyleBoxTexture（SECONDARY×DISABLED）が
+## その状態でもButtonStyleApplier適用後のDISABLED用StyleBoxTexture（TERTIARY×DISABLED）が
 ## normalスロットではなくdisabledスロットに正しく設定されていること
+## 🔴 コードレビュー指摘対応（PR#58）: SECONDARYからTERTIARYへ変更したため期待値を更新
 func test_PermanentTabButtonが非活性の間もDISABLED用StyleBoxTextureが設定されている() -> void:
 	GameState.load_workshop_master_data()
 	var screen := _make_screen()
@@ -369,7 +370,7 @@ func test_PermanentTabButtonが非活性の間もDISABLED用StyleBoxTextureが�
 
 	assert_bool(button.disabled).is_true()
 	assert_object(button.get_theme_stylebox("disabled")).is_same(
-		UiTheme.make_button_stylebox(UiTheme.ButtonVariant.SECONDARY, UiTheme.ButtonState.DISABLED)
+		UiTheme.make_button_stylebox(UiTheme.ButtonVariant.TERTIARY, UiTheme.ButtonState.DISABLED)
 	)
 
 
