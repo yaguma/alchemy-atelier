@@ -1,0 +1,45 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://shared/debug/debug_panel.gd" id="1_debug_panel"]
+
+[node name="DebugPanel" type="Control"]
+layout_mode = 3
+anchors_preset = 0
+offset_right = 160.0
+offset_bottom = 132.0
+mouse_filter = 1
+script = ExtResource("1_debug_panel")
+
+[node name="Background" type="Panel" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+self_modulate = Color(0, 0, 0, 0.6)
+
+[node name="RootContainer" type="VBoxContainer" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="AddGoldButton" type="Button" parent="RootContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "G+1000"
+
+[node name="ForceEndTurnButton" type="Button" parent="RootContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "ノルマ即達成"
+
+[node name="JumpRankButton" type="Button" parent="RootContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "次ランクへ"
