@@ -350,6 +350,27 @@ func get_purchased_count(upgrade_id: StringName) -> int:
 	return GameStateWorkshopDelegate.get_purchased_count(self, upgrade_id)
 
 
+## 🔴 500行ルール対応。以下のデバッグプレイ支援API群は実装本体をgame_state_debug_delegate.gd
+## （GameStateDebugDelegate）へ委譲する。デバッグビルド限定（GameStateTestSupport.guard()を再利用）。
+
+
+## デバッグビルド限定。所持ゴールドを固定量(GameStateDebugDelegate.DEBUG_GOLD_AMOUNT)即時付与する
+func debug_add_gold() -> void:
+	GameStateDebugDelegate.debug_add_gold(self)
+
+
+## デバッグビルド限定。ノルマ即時達成のため現在の納品待ちキューを決算しランク結果を確定させる
+## （_on_end_turn_pressed()と同じ2呼び出し）
+func debug_force_end_turn() -> Result:
+	return GameStateDebugDelegate.debug_force_end_turn(self)
+
+
+## デバッグビルド限定。現在ランクを次ランクへ即時ジャンプする。末尾ランクまたは次ランクの
+## RankMaster未登録時は何もしない
+func debug_jump_to_next_rank() -> void:
+	GameStateDebugDelegate.debug_jump_to_next_rank(self)
+
+
 ## 🔴 500行ルール対応。以下のテスト専用API群は実装本体をgame_state_test_support.gd
 ## （GameStateTestSupport）へ委譲する。公開シグネチャ・呼び出し方法はテストコード側から見て変更しない
 

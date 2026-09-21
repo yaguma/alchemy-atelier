@@ -37,6 +37,9 @@ var _pause_menu: PauseMenu = null
 @onready var _rank_hud: RankHud = %RankHud  # 🔵 FR-103
 # 🔵 4画面より後ろの子として配置しているため、描画順で常に最前面になる
 @onready var _settings_overlay_layer: Control = %SettingsOverlayLayer  # 🔵 FR-103
+# 🔴 debug-playtest-support Plan タスク003。SettingsOverlayLayerよりさらに後ろの子として
+# 配置しているため、描画順で常に最前面になる（QA用パネルをPauseMenu表示中も操作可能にする）
+@onready var _debug_panel: DebugPanel = %DebugPanel
 
 
 # 🔴 FR-006。ロードを_ready()ではなく_enter_tree()で行うのは、Godotが_ready()を子→親の順で
@@ -73,6 +76,11 @@ func _ready() -> void:
 	_workshop_screen.screen_closed.connect(_on_workshop_closed)
 	_alchemy_screen.delivery_confirmed.connect(_on_delivery_confirmed)  # 🔵 FR-106, FR-107
 	_rank_hud.menu_requested.connect(_on_menu_requested)  # 🔵 FR-103
+	# 🔴 debug-playtest-support Plan タスク003。debug_jump_to_next_rank()はGameStateの内部
+	# フィールドを直接書き換えるだけでシグナルを発行しないため、RankHudが追随しない。
+	# 新規シグナルを増やさず、既存のButton.pressedとRankHud.refresh()の結線のみで解決する。
+	# 同一シーンツリー内の子ノード同士のためGodotが破棄時に自動切断する（disconnect不要）
+	_debug_panel.get_jump_rank_button().pressed.connect(_rank_hud.refresh)
 
 	# 🔵 FR-108〜FR-113。この4本の接続順（記述順）を変更しないこと。
 	# commit_exam_outcome()はexam_outcome_confirmed→game_cleared/game_overの順に
