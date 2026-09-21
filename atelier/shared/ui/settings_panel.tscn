@@ -11,8 +11,7 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_settings_panel")
 
-[node name="RootContainer" type="VBoxContainer" parent="."]
-unique_name_in_owner = true
+[node name="CenterContainer" type="CenterContainer" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -20,20 +19,28 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="TitleLabel" type="Label" parent="RootContainer"]
+[node name="DialogPanel" type="PanelContainer" parent="CenterContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="RootContainer" type="VBoxContainer" parent="CenterContainer/DialogPanel"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="TitleLabel" type="Label" parent="CenterContainer/DialogPanel/RootContainer"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "設定"
 
-[node name="BgmRow" type="HBoxContainer" parent="RootContainer"]
+[node name="BgmRow" type="HBoxContainer" parent="CenterContainer/DialogPanel/RootContainer"]
 layout_mode = 2
 
-[node name="BgmLabel" type="Label" parent="RootContainer/BgmRow"]
+[node name="BgmLabel" type="Label" parent="CenterContainer/DialogPanel/RootContainer/BgmRow"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "BGM音量"
 
-[node name="BgmSlider" type="HSlider" parent="RootContainer/BgmRow"]
+[node name="BgmSlider" type="HSlider" parent="CenterContainer/DialogPanel/RootContainer/BgmRow"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
@@ -41,15 +48,15 @@ max_value = 1.0
 step = 0.01
 value = 1.0
 
-[node name="SeRow" type="HBoxContainer" parent="RootContainer"]
+[node name="SeRow" type="HBoxContainer" parent="CenterContainer/DialogPanel/RootContainer"]
 layout_mode = 2
 
-[node name="SeLabel" type="Label" parent="RootContainer/SeRow"]
+[node name="SeLabel" type="Label" parent="CenterContainer/DialogPanel/RootContainer/SeRow"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "SE音量"
 
-[node name="SeSlider" type="HSlider" parent="RootContainer/SeRow"]
+[node name="SeSlider" type="HSlider" parent="CenterContainer/DialogPanel/RootContainer/SeRow"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
@@ -57,17 +64,17 @@ max_value = 1.0
 step = 0.01
 value = 1.0
 
-[node name="WindowModeToggle" type="CheckButton" parent="RootContainer"]
+[node name="WindowModeToggle" type="CheckButton" parent="CenterContainer/DialogPanel/RootContainer"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "フルスクリーン"
 
-[node name="ReducedEffectsToggle" type="CheckButton" parent="RootContainer"]
+[node name="ReducedEffectsToggle" type="CheckButton" parent="CenterContainer/DialogPanel/RootContainer"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "演出を簡略化"
 
-[node name="CloseButton" type="Button" parent="RootContainer"]
+[node name="CloseButton" type="Button" parent="CenterContainer/DialogPanel/RootContainer"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "閉じる"

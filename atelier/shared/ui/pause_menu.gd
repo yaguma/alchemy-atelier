@@ -20,6 +20,7 @@ var scene_transition_enabled: bool = true
 var _requested_next_scene_path: String = ""
 var _settings_panel: SettingsPanel = null
 
+@onready var _dialog_panel: PanelContainer = %DialogPanel
 @onready var _root_container: VBoxContainer = %RootContainer
 @onready var _close_button: Button = %CloseButton
 @onready var _settings_button: Button = %SettingsButton
@@ -39,9 +40,20 @@ func get_requested_next_scene_path() -> String:
 	return _requested_next_scene_path
 
 
+## 🔵 pixel-art-remaining-screens Planで統合済みのドット絵カードパネル・ボタン・DotGothic16
+## フォントを本メニューにも適用する（purchase_confirm_dialog.gdと同方針）。ボタン3種の意味論は
+## design-guide.mdのバリアント表に沿う: 閉じる=戻る(SECONDARY)、せってい=最も控えめ(TERTIARY)、
+## タイトルに戻る=ゲーム進行からの離脱という重い操作のためDANGERとする
 func _apply_theme() -> void:
 	theme = MAIN_THEME
 	_root_container.add_theme_constant_override("separation", UiTheme.SPACING_LIST_ENTRY)
+	UiTheme.apply_panel_style(_dialog_panel)
+	ButtonStyleApplier.apply_button_style(_close_button, UiTheme.ButtonVariant.SECONDARY)
+	ButtonStyleApplier.apply_button_style(_settings_button, UiTheme.ButtonVariant.TERTIARY)
+	ButtonStyleApplier.apply_button_style(_title_button, UiTheme.ButtonVariant.DANGER)
+	UiTheme.apply_pixel_font(_close_button)
+	UiTheme.apply_pixel_font(_settings_button)
+	UiTheme.apply_pixel_font(_title_button)
 
 
 func _on_close_pressed() -> void:

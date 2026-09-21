@@ -10,6 +10,7 @@ extends Control
 signal slot_selection_failed(slot: int, error_code: StringName)
 
 const MAIN_SCENE_PATH := "res://scenes/main.tscn"
+const MAIN_THEME := preload("res://shared/theme/main_theme.tres")
 
 ## 🟡 文言は暫定（正式なコピーライティングは未確定）。
 const LABEL_NEW_GAME := "新規開始"
@@ -28,11 +29,22 @@ var _slot_buttons: Array[Button] = []
 var _slot_info_labels: Array[Label] = []
 
 @onready var _slot_container: VBoxContainer = %SlotContainer
+@onready var _dialog_panel: PanelContainer = %DialogPanel
+@onready var _title_label: Label = %TitleLabel
 
 
 func _ready() -> void:
+	_apply_theme()
 	_build_slot_rows()
 	_refresh_slot_buttons()
+
+
+## 🔵 pixel-art-remaining-screens Planで統合済みのドット絵カードパネル・DotGothic16フォントを
+## 本画面にも適用する（title_screen.gd/purchase_confirm_dialog.gdと同方針）
+func _apply_theme() -> void:
+	theme = MAIN_THEME
+	UiTheme.apply_panel_style(_dialog_panel)
+	UiTheme.apply_pixel_font(_title_label)
 
 
 ## 🔵 slotに対応する選択ボタンを返す（テスト・外部からの操作用）。範囲外はnull。
@@ -71,10 +83,13 @@ func _build_slot_rows() -> void:
 		button.name = "SlotButton%d" % slot
 		button.text = SLOT_BUTTON_TEXT_FORMAT % (slot + 1)
 		button.pressed.connect(_on_slot_button_pressed.bind(slot))
+		ButtonStyleApplier.apply_button_style(button, UiTheme.ButtonVariant.PRIMARY)
+		UiTheme.apply_pixel_font(button)
 		row.add_child(button)
 
 		var info_label := Label.new()
 		info_label.name = "SlotInfoLabel%d" % slot
+		UiTheme.apply_pixel_font(info_label)
 		row.add_child(info_label)
 
 		_slot_container.add_child(row)
