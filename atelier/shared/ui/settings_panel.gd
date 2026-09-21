@@ -14,6 +14,7 @@ const MAIN_THEME := preload("res://shared/theme/main_theme.tres")
 ## 🔵 FR-303。Godot組み込みアクション。既定でEscapeキーが割り当てられている
 const ACTION_CANCEL: StringName = &"ui_cancel"
 
+@onready var _dialog_panel: PanelContainer = %DialogPanel
 @onready var _root_container: VBoxContainer = %RootContainer
 @onready var _bgm_slider: HSlider = %BgmSlider
 @onready var _se_slider: HSlider = %SeSlider
@@ -49,12 +50,22 @@ func get_se_slider_value() -> float:
 	return _se_slider.value
 
 
+## 🔵 pixel-art-remaining-screens Planで統合済みのドット絵カードパネル・DotGothic16フォントを
+## 本パネルにも適用する。CheckButton/HSliderはドット絵9-slice化の既存パターンが無いため
+## 見た目刷新のスコープ外とし、フォントのみ合わせる（ButtonStyleApplierはButton専用の
+## StyleBoxTextureを想定しており、チェック/つまみの表現を持つ両ノードには適用しない）
 func _apply_theme() -> void:
 	theme = MAIN_THEME
 	_root_container.add_theme_constant_override("separation", UiTheme.SPACING_LIST_ENTRY)
+	UiTheme.apply_panel_style(_dialog_panel)
 	for label: Label in [%TitleLabel as Label, %BgmLabel as Label, %SeLabel as Label]:
 		label.add_theme_font_size_override("font_size", UiTheme.FONT_SIZE_DEFAULT)
 		label.add_theme_color_override("font_color", UiTheme.COLOR_HUD_TEXT)
+		UiTheme.apply_pixel_font(label)
+	UiTheme.apply_pixel_font(_window_mode_toggle)
+	UiTheme.apply_pixel_font(_reduced_effects_toggle)
+	ButtonStyleApplier.apply_button_style(_close_button, UiTheme.ButtonVariant.SECONDARY)
+	UiTheme.apply_pixel_font(_close_button)
 
 
 func _load_current_values() -> void:
