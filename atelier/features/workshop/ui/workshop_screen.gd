@@ -84,6 +84,16 @@ func refresh() -> void:
 	_refresh()
 
 
+## 画面表示時のフェードイン演出（ui-design/screens/workshop-shop.md L69）。🔵 タスク017。
+## visible=trueへの変更はMainScene._apply_visible_phase()側で完了済み（昇格試験のような
+## 画面遷移競合が無いため、GuildDeliveryScreen.show_with_animation()のようにvisible設定まで
+## 引き受ける必要はない）。本関数はmodulate.aのフェードのみを行う薄いラッパーとする
+func play_show_animation() -> Tween:
+	return UiEffects.play_fade_in(
+		self, UiTheme.ANIM_DURATION_FADE_SCREEN, UiTheme.ANIM_EASE_DEFAULT
+	)
+
+
 ## GameState.get_state()を再取得し、ゴールド表示・タブ活性/非活性・両リストを再構築する。🔵 FR-105
 func _refresh() -> void:
 	if _permanent_list == null:
@@ -230,12 +240,31 @@ static func _resolve_upgrade(state: Dictionary, upgrade_id: StringName) -> Upgra
 ## GameState.apply_upgrade()を実行し、結果に応じて表示を更新する。
 ## 即時購入経路（消耗投資）とダイアログ確認後の経路（恒久投資）の両方から呼ばれる
 func _execute_purchase(upgrade: UpgradeMaster) -> void:
+	var gold_before: int = GameState.get_state()["gold"]
 	var result := GameState.apply_upgrade(upgrade)
 	if result.success:
+		var gold_after: int = GameState.get_state()["gold"]
 		_refresh()  # 🔵 FR-102
+		# 🟡 _refresh()内で_gold_labelは購入後の値へ即時更新済みだが、
+		# 同一フレーム内で_animate_gold_countdown()が購入前の値へ巻き戻してから
+		# カウントダウンを開始するため、描画上は即時更新が発生しない（workshop-shop.md L68）
+		_animate_gold_countdown(gold_before, gold_after, UiTheme.ANIM_DURATION_GOLD_COUNTDOWN)
 		_show_toast(TOAST_PURCHASE_SUCCESS_FORMAT % upgrade.name)
 	else:
-		_show_toast(TOAST_PURCHASE_FAILURE_FORMAT % result.error_code)  # 🔵 FR-103
+		_show_toast(TOAST_PURCHASE_FAILURE_FORMAT % result.error_code)
+
+
+## from_valueからto_valueへ_gold_labelの表示をカウントダウンさせる。
+## 開始と同時に_gold_labelをfrom_valueへ巻き戻してからTween.tween_method()で補間する
+func _animate_gold_countdown(from_value: int, to_value: int, duration: float) -> Tween:
+	_set_gold_label_value(from_value)
+	var tween := create_tween()
+	tween.tween_method(_set_gold_label_value, from_value, to_value, maxf(duration, 0.0))
+	return tween
+
+
+func _set_gold_label_value(value: float) -> void:
+	_gold_label.text = "%d G" % roundi(value)  # 🔵 FR-103
 
 
 func _show_toast(message: String) -> void:

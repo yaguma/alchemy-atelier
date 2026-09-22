@@ -123,11 +123,14 @@ func test_turn_growth_advanced受信で残ターン表示が更新される() ->
 	assert_str(hud.get_turn_remaining_text()).contains("7")
 
 
+# 🟡 ui-polish Plan タスク011。delivered受信時はノルマバーがUiEffects.animate_progress_value()で
+# 滑らかに変化するようになったため、Tween完了を待ってから比率を検証する
 func test_delivered受信でノルマ比率が更新される() -> void:
 	var hud := _make_hud()
 
 	_set_rank(QUOTA_MAX, 10.0, LIMIT_TURN, 0)
 	GameState.delivered.emit([] as Array[DeliveryResult])
+	await get_tree().create_timer(UiTheme.ANIM_DURATION_QUOTA_BAR + 0.1).timeout
 
 	assert_float(hud.get_quota_ratio()).is_equal_approx(0.1, 0.001)
 

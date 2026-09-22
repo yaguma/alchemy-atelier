@@ -148,6 +148,8 @@ func test_ゴールドが十分な状態で消耗投資アイテムを購入す�
 	var screen := _make_screen()
 
 	_find_consumable_list(screen).purchase_requested.emit(&"upgrade_seed_name_purchase_ore")
+	# 🔵 タスク016: ゴールド表示はカウントダウン演出のため、完了を待ってから検証する
+	await get_tree().create_timer(UiTheme.ANIM_DURATION_GOLD_COUNTDOWN + 0.1).timeout
 
 	assert_int(GameState.get_state()["gold"]).is_equal(50)
 	assert_str(_find_gold_label(screen).text).is_equal("50 G")

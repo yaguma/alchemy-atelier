@@ -141,6 +141,82 @@ func test_空の配列でもエントリが0件で正常に表示される() -> 
 	assert_int(list.get_entry_count()).is_equal(0)
 
 
+# 正常系
+func test_空配列でsetupすると空状態ラベルが表示される() -> void:
+	var list := _make_list()
+	var empty: Array[MaterialInstance] = []
+
+	list.setup(empty)
+
+	var empty_label := list.find_child("EmptyStateLabel", true, false) as Label
+	assert_bool(empty_label.visible).is_true()
+
+
+# 正常系
+func test_1件以上でsetupすると空状態ラベルが非表示になる() -> void:
+	var list := _make_list()
+	var no_tags: Array[StringName] = []
+	var materials: Array[MaterialInstance] = [_make_material("mat_1", &"herb_common", 3, no_tags)]
+
+	list.setup(materials)
+
+	var empty_label := list.find_child("EmptyStateLabel", true, false) as Label
+	assert_bool(empty_label.visible).is_false()
+
+
+# 正常系
+func test_空状態から素材が追加されると空状態ラベルが非表示に切り替わる() -> void:
+	var list := _make_list()
+	var no_tags: Array[StringName] = []
+	var empty: Array[MaterialInstance] = []
+	list.setup(empty)
+
+	var materials: Array[MaterialInstance] = [_make_material("mat_1", &"herb_common", 3, no_tags)]
+	list.setup(materials)
+
+	var empty_label := list.find_child("EmptyStateLabel", true, false) as Label
+	assert_bool(empty_label.visible).is_false()
+
+
+# 境界値
+func test_空状態のままsetupを繰り返しても表示が崩れない() -> void:
+	var list := _make_list()
+	var empty: Array[MaterialInstance] = []
+	list.setup(empty)
+
+	list.setup(empty)
+
+	var empty_label := list.find_child("EmptyStateLabel", true, false) as Label
+	assert_bool(empty_label.visible).is_true()
+	assert_int(list.get_entry_count()).is_equal(0)
+
+
+# 正常系
+# 🔵 ui-polish Plan タスク006
+func test_find_row_global_positionが対象行のglobal_positionを返す() -> void:
+	var list := _make_list()
+	var no_tags: Array[StringName] = []
+	var materials: Array[MaterialInstance] = [
+		_make_material("mat_1", &"herb_common", 3, no_tags),
+		_make_material("mat_2", &"ore_common", 2, no_tags),
+	]
+	list.setup(materials)
+
+	var expected := _find_row(list, "mat_2").global_position
+	assert_vector(list.find_row_global_position("mat_2")).is_equal(expected)
+
+
+# 異常系
+# 🔵 ui-polish Plan タスク006
+func test_find_row_global_positionは存在しないinstance_idでもクラッシュせずフォールバック値を返す() -> void:
+	var list := _make_list()
+	var no_tags: Array[StringName] = []
+	var materials: Array[MaterialInstance] = [_make_material("mat_1", &"herb_common", 3, no_tags)]
+	list.setup(materials)
+
+	assert_vector(list.find_row_global_position("not_exist")).is_equal(list.global_position)
+
+
 # 境界値
 func test_20件の素材を渡しても全件表示され末尾のシグナルが発行される() -> void:
 	var list := _make_list()

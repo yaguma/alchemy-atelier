@@ -47,6 +47,13 @@ func _has_connection_to(target_signal: Signal, target: Object) -> bool:
 	return false
 
 
+## 🔵 タスク014。SUCCESS/FAILURE確定後の画面遷移・タブ有効化はExamOutcomeOverlayの
+## 確認ボタン押下まで遅延されるようになったため、遷移後の状態を検証するテストは本ヘルパーで挟む
+func _acknowledge_exam_outcome(main: MainScene) -> void:
+	var overlay := main.find_child("ExamOutcomeOverlay", true, false) as ExamOutcomeOverlay
+	(overlay.find_child("ConfirmButton", true, false) as Button).pressed.emit()
+
+
 func _record_phase_changes() -> void:
 	GameState.phase_changed.connect(_on_phase_changed_for_record)
 
@@ -125,15 +132,18 @@ func test_garden_screenのsignal宣言がshop_requestedのみである() -> void
 	assert_bool(source.contains("signal shop_requested")).is_true()
 
 
-## task006でdelivery_confirmed（GuildDeliveryScreen.screen_closedの中継）が追加されたため、
-## AlchemyScreenが公開するsignalはshop_requestedとdelivery_confirmedの2本に限られる
-func test_alchemy_screenのsignal宣言がshop_requestedとdelivery_confirmedのみである() -> void:
+## task006でdelivery_confirmed（GuildDeliveryScreen.screen_closedの中継）が追加され、
+## タスク013（ui-polish Plan）でexam_result_pending（GameState.exam_outcome_confirmedの中継）が
+## 追加されたため、AlchemyScreenが公開するsignalはshop_requested・delivery_confirmed・
+## exam_result_pendingの3本に限られる
+func test_alchemy_screenのsignal宣言が公開3本のみである() -> void:
 	var source := FileAccess.get_file_as_string(ALCHEMY_SCRIPT_PATH)
 
 	assert_str(source).is_not_empty()
-	assert_int(source.count("\nsignal ")).is_equal(2)
+	assert_int(source.count("\nsignal ")).is_equal(3)
 	assert_bool(source.contains("signal shop_requested")).is_true()
 	assert_bool(source.contains("signal delivery_confirmed")).is_true()
+	assert_bool(source.contains("signal exam_result_pending(outcome: ExamOutcome.Value)")).is_true()
 
 
 # 正常系: ドット絵ボタンスタイル統合（garden-alchemy-visual-refresh タスク010）
@@ -216,6 +226,10 @@ func test_exam_outcome_confirmedのSUCCESSでdisabledが解除される() -> voi
 	GameState.exam_started.emit()
 
 	GameState.exam_outcome_confirmed.emit(ExamOutcome.Value.SUCCESS)
+	# 🔵 タスク014。ExamOutcomeOverlay表示中はタブ無効化が維持される
+	assert_bool(main.get_is_garden_tab_disabled()).is_true()
+	assert_bool(main.get_is_alchemy_tab_disabled()).is_true()
+	_acknowledge_exam_outcome(main)
 
 	assert_bool(main.get_is_garden_tab_disabled()).is_false()
 	assert_bool(main.get_is_alchemy_tab_disabled()).is_false()
@@ -226,6 +240,10 @@ func test_exam_outcome_confirmedのFAILUREでdisabledが解除される() -> voi
 	GameState.exam_started.emit()
 
 	GameState.exam_outcome_confirmed.emit(ExamOutcome.Value.FAILURE)
+	# 🔵 タスク014。ExamOutcomeOverlay表示中はタブ無効化が維持される
+	assert_bool(main.get_is_garden_tab_disabled()).is_true()
+	assert_bool(main.get_is_alchemy_tab_disabled()).is_true()
+	_acknowledge_exam_outcome(main)
 
 	assert_bool(main.get_is_garden_tab_disabled()).is_false()
 	assert_bool(main.get_is_alchemy_tab_disabled()).is_false()
@@ -286,15 +304,17 @@ func test_試験中に調合タブのpressedを強制発行してもフェーズ
 	assert_that(main.get_visible_phase()).is_equal(&"alchemy")
 
 
+# 🔵 タスク013。GameState.exam_outcome_confirmedへの直接購読はAlchemyScreenが中継する
+# exam_result_pendingへ置き換わったため、本テストもその購読経路を検証する
 func test_exit_tree後に試験系シグナルの購読が解除される() -> void:
 	var main: MainScene = MainSceneScene.instantiate()
 	add_child(main)
+	var alchemy_screen := main.find_child("AlchemyScreen", true, false) as AlchemyScreen
 
 	assert_bool(_has_connection_to(GameState.exam_started, main)).is_true()
-	assert_bool(_has_connection_to(GameState.exam_outcome_confirmed, main)).is_true()
+	assert_bool(_has_connection_to(alchemy_screen.exam_result_pending, main)).is_true()
 
 	remove_child(main)
 
 	assert_bool(_has_connection_to(GameState.exam_started, main)).is_false()
-	assert_bool(_has_connection_to(GameState.exam_outcome_confirmed, main)).is_false()
 	main.free()

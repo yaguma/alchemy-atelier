@@ -11,6 +11,13 @@ signal shop_requested  # 🔵 FR-110（プレースホルダー導線。GardenSc
 # 🔵 FR-107, FR-402。埋め込みGuildDeliveryScreenのscreen_closedを本画面が中継することで、
 # MainSceneはGuildDeliveryScreen（他Featureのui/）を直接参照せず結果確認完了を検知できる
 signal delivery_confirmed
+# 🔵 タスク013（ui-polish Plan）。GameState.exam_outcome_confirmedをAlchemyScreenが中継する
+# 画面遷移非同期シグナル。SUCCESS/FAILURE確定時のみ発行し、画面遷移そのもの（set_phase等）は
+# 一切行わない。中継する理由: GameState.exam_outcome_confirmedをMainSceneが直接購読すると、
+# ノード生成順（子→親）によりAlchemyScreen側ハンドラが先に走った直後、同じ同期呼び出しの中で
+# MainScene側がGameState.set_phase()を呼びAlchemyScreen自身をvisible=falseにしてしまい、
+# AlchemyScreen内の結果演出が描画前に消えてしまう問題があった。delivery_confirmedと同型のパターン
+signal exam_result_pending(outcome: ExamOutcome.Value)
 
 const AlchemySlotViewScene = preload("res://features/alchemy/ui/alchemy_slot_view.tscn")
 const RECIPE_PLACEHOLDER_TEXT := "選択してください"
@@ -22,23 +29,16 @@ const ERROR_MESSAGES := {
 	&"slot_execution_invalid": "投入内容が調合の条件を満たしていません",
 }  # 🟡 ui-design/screens/alchemy.mdが文言未確定（🟡TBD）のため、error_codeから妥当な推測で新規決定
 
-const EXAM_TURN_LABEL_FORMAT := "残り%dターン"  # 🟡 FR-106、書式は新規決定
-
 # 🟡 指定依頼の提示文言。design docが文言未確定のため書式は新規決定。
 # 空欄ではなく「なし」を明示することで、未実装/表示バグとの区別が付くようにする
 const DAILY_ORDER_NONE_TEXT := "指定依頼: なし"
 const DAILY_ORDER_ITEM_FORMAT := "指定依頼: %s（x%.1f）"
 const DAILY_ORDER_TRAIT_FORMAT := "指定依頼: 特性「%s」（x%.1f）"
 
-# 🔴 文言はAI推論による新規決定（design doc上もTBD、CON-003に基づき本Planで確定）
-const EXAM_MESSAGES := {
-	&"exam_started": "昇格試験が始まりました！",
-	&"exam_success": "昇格試験に合格しました！",
-	&"exam_failure": "昇格試験に失敗しました…",
-}
-
-# 🟡 FR-205, FR-206, FR-301。文言はAI推論による新規決定（CON-003で本Plan内確定が許容）
-const EXAM_GUIDANCE_MESSAGE := "投入できる素材がありません。「ターンを進める」で試験を進行できます。"
+# 🔵 ui-polish Plan タスク008。完成品確定直後の一瞬の生成演出（ui-design/screens/alchemy.md
+# L84前半）に使う文言・表示保持秒数。文言・保持秒数ともにdesign doc未確定のためtdd-implementer裁量で新規決定
+const CRAFT_RESULT_POPUP_TEXT_FORMAT := "%s 完成！"  # 🟡
+const CRAFT_RESULT_POP_HOLD_DURATION := 0.5  # 🟡
 
 # 🔵 投入順=スロット表示順の唯一のソース・オブ・トゥルース。
 # 「投入済み」はドメイン層にもGameStateにも存在しないUIローカルな一時状態のため本画面が保持する
@@ -52,6 +52,9 @@ var _inventory: Array[MaterialInstance] = []  # 🔵 get_state()から都度キ�
 # 自動的にnullとなり、実際の納品処理と同じ指定依頼の扱いになる（プレビューと実結果の乖離防止）
 var _daily_order_for_preview: DailyOrderMaster = null
 var _slot_views: Array[AlchemySlotView] = []
+# 🔵 ui-polish Plan タスク007。前回のプレビューで発現していたタグ集合。_on_preview_inputs_changed()で
+# 新規発現タグ（今回のみに含まれるタグ）を検出するための比較用ローカル状態
+var _previous_activated_traits: Array[StringName] = []
 
 @onready var _recipe_option_button: OptionButton = %RecipeOptionButton
 @onready var _daily_order_label: Label = %DailyOrderLabel
@@ -66,6 +69,7 @@ var _slot_views: Array[AlchemySlotView] = []
 @onready var _exam_turn_label: Label = %ExamTurnLabel
 @onready var _exam_guidance_label: Label = %ExamGuidanceLabel
 @onready var _advance_exam_turn_button: Button = %AdvanceExamTurnButton
+@onready var _overlay_layer: Control = %OverlayLayer  # 🔵 ui-polish Plan タスク006: 素材投入演出の追加先
 
 
 func _ready() -> void:
@@ -148,11 +152,6 @@ static func error_message(error_code: StringName) -> String:
 	return "調合に失敗しました（%s）" % error_code
 
 
-## 試験の残りターン数を算出する。負値にならないようクランプする。🔵 FR-106
-static func remaining_exam_turns(exam_turn_limit: int, exam_elapsed_turn: int) -> int:
-	return maxi(exam_turn_limit - exam_elapsed_turn, 0)
-
-
 ## GameState.get_state()を再取得し、レシピ一覧・スロット一覧・在庫一覧・プレビューを再構築する。🔵
 ## 🔴 コードレビュー指摘対応。取得済みのstateを呼び出し元へ返すことで、_on_product_crafted()等が
 ## 自動納品判定のためにGameState.get_state()を再度呼ばずに済むようにする（NFR-001）
@@ -182,27 +181,16 @@ func _refresh() -> Dictionary:
 
 ## in_exam状態に応じて試験用UI（残りターン表示・ターンを進めるボタン・案内メッセージ）を更新する。
 ## 🔴 実装判断。_refresh()が既に取得済みのstateを再利用し、追加のGameState.get_state()呼び出しは
-## 行わない（NFR-001）
+## 行わない（NFR-001）。具体的な判定・表示ロジックはAlchemyScreenExamへ委譲する
 func _refresh_exam_ui(state: Dictionary) -> void:
-	var in_exam: bool = state["in_exam"]  # 🔵
-	_exam_turn_label.visible = in_exam  # 🔵 FR-201, FR-202
-	_advance_exam_turn_button.visible = in_exam  # 🔵 FR-201, FR-202, FR-406
-	_end_turn_button.visible = not in_exam  # 🔵 FR-203, FR-204
-	if in_exam:
-		var remaining := remaining_exam_turns(state["exam_turn_limit"], state["exam_elapsed_turn"])  # 🔵
-		_exam_turn_label.text = EXAM_TURN_LABEL_FORMAT % remaining  # 🟡
-
-	var inventory: Array = state["inventory"]
-	var unlocked_recipe_ids: Array = state["unlocked_recipe_ids"]
-	# 🔴 コードレビュー指摘対応。unlocked_recipe_idsが非空でも、対応するRecipeMasterが
-	# _recipe_masters（マスターデータ未ロード等）に見つからなければ_rebuild_recipe_options()が
-	# その全IDをスキップしドロップダウンが実質空になる。「解禁レシピ0」と同じデッドロックのため、
-	# 「実際に選択可能なレシピが1件も無い」ことで判定する（FR-205, FR-206）
-	var has_selectable_recipe := _has_resolvable_recipe(unlocked_recipe_ids)
-	var should_show_guidance := in_exam and (inventory.is_empty() or not has_selectable_recipe)
-	_exam_guidance_label.visible = should_show_guidance
-	if should_show_guidance:
-		_exam_guidance_label.text = EXAM_GUIDANCE_MESSAGE
+	AlchemyScreenExam.refresh_exam_ui(
+		state,
+		_recipe_masters,
+		_exam_turn_label,
+		_advance_exam_turn_button,
+		_end_turn_button,
+		_exam_guidance_label
+	)
 
 
 ## 素材投入を決める前に現在の指定依頼を確認できるよう、_daily_order_for_preview
@@ -236,23 +224,17 @@ func _resolve_recipe_display_name(recipe_id: String) -> String:
 	return recipe_id
 
 
-## unlocked_recipe_idsのうち1件でもキャッシュ済み_recipe_masters（🔵_refresh()で更新済み）から
-## 解決可能かを返す。🔴 コードレビュー指摘対応。_rebuild_recipe_options()の解決ロジックと
-## 判定基準を一致させる（片方だけ更新されて乖離するのを防ぐ）
-func _has_resolvable_recipe(unlocked_recipe_ids: Array) -> bool:
-	for recipe_id in unlocked_recipe_ids:
-		if _recipe_masters.get(recipe_id) is RecipeMaster:
-			return true
-	return false
-
-
 ## ローカルキャッシュのみでプレビュー再計算とボタン活性状態を更新する。
 ## 🟡 投入操作のたびにGameState.get_state()（inventory/pending_productsのディープコピーを伴う）を
 ## 呼ぶとコストが嵩むため、素材の解決はキャッシュ済みの_inventoryから行う
 func _on_preview_inputs_changed() -> void:
 	var materials := _placed_materials()
 	_slot_state.materials = materials
-	_recompute_preview(materials)
+	var activated_traits := _recompute_preview(materials)
+	AlchemyScreenEffects.play_newly_activated_trait_highlights(
+		_slot_views, materials, activated_traits, _previous_activated_traits
+	)
+	_previous_activated_traits = activated_traits
 	if _execute_button != null:
 		_execute_button.disabled = not _slot_state.can_execute()  # 🔵 AC-010
 
@@ -263,13 +245,16 @@ func _on_preview_inputs_changed() -> void:
 ## ProductProvisionalResolverを経由することで両者の計算結果が乖離しないようにし、
 ## 指定依頼の判定にも_refresh()でキャッシュ済みの_daily_order_for_preview（試験中はnull）を使う
 ## ことで、実際の納品処理（GameStateGuildDelegate.deliver_pending_products）と同じ扱いにする
-func _recompute_preview(materials: Array[MaterialInstance]) -> void:
+## 🔵 戻り値はTraitActivation.resolve_traits()が確定した発現済みタグ配列（ProductInstance経由）。
+## タスク007の新規発現ハイライト判定は、この戻り値を_on_preview_inputs_changed()側で
+## 前回結果と比較するだけであり、判定ロジック自体はここでもUI層でも新規実装しない
+func _recompute_preview(materials: Array[MaterialInstance]) -> Array[StringName]:
 	if _preview_panel == null:
-		return
+		return []
 	var recipe: Variant = _recipe_masters.get(_slot_state.selected_recipe_id)
 	if materials.is_empty() or not (recipe is RecipeMaster):
 		_preview_panel.show_empty()  # 🔵 AC-007異常系。レシピ未選択・0投入では計算自体を行わない
-		return
+		return []
 
 	var traits_unlocked := GameState.is_current_rank_traits_unlocked()
 	var provisional := ProductProvisionalResolver.resolve(
@@ -284,6 +269,7 @@ func _recompute_preview(materials: Array[MaterialInstance]) -> void:
 		result.final_reward,
 		result.order_matched
 	)
+	return provisional.activated_traits
 
 
 ## 解禁済みレシピからドロップダウンを再構築する。選択中のレシピが解禁一覧から消えた場合は選択を解除する。🔵
@@ -384,10 +370,17 @@ func _on_material_place_requested(material_instance_id: String) -> void:
 	if _find_material(material_instance_id) == null:
 		return
 
+	# 🔵 ui-polish Plan タスク006。在庫行は直後のsetup()で破棄されるため、破棄される前に開始位置を確保する
+	var start_position := _material_inventory_list.find_row_global_position(material_instance_id)
+
 	_placed_material_ids.append(material_instance_id)
 	_rebuild_slots()
 	_material_inventory_list.setup(_available_materials())
 	_on_preview_inputs_changed()
+
+	AlchemyScreenEffects.play_material_slide_in(
+		_overlay_layer, _slot_views, _placed_material_ids, material_instance_id, start_position
+	)
 
 
 func _on_slot_clear_requested(slot_index: int) -> void:
@@ -421,7 +414,8 @@ func _on_end_turn_pressed() -> void:
 func _deliver_and_display(products: Array[ProductInstance]) -> void:
 	var result := GameState.deliver_pending_products()
 	_guild_delivery_screen.display_results(products, result.value as Array[DeliveryResult])
-	_guild_delivery_screen.visible = true  # 🔵 FR-203。表示すべき結果がある時だけ見せる
+	# 🔵 タスク010。visible=trueの直書きをフェードイン+結果行ポップ演出付きの表示へ置換する
+	_guild_delivery_screen.show_with_animation()
 
 
 func _on_shop_pressed() -> void:
@@ -452,6 +446,15 @@ func _on_product_crafted(product: ProductInstance) -> void:
 	var state := _refresh()
 	_show_toast("調合しました（品質%d、発現特性%d件）" % [product.quality_score, product.activated_traits.size()])
 
+	# 🔵 ui-polish Plan タスク008。ギルド納品画面表示処理（_deliver_and_display）を呼ぶ前に、
+	# 完成品の生成演出をOverlayLayerへ発火する。演出は見た目のみで状態遷移をブロックしないため、
+	# 完了を待たずに後続処理（自動納品判定）へ進む（タスク006の素材投入演出と同方針）
+	AlchemyScreenEffects.play_craft_result_pop(
+		_overlay_layer,
+		CRAFT_RESULT_POPUP_TEXT_FORMAT % _resolve_recipe_display_name(String(product.recipe_id)),
+		CRAFT_RESULT_POP_HOLD_DURATION
+	)
+
 	# 🔵 FR-101。in_exam中のみ自動納品する。_on_end_turn_pressed()と同じ_deliver_and_display()を使う
 	if state.is_empty():
 		return
@@ -474,16 +477,21 @@ func _show_toast(message: String) -> void:
 # 🟡 FR-103。design doc OnExamStarted
 func _on_exam_started() -> void:
 	_refresh()
-	_show_toast(EXAM_MESSAGES[&"exam_started"])
+	_show_toast(AlchemyScreenExam.EXAM_MESSAGES[&"exam_started"])
 
 
 # 🟡 FR-104, FR-105。design doc OnExamResolved
+# 🔵 タスク013。SUCCESS/FAILURE確定時はexam_result_pendingを発行してMainSceneへ画面遷移を委譲する。
+# 本画面自身はGameState.set_phase()等の画面遷移処理を一切行わない（画面遷移はMainSceneの責務）。
+# CONTINUEは「試験がまだ続いている」ことを表すため画面遷移が絡まず、従来通りトーストのみで完結する
 func _on_exam_outcome_confirmed(outcome: ExamOutcome.Value) -> void:
 	_refresh()
 	match outcome:
 		ExamOutcome.Value.SUCCESS:
-			_show_toast(EXAM_MESSAGES[&"exam_success"])
+			_show_toast(AlchemyScreenExam.EXAM_MESSAGES[&"exam_success"])
+			exam_result_pending.emit(outcome)
 		ExamOutcome.Value.FAILURE:
-			_show_toast(EXAM_MESSAGES[&"exam_failure"])
+			_show_toast(AlchemyScreenExam.EXAM_MESSAGES[&"exam_failure"])
+			exam_result_pending.emit(outcome)
 		_:
-			pass  # 🔵 FR-105。CONTINUEの場合はトーストを表示しない
+			pass  # 🔵 FR-105。CONTINUEの場合はトーストを表示せず、exam_result_pendingも発行しない

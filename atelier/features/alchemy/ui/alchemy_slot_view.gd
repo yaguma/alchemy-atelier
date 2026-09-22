@@ -54,6 +54,16 @@ func setup(slot_index: int, material: MaterialInstance) -> void:
 	_apply_display()
 
 
+## 特性が新規発現した際にスロットを光らせる演出。UiEffects.play_highlight_pulse()の薄いラッパー。
+## 🟡 ui-polish Plan タスク007。selfではなく_slot_panelを対象にする: ルートControl自身は
+## 何も描画しないため（状態色も_slot_panel.self_modulateへ適用済み、L98-99参照）、selfの
+## self_modulateを変更しても視覚的に無効化されてしまう
+func play_trait_highlight() -> Tween:
+	return UiEffects.play_highlight_pulse(
+		_slot_panel, UiTheme.COLOR_TRAIT_HIGHLIGHT, UiTheme.ANIM_DURATION_HIGHLIGHT_PULSE
+	)
+
+
 ## 現在の表示状態を返す。🔵
 func get_status() -> Status:
 	return _status

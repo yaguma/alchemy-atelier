@@ -17,6 +17,9 @@ const EXAM_RANK_LABEL_SUFFIX := "昇格試験"  # 🟡 promotion-exam.md「{ラ�
 # 🔴 ノルマ上限が0（ランクマスター未ロード時のフォールバック）のままProgressBar.max_valueへ
 # 代入するとratioが0除算でNaNになるため、空表示用のダミー上限へ置き換える（AC-004異常系）
 const EMPTY_QUOTA_MAX := 1.0
+# 🟡 ui-polish Plan タスク010。各結果行のポップ演出を「順次」開始させる間隔。
+# design doc（guild-delivery.md L69）は時間・イージングともに🟡TBDのため新規決定
+const RESULT_ROW_POP_STAGGER := 0.08
 
 var _item_count: int = 0
 var _total_contribution: float = 0.0
@@ -54,7 +57,17 @@ func _ready() -> void:
 func display_results(products: Array[ProductInstance], results: Array[DeliveryResult]) -> void:
 	_rebuild_list(products, results)
 	_apply_totals()
-	_refresh_rank_quota()
+	_refresh_rank_quota(true)
+
+
+## 画面表示時のフェードイン+完成品ポップ演出（ui-design/screens/guild-delivery.md L69）。
+## visible=trueにした上でmodulate.aを0→1へフェードし、既に構築済みの各結果行へ
+## UiEffects.play_pop_in()を順次適用する。呼び出し元（AlchemyScreen._deliver_and_display()）は
+## display_results()で行を構築済みにしてから本関数を呼ぶ契約とする
+func show_with_animation() -> void:
+	visible = true
+	UiEffects.play_fade_in(self, UiTheme.ANIM_DURATION_FADE_SCREEN, UiTheme.ANIM_EASE_DEFAULT)
+	_play_result_row_pop_ins()
 
 
 ## 現在表示している納品結果の件数を返す（テスト用）。🔵 FR-007
@@ -135,6 +148,34 @@ func _resolve_recipe_name(recipe_masters: Dictionary, recipe_id: StringName) -> 
 	return (master as RecipeMaster).name
 
 
+# 🟡 各結果行のポップ演出をRESULT_ROW_POP_STAGGER間隔でずらして開始する。
+# 行が0件の場合はTweenerを持たないTweenの生成自体を避け、警告ログの発生を防ぐ（AC-008相当）
+func _play_result_row_pop_ins() -> void:
+	if _entry_container == null:
+		return
+	var rows: Array[Control] = []
+	for row in _entry_container.get_children():
+		if row is Control:
+			rows.append(row as Control)
+	if rows.is_empty():
+		return
+
+	var stagger_tween := create_tween()
+	for row in rows:
+		stagger_tween.tween_callback(_pop_in_result_row.bind(row))
+		stagger_tween.tween_interval(RESULT_ROW_POP_STAGGER)
+
+
+# 🟡 ui-polish Plan タスク012: 指定合致した行はポップイン完了後（tween.finished）に
+# ハイライト演出を開始する。タスク010のポップイン演出と時系列が重ならないようにする実装者裁量
+static func _pop_in_result_row(row: Control) -> void:
+	var pop_in_tween := UiEffects.play_pop_in(
+		row, UiTheme.ANIM_DURATION_POP_IN, UiTheme.ANIM_EASE_DEFAULT
+	)
+	if row is GuildDeliveryResultRow and (row as GuildDeliveryResultRow).is_order_matched():
+		pop_in_tween.finished.connect((row as GuildDeliveryResultRow).play_order_matched_highlight)
+
+
 func _apply_totals() -> void:
 	if _total_label == null:
 		return
@@ -147,7 +188,10 @@ func _apply_totals() -> void:
 # 🔴 コードレビュー指摘対応。昇格試験中(_in_exam)はGameStateGuildDelegate.deliver_pending_products()が
 # 貢献度をRankState.quotaではなくExamState.exam_quotaへ加算するため、試験中はこちらを参照しないと
 # ノルマバーが試験開始前の値のまま固まってしまう
-func _refresh_rank_quota() -> void:
+# 🟡 ui-polish Plan タスク011。animate=falseは従来通り_ready()からの初期表示で使う瞬時反映、
+# animate=trueはdisplay_results()（結果表示処理）から呼ばれ、UiEffects.animate_progress_value()で
+# 滑らかに変化させる（guild-delivery.md L70）
+func _refresh_rank_quota(animate: bool = false) -> void:
 	if _quota_bar == null:
 		return
 	var master := GameState.get_current_rank_master()
@@ -161,7 +205,11 @@ func _refresh_rank_quota() -> void:
 	var has_quota := quota_max > 0.0
 	_quota_bar.max_value = quota_max if has_quota else EMPTY_QUOTA_MAX
 	# 🔵 max_valueを先に設定することで、残量が上限を超えていてもRangeが上限へクランプする
-	_quota_bar.value = quota if has_quota else 0.0
+	var target_value := quota if has_quota else 0.0
+	if animate:
+		UiEffects.animate_progress_value(_quota_bar, target_value, UiTheme.ANIM_DURATION_QUOTA_BAR)
+	else:
+		_quota_bar.value = target_value
 
 
 # 🟡 FR-402。画面を閉じる導線シグナルの発行のみを行い、GameStateへの副作用は持たない

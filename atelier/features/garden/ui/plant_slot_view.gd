@@ -99,6 +99,11 @@ func is_harvest_enabled() -> bool:
 	return _harvest_enabled
 
 
+## 種植え直後の出現演出（ポップイン）を再生する。🔵 ui-polish Plan タスク002
+func play_sprout_animation() -> Tween:
+	return UiEffects.play_pop_in(self, UiTheme.ANIM_DURATION_POP_IN, UiTheme.ANIM_EASE_DEFAULT)
+
+
 ## 状態に対応する表示テキストを返す。🔵 NFR-201
 static func status_text(status: Status) -> String:
 	return STATUS_TEXTS[status]

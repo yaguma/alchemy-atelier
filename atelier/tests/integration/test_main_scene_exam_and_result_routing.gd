@@ -35,6 +35,13 @@ func _current_phase() -> StringName:
 	return GameState.get_state()["current_phase"]
 
 
+## 🔵 タスク014。SUCCESS/FAILURE確定後の画面遷移はExamOutcomeOverlayの確認ボタン押下まで
+## 遅延されるようになったため、遷移後の状態を検証するテストは本ヘルパーで確認操作を挟む
+func _acknowledge_exam_outcome(main: MainScene) -> void:
+	var overlay := main.find_child("ExamOutcomeOverlay", true, false) as ExamOutcomeOverlay
+	(overlay.find_child("ConfirmButton", true, false) as Button).pressed.emit()
+
+
 # 正常系: 試験開始（FR-108, FR-201）
 
 
@@ -66,6 +73,9 @@ func test_SUCCESSのみ発行された場合はworkshopへ遷移する() -> void
 	GameState.exam_started.emit()
 
 	GameState.exam_outcome_confirmed.emit(ExamOutcome.Value.SUCCESS)
+	# 🔵 タスク014。SUCCESS確定直後はExamOutcomeOverlayが表示されるだけで遷移はまだ行われない
+	assert_that(main.get_visible_phase()).is_equal(&"alchemy")
+	_acknowledge_exam_outcome(main)
 
 	assert_that(_current_phase()).is_equal(&"workshop")
 	assert_that(main.get_visible_phase()).is_equal(&"workshop")
@@ -78,6 +88,9 @@ func test_FAILUREのみ発行された場合はgardenへ遷移する() -> void:
 	GameState.exam_started.emit()
 
 	GameState.exam_outcome_confirmed.emit(ExamOutcome.Value.FAILURE)
+	# 🔵 タスク014。FAILURE確定直後はExamOutcomeOverlayが表示されるだけで遷移はまだ行われない
+	assert_that(main.get_visible_phase()).is_equal(&"alchemy")
+	_acknowledge_exam_outcome(main)
 
 	assert_that(_current_phase()).is_equal(&"garden")
 	assert_that(main.get_visible_phase()).is_equal(&"garden")
@@ -89,8 +102,9 @@ func test_FAILUREのみ発行された場合はgardenへ遷移する() -> void:
 
 
 ## 【本Planの受入の中核】真の最終ランクでの試験成功。
-## commit_exam_outcome()はexam_outcome_confirmed→game_clearedの順に同一フレームで発行するため、
-## 暫定のworkshop遷移がresultへ上書きされて確定しなければならない。
+## commit_exam_outcome()はexam_outcome_confirmed→game_clearedの順に同一フレームで発行する。
+## 🔵 タスク014。SUCCESS確定ではExamOutcomeOverlayが表示されるだけでworkshopへの暫定遷移は
+## もう発生しないため（実遷移はacknowledgedまで遅延）、resultへはgame_clearedが唯一の経路で確定する。
 func test_SUCCESS直後のgame_clearedでresultへ上書き確定する() -> void:
 	var main := _make_main()
 	GameState.exam_started.emit()
@@ -108,7 +122,8 @@ func test_SUCCESS直後のgame_clearedでresultへ上書き確定する() -> voi
 
 
 ## 【本Planの受入の中核】試験失敗と同時のゲームオーバー確定。
-## 暫定のgarden遷移がresultへ上書きされて確定しなければならない。
+## 🔵 タスク014。FAILURE確定ではExamOutcomeOverlayが表示されるだけでgardenへの暫定遷移は
+## もう発生しないため（実遷移はacknowledgedまで遅延）、resultへはgame_overが唯一の経路で確定する。
 func test_FAILURE直後のgame_overでresultへ上書き確定する() -> void:
 	var main := _make_main()
 	GameState.exam_started.emit()
@@ -148,8 +163,10 @@ func test_game_over単独発行でもresultへ遷移しタブが無効化され�
 # 境界値
 
 
-## FAILURE→_set_tabs_disabled(false)→直後のgame_over→_set_tabs_disabled(true)という
-## 同一フレーム内の二重更新でも、最終的にdisabled == trueで確定することを明示的に確認する。
+## 🔵 タスク014。FAILURE確定では_set_tabs_disabled(false)がもう即座には呼ばれなくなった
+## （acknowledgedまで遅延）ため、exam_started由来のdisabled==trueが直後のgame_overの
+## disabled==trueへそのまま連続する。名称の「二重更新」は旧仕様の名残だが、
+## 「最終的にdisabled == trueで確定する」という検証内容自体は変わらず有効なため保持する。
 func test_FAILURE直後のgame_overでもタブは最終的に無効化された状態で確定する() -> void:
 	var main := _make_main()
 	GameState.exam_started.emit()

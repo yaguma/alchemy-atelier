@@ -60,6 +60,41 @@ func test_order_matchedがfalseのとき指定合致ラベルが非表示にな�
 	assert_bool(_find_label(row, "DeliveryOrderMatchLabel").visible).is_false()
 
 
+# ui-polish Plan タスク012
+
+
+func test_order_matchedがtrueのときis_order_matchedがtrueを返す() -> void:
+	var row := _make_row()
+	var no_traits: Array[StringName] = []
+
+	row.setup("回復薬", 4, no_traits, true, 12.5, 30.0)
+
+	assert_bool(row.is_order_matched()).is_true()
+
+
+func test_order_matchedがfalseのときis_order_matchedがfalseを返す() -> void:
+	var row := _make_row()
+	var no_traits: Array[StringName] = []
+
+	row.setup("回復薬", 4, no_traits, false, 12.5, 30.0)
+
+	assert_bool(row.is_order_matched()).is_false()
+
+
+func test_play_order_matched_highlightで有効なTweenが返りself_modulateが元の色へ戻る() -> void:
+	var row := _make_row()
+	var no_traits: Array[StringName] = []
+	row.setup("回復薬", 4, no_traits, true, 12.5, 30.0)
+	var original_color := row.self_modulate
+
+	var tween := row.play_order_matched_highlight()
+
+	assert_object(tween).is_not_null()
+	assert_bool(tween.is_valid()).is_true()
+	await tween.finished
+	assert_bool(row.self_modulate == original_color).is_true()
+
+
 func test_複数の発現特性がすべて表示される() -> void:
 	var row := _make_row()
 	var traits: Array[StringName] = [&"holy", &"golden"]

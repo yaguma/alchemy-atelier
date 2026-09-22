@@ -136,6 +136,17 @@ func _workshop_screen(main: MainScene) -> WorkshopScreen:
 	return main.find_child("WorkshopScreen", true, false) as WorkshopScreen
 
 
+## 🔵 タスク014。SUCCESS/FAILURE確定後の画面遷移はExamOutcomeOverlayの確認ボタン押下まで
+## 遅延されるようになったため、遷移後の状態を検証する既存テストは本ヘルパーで確認操作を挟む
+func _exam_outcome_overlay(main: MainScene) -> ExamOutcomeOverlay:
+	return main.find_child("ExamOutcomeOverlay", true, false) as ExamOutcomeOverlay
+
+
+func _acknowledge_exam_outcome(main: MainScene) -> void:
+	var overlay := _exam_outcome_overlay(main)
+	(overlay.find_child("ConfirmButton", true, false) as Button).pressed.emit()
+
+
 ## MainScene直下のタブボタンを押下する。
 ## 🔴 "EndTurnButton"はGardenScreenにも同名で存在するため、画面内ボタンはmain全体から探さない
 func _press_tab(main: MainScene, node_name: String) -> void:
@@ -263,6 +274,9 @@ func test_試験に合格すると工房強化画面が自動表示される_非
 	_press_in_alchemy(main, "AdvanceExamTurnButton")
 
 	await assert_signal(GameState).is_emitted("exam_outcome_confirmed", [ExamOutcome.Value.SUCCESS])
+	# 🔵 タスク014。実遷移はExamOutcomeOverlayの確認操作まで行われない
+	assert_that(main.get_visible_phase()).is_equal(&"alchemy")
+	_acknowledge_exam_outcome(main)
 	assert_that(main.get_visible_phase()).is_equal(&"workshop")
 	assert_that(GameState.get_state()["current_rank_id"]).is_equal(NEXT_RANK_ID)
 	assert_bool(GameState.get_state()["can_purchase_permanent"]).is_true()
@@ -283,11 +297,12 @@ func test_試験合格直後は工房の恒久投資タブがまだ自動選択�
 	_craft_once_in_exam(main)
 
 	_press_in_alchemy(main, "AdvanceExamTurnButton")
+	_acknowledge_exam_outcome(main)  # 🔵 タスク014。workshop表示はここで初めて発生する
 
 	assert_that(_workshop_screen(main).get_active_tab()).is_equal(WorkshopScreen.TAB_CONSUMABLE)
 
 
-## FR-105 / AC-004異常系。試験合格による工房遷移はMainScene._on_exam_outcome_confirmed()が
+## FR-105 / AC-004異常系。試験合格による工房遷移はMainScene._on_alchemy_exam_result_pending()が
 ## set_phase()を直接呼ぶ経路であり、_on_shop_requested()を通らないため復帰先は更新されない。
 ## したがって閉じたときの戻り先は「工房を開く直前の調合画面」ではなく既定値の庭になる。
 ## 🟡 試験直前の画面へ戻したい場合は復帰先の更新箇所を増やす必要があるが、本タスクは
@@ -298,6 +313,7 @@ func test_試験合格後の工房を閉じると既定の復帰先である庭�
 	_start_exam_via_ui(main)
 	_craft_once_in_exam(main)
 	_press_in_alchemy(main, "AdvanceExamTurnButton")
+	_acknowledge_exam_outcome(main)  # 🔵 タスク014。workshop表示はここで初めて発生する
 
 	(_workshop_screen(main).find_child("CloseButton", true, false) as Button).pressed.emit()
 
@@ -324,8 +340,9 @@ func test_最終ランクの試験に合格するとゲームクリア画面が�
 	await assert_signal(GameState).is_emitted("exam_outcome_confirmed", [ExamOutcome.Value.SUCCESS])
 	await assert_signal(GameState).is_emitted("game_cleared")
 	assert_array(_event_order).contains_exactly(["exam_outcome_confirmed", "game_cleared"])
-	# SUCCESS受信直後は暫定でworkshopが表示され、直後のgame_clearedがresultへ上書きする
-	assert_that(_phase_at_outcome_confirmed).is_equal(&"workshop")
+	# 🔵 タスク014。SUCCESS受信時点ではExamOutcomeOverlayが表示されるだけで即座の画面遷移は
+	# 行われなくなったため、フェーズは試験中のalchemyのまま。直後のgame_clearedがresultへ確定させる
+	assert_that(_phase_at_outcome_confirmed).is_equal(&"alchemy")
 	assert_that(main.get_visible_phase()).is_equal(&"result")
 	assert_int(_result_screen(main).get_result_kind()).is_equal(ResultScreen.ResultKind.CLEAR)
 	assert_bool(_workshop_screen(main).visible).is_false()
@@ -348,6 +365,9 @@ func test_試験に不合格でも庭画面から再挑戦できる() -> void:
 	_exhaust_exam_turns(main)
 
 	await assert_signal(GameState).is_emitted("exam_outcome_confirmed", [ExamOutcome.Value.FAILURE])
+	# 🔵 タスク014。実遷移はExamOutcomeOverlayの確認操作まで行われない
+	assert_that(main.get_visible_phase()).is_equal(&"alchemy")
+	_acknowledge_exam_outcome(main)
 	assert_that(main.get_visible_phase()).is_equal(&"garden")
 	assert_int(GameState.get_state()["demotion_count"]).is_equal(1)
 	assert_bool(GameState.get_state()["in_exam"]).is_false()
@@ -380,8 +400,9 @@ func test_規定回数連続降格するとゲームオーバー画面が表示�
 	await assert_signal(GameState).is_emitted("exam_outcome_confirmed", [ExamOutcome.Value.FAILURE])
 	await assert_signal(GameState).is_emitted("game_over", [GameBalance.MAX_DEMOTION_COUNT])
 	assert_array(_event_order).contains_exactly(["exam_outcome_confirmed", "game_over"])
-	# FAILURE受信直後は暫定でgardenが表示され、直後のgame_overがresultへ上書きする
-	assert_that(_phase_at_outcome_confirmed).is_equal(&"garden")
+	# 🔵 タスク014。FAILURE受信時点ではExamOutcomeOverlayが表示されるだけで即座の画面遷移は
+	# 行われなくなったため、フェーズは試験中のalchemyのまま。直後のgame_overがresultへ確定させる
+	assert_that(_phase_at_outcome_confirmed).is_equal(&"alchemy")
 	assert_that(main.get_visible_phase()).is_equal(&"result")
 	assert_int(_result_screen(main).get_result_kind()).is_equal(ResultScreen.ResultKind.OVER)
 	assert_bool(main.get_is_garden_tab_disabled()).is_true()
@@ -404,6 +425,9 @@ func test_降格回数が閾値の1つ手前なら不合格でもゲームオー
 	_exhaust_exam_turns(main)
 
 	assert_array(_event_order).contains_exactly(["exam_outcome_confirmed"])  # game_overは発行されない
+	# 🔵 タスク014。実遷移はExamOutcomeOverlayの確認操作まで行われない
+	assert_that(main.get_visible_phase()).is_equal(&"alchemy")
+	_acknowledge_exam_outcome(main)
 	assert_that(main.get_visible_phase()).is_equal(&"garden")
 	assert_int(GameState.get_state()["demotion_count"]).is_equal(GameBalance.MAX_DEMOTION_COUNT - 1)
 	assert_bool(GameState.is_game_over()).is_false()

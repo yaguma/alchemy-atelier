@@ -56,6 +56,12 @@ func setup(upgrade: UpgradeMaster, gold: int, already_purchased_count: int, lock
 		_purchase_button.text = LABEL_PURCHASE
 		_purchase_button.disabled = locked  # 🔵 FR-403: 買える状態でもtab非活性なら強制disabled
 
+	# 🔵 workshop-shop.md L62: ゴールド不足時、価格テキストを警告色にする（静的な状態表現）
+	if gold_short:
+		_price_label.add_theme_color_override("font_color", UiTheme.COLOR_TOAST_WARNING)
+	else:
+		_price_label.remove_theme_color_override("font_color")
+
 
 ## 現在のボタンラベルを返す（テスト用)。🟡 SeedEntryRowに同種の公開ゲッターがないための新規補完
 func get_purchase_button_text() -> String:

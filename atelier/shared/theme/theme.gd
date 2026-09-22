@@ -137,6 +137,29 @@ const PANEL_TEXTURE_PIXEL: Texture2D = preload("res://assets/ui/pixel/panel_pixe
 # 2px加えて10pxを採用する。テクスチャを再生成する場合は本値も再計測すること
 const PANEL_TEXTURE_MARGIN := 10
 
+# 🟡 ui-polish Plan タスク001: UiEffects共通演出ヘルパーが使う演出値。以降のタスク（002, 003, 004,
+# 006, 007, 008, 010, 011, 014, 016, 017）の使用実績を見て調整可能な暫定値として決定する
+const ANIM_DURATION_POP_IN := 0.25
+const ANIM_DURATION_FLY_GHOST := 0.4
+const ANIM_DURATION_WITHER_FADE := 0.5
+const ANIM_DURATION_QUOTA_BAR := 0.3
+const ANIM_DURATION_FADE_SCREEN := 0.2
+const ANIM_DURATION_HIGHLIGHT_PULSE := 0.6
+const ANIM_DURATION_GOLD_COUNTDOWN := 0.4  # 🟡 タスク016: 購入成功時のゴールドカウントダウン演出時間
+const ANIM_EASE_DEFAULT := Tween.EASE_OUT
+
+# 🟡 play_wither_fade()の対象を枯れたグレーへ変色させる色。既存のCOLOR_SLOT_*系とは別に、
+# 演出専用の値として新規決定した
+const COLOR_WITHER_FADE_TARGET := Color("#8A8A82")
+# 🟡 警告トースト用の色。design-guide.mdのステータス色には該当エントリが無いため、
+# デンジャーボタン系統の赤系を流用して新規決定した
+const COLOR_TOAST_WARNING := Color("#C25E4C")
+# 🟡 特性発現ハイライト用の色。庭/調合フェーズのアクセントとは独立させ、金色で「発現」を強調する
+const COLOR_TRAIT_HIGHLIGHT := Color("#FFD54F")
+# 🟡 指定合致キラキラ用の色。既存COLOR_ALCHEMY_PREVIEW_ORDER_MATCHED（コーラル系）と
+# 用途が重なるため、同じ値を再利用する
+const COLOR_ORDER_MATCHED_HIGHLIGHT := COLOR_ALCHEMY_PREVIEW_ORDER_MATCHED
+
 # 🔵 2026-09-16追加: make_button_stylebox()の(variant, state)組み合わせごとの生成結果キャッシュ。
 # StyleBoxTextureは内容が同じであれば複数のButtonで安全に共有できる読み取り専用リソースのため、
 # 同じ組み合わせに対して毎回新規インスタンスを生成しない（PRレビュー指摘対応）

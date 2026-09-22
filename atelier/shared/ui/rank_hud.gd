@@ -73,14 +73,15 @@ func _exit_tree() -> void:
 
 
 ## 4要素をGameStateの最新値で再描画する（🔵 FR-002, FR-114）。
-## 表示更新の唯一の経路であり、_ready()と全signalハンドラがここへ集約される
-func refresh() -> void:
+## 表示更新の唯一の経路であり、_ready()と全signalハンドラがここへ集約される。
+## 🟡 ui-polish Plan タスク011。animateはノルマバーのみに適用する（他3要素は従来通り瞬時反映）
+func refresh(animate: bool = false) -> void:
 	var state := GameState.get_state()
 	var master := GameState.get_current_rank_master()
 	var in_exam: bool = state["in_exam"]
 
 	_refresh_rank_name(master, in_exam)
-	_refresh_quota(state, master, in_exam)
+	_refresh_quota(state, master, in_exam, animate)
 	_refresh_turn_remaining(state, master, in_exam)
 	_gold_label.text = GOLD_FORMAT % int(state["gold"])
 
@@ -150,13 +151,21 @@ func _refresh_rank_name(master: RankMaster, in_exam: bool) -> void:
 # 🔵 GuildDeliveryScreen._refresh_rank_quota()と同じ出し分け。昇格試験中は納品の貢献度が
 # RankState.quotaではなくExamState.exam_quotaへ加算されるため、試験中はそちらを参照しないと
 # バーが試験開始前の値のまま固まる
-func _refresh_quota(state: Dictionary, master: RankMaster, in_exam: bool) -> void:
+# 🟡 ui-polish Plan タスク011。animate=trueはUiEffects.animate_progress_value()で滑らかに
+# 変化させる（GuildDeliveryScreen._refresh_rank_quota()と同じ実装パターン）
+func _refresh_quota(
+	state: Dictionary, master: RankMaster, in_exam: bool, animate: bool = false
+) -> void:
 	var quota_max: float = state["exam_quota_max"] if in_exam else master.quota_max
 	var quota: float = state["exam_quota"] if in_exam else GameState.get_current_rank_quota()
 	var has_quota := quota_max > 0.0
 	_quota_bar.max_value = quota_max if has_quota else EMPTY_QUOTA_MAX
 	# 🔵 max_valueを先に設定することで、残量が上限を超えていてもRangeが上限へクランプする
-	_quota_bar.value = quota if has_quota else 0.0
+	var target_value := quota if has_quota else 0.0
+	if animate:
+		UiEffects.animate_progress_value(_quota_bar, target_value, UiTheme.ANIM_DURATION_QUOTA_BAR)
+	else:
+		_quota_bar.value = target_value
 
 
 # 🔵 ui-design/overview.md txt-turn-remaining定義（limit_turn - elapsed_turn）。
@@ -185,8 +194,9 @@ func _on_rank_outcome_confirmed(_outcome: RankOutcome.Value) -> void:
 	refresh()
 
 
+# 🟡 ui-polish Plan タスク011。納品結果反映はノルマバー減少アニメーションの対象（他signalは瞬時反映のまま）
 func _on_delivered(_results: Array[DeliveryResult]) -> void:
-	refresh()
+	refresh(true)
 
 
 func _on_exam_started() -> void:

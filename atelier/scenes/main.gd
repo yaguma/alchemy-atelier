@@ -28,6 +28,10 @@ var _phase_before_workshop: StringName = PHASE_GARDEN
 # closedを受けてnullへ戻す（title_screen.gd/pause_menu.gdと同型）
 var _pause_menu: PauseMenu = null
 
+# 🔵 タスク014（ui-polish Plan）。show_outcome()呼び出し時点のoutcomeをacknowledged受信まで保持する。
+# acknowledgedシグナル自体は引数を持たないため、遷移先の分岐に必要な値をここに控える
+var _pending_exam_outcome: ExamOutcome.Value = ExamOutcome.Value.CONTINUE
+
 @onready var _garden_screen: GardenScreen = %GardenScreen  # 🔵
 @onready var _alchemy_screen: AlchemyScreen = %AlchemyScreen  # 🔵
 @onready var _workshop_screen: WorkshopScreen = %WorkshopScreen  # 🔵
@@ -40,6 +44,10 @@ var _pause_menu: PauseMenu = null
 # 🔴 debug-playtest-support Plan タスク003。SettingsOverlayLayerよりさらに後ろの子として
 # 配置しているため、描画順で常に最前面になる（QA用パネルをPauseMenu表示中も操作可能にする）
 @onready var _debug_panel: DebugPanel = %DebugPanel
+# 🔵 タスク014（ui-polish Plan）。rank featureのUIをMainSceneが直接子として持つことで、
+# AlchemyScreen（alchemy feature）とExamOutcomeOverlay（rank feature）間の直接参照を回避する
+# （他Featureのui/への直接参照禁止、architecture.md参照）
+@onready var _exam_outcome_overlay: ExamOutcomeOverlay = %ExamOutcomeOverlay
 
 
 # 🔴 FR-006。ロードを_ready()ではなく_enter_tree()で行うのは、Godotが_ready()を子→親の順で
@@ -75,6 +83,14 @@ func _ready() -> void:
 	_alchemy_screen.shop_requested.connect(_on_shop_requested)
 	_workshop_screen.screen_closed.connect(_on_workshop_closed)
 	_alchemy_screen.delivery_confirmed.connect(_on_delivery_confirmed)  # 🔵 FR-106, FR-107
+	# 🔵 タスク013（ui-polish Plan）。GameState.exam_outcome_confirmedを直接購読せず、
+	# AlchemyScreenが中継するexam_result_pendingを購読する（delivery_confirmedと同型パターン）。
+	# 同一シーンツリー内の子ノードのsignalのため、ノード破棄時にGodotが自動切断する
+	# （_exit_tree()でのdisconnectは不要）
+	_alchemy_screen.exam_result_pending.connect(_on_alchemy_exam_result_pending)
+	# 🔵 タスク014。同一シーンツリー内の子ノードのsignalのため、ノード破棄時にGodotが
+	# 自動切断する（_exit_tree()でのdisconnectは不要）
+	_exam_outcome_overlay.acknowledged.connect(_on_exam_outcome_acknowledged)
 	_rank_hud.menu_requested.connect(_on_menu_requested)  # 🔵 FR-103
 	# 🔴 debug-playtest-support Plan タスク003。debug_jump_to_next_rank()はGameStateの内部
 	# フィールドを直接書き換えるだけでシグナルを発行しないため、RankHudが追随しない。
@@ -82,14 +98,18 @@ func _ready() -> void:
 	# 同一シーンツリー内の子ノード同士のためGodotが破棄時に自動切断する（disconnect不要）
 	_debug_panel.get_jump_rank_button().pressed.connect(_rank_hud.refresh)
 
-	# 🔵 FR-108〜FR-113。この4本の接続順（記述順）を変更しないこと。
+	# 🔵 FR-108, FR-111〜FR-113。この3本の接続順（記述順）を変更しないこと。
 	# commit_exam_outcome()はexam_outcome_confirmed→game_cleared/game_overの順に
-	# 同一フレーム内で同期発行するため（game_state_rank_delegate.gd）、
-	# 「暫定遷移(workshop/garden) → resultで上書き確定」がこの順序に依存して成立する。
-	# 接続順を入れ替えても発行順自体は変わらないが、実行される順序を読み違えないよう
-	# 発行順と同じ並びを保つ
+	# 同一フレーム内で同期発行するため（game_state_rank_delegate.gd）。
+	# 🔴 タスク014でexam_result_pending受信時の実遷移がacknowledged（プレイヤーの確認操作）まで
+	# 遅延されるようになったため、「暫定遷移(workshop/garden) → resultで上書き確定」という
+	# タスク013までの同一フレーム内完結の前提は成立しなくなった。GameState.game_cleared/game_over
+	# 発行時点ではExamOutcomeOverlayが表示されているだけで、フェーズはまだ試験中のalchemyのまま
+	# （_on_exam_started()の遷移が最後）であり、本ブロックの2本（game_cleared/game_over）が
+	# resultへの実質的な唯一の遷移経路になる。_on_exam_outcome_acknowledged()側は
+	# is_game_cleared()/is_game_over()で終局確定済みかを見て、resultをworkshop/gardenへ
+	# 巻き戻さないようガードしている（詳細は_on_exam_outcome_acknowledged()のコメント参照）
 	GameState.exam_started.connect(_on_exam_started)  # 🔵 FR-108, FR-201
-	GameState.exam_outcome_confirmed.connect(_on_exam_outcome_confirmed)  # 🔵 FR-109, FR-110
 	GameState.game_cleared.connect(_on_game_cleared)  # 🔵 FR-111, FR-113
 	GameState.game_over.connect(_on_game_over)  # 🔵 FR-112, FR-113
 
@@ -115,8 +135,6 @@ func _exit_tree() -> void:
 		GameState.phase_changed.disconnect(_on_phase_changed)
 	if GameState.exam_started.is_connected(_on_exam_started):
 		GameState.exam_started.disconnect(_on_exam_started)
-	if GameState.exam_outcome_confirmed.is_connected(_on_exam_outcome_confirmed):
-		GameState.exam_outcome_confirmed.disconnect(_on_exam_outcome_confirmed)
 	if GameState.game_cleared.is_connected(_on_game_cleared):
 		GameState.game_cleared.disconnect(_on_game_cleared)
 	if GameState.game_over.is_connected(_on_game_over):
@@ -224,12 +242,29 @@ func _on_exam_started() -> void:
 
 
 # 🔵 FR-109, FR-110, FR-201解除。成功なら工房（恒久投資）へ、失敗なら庭へ戻す。
-# CONTINUEは「試験がまだ続いている」ことを表すためフェーズもタブ状態も変えない
-# （alchemy_screen.gdの_on_exam_outcome_confirmed()と同じ分岐方針）。
-# 🔴 ここでの遷移は最終ランク成功／ゲームオーバー確定時には暫定値にすぎず、
-# 直後に同一フレームで発行されるgame_cleared/game_overがresultへ上書きする（FR-113）
-func _on_exam_outcome_confirmed(outcome: ExamOutcome.Value) -> void:
-	match outcome:
+# 🔵 タスク013。GameState.exam_outcome_confirmedを直接購読する代わりに、AlchemyScreenが
+# 中継するexam_result_pendingを購読する（このシグナルはSUCCESS/FAILURE確定時のみ発行され、
+# CONTINUEでは発行されないため、本ハンドラにCONTINUE分岐は不要）。
+# 🔵 タスク014。画面遷移（GameState.set_phase()等）は即座に行わず、まずExamOutcomeOverlayで
+# 結果演出を表示する。実際の遷移はプレイヤーがオーバーレイを確認した後（acknowledged）に行う
+# （オーバーレイ表示中はタブも無効化されたままのため、庭⇔調合の切替でオーバーレイを回避できない）
+func _on_alchemy_exam_result_pending(outcome: ExamOutcome.Value) -> void:
+	_pending_exam_outcome = outcome
+	_exam_outcome_overlay.show_outcome(outcome)
+
+
+# 🔵 タスク014。ExamOutcomeOverlayの確認ボタン押下後に実際の画面遷移を行う。
+# 🔴 FR-113との整合性についての重要な注意: GameState.commit_exam_outcome()は
+# exam_outcome_confirmed → game_cleared/game_overを同一フレーム内で同期発行するため、
+# 最終ランク成功／ゲームオーバー確定時は_on_alchemy_exam_result_pending()がオーバーレイを
+# 表示した直後、同じフレーム内で_on_game_cleared()/_on_game_over()が先にresultへ確定させている。
+# タスク013までは「暫定遷移→result上書き」が同一フレームで完結していたが、本タスクで
+# 遷移そのものをacknowledged（プレイヤーの確認操作、任意の後続フレーム）まで遅延させたため、
+# 終局確定後にオーバーレイを閉じてもresultをworkshop/gardenへ巻き戻さないよう明示的にガードする
+func _on_exam_outcome_acknowledged() -> void:
+	if GameState.is_game_cleared() or GameState.is_game_over():
+		return
+	match _pending_exam_outcome:
 		ExamOutcome.Value.SUCCESS:
 			GameState.set_phase(PHASE_WORKSHOP)
 			_set_tabs_disabled(false)
@@ -317,6 +352,9 @@ func _refresh_visible_screen(phase: StringName) -> void:
 			_alchemy_screen.refresh()
 		PHASE_WORKSHOP:
 			_workshop_screen.refresh()
+			# 🔵 タスク017（ui-polish Plan）。visible=trueは_apply_visible_phase()側で
+			# 設定済みのため、ここではフェードインの開始のみを担う
+			_workshop_screen.play_show_animation()
 		_:
 			pass
 
@@ -331,7 +369,7 @@ func _is_known_phase(phase: StringName) -> bool:
 
 # 🔴 コードレビュー指摘対応。起動直後（ロード直後を含む）のタブ無効化状態を、
 # シグナル発火に頼らずGameStateの現在値から直接導出する。判定基準は既存の
-# タブ無効化トリガ（_on_exam_started/_on_exam_outcome_confirmed/_on_game_cleared/
+# タブ無効化トリガ（_on_exam_started/_on_alchemy_exam_result_pending/_on_game_cleared/
 # _on_game_over）と同じ条件（試験中、または終局でresultへ遷移済み）に揃える
 func _should_tabs_be_disabled_on_load() -> bool:
 	var state := GameState.get_state()
