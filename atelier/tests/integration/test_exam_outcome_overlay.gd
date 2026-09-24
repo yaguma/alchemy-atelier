@@ -94,3 +94,15 @@ func test_確認後にCONTINUEを渡しても直前の表示内容が保持さ�
 
 	assert_bool(overlay.visible).is_false()
 	assert_str(_message_label(overlay).text).is_equal(ExamOutcomeOverlay.SUCCESS_MESSAGE_TEXT)
+
+
+## コードレビュー指摘対応。最終ランク到達時、MainSceneはacknowledgedを待たずforce_hide()で
+## オーバーレイを閉じてからresultへ遷移する。show_outcome()のフェードインTween実行中に
+## force_hide()を呼んでも、Tweenがkillされvisibleがfalseへ即座に戻ることを保証する
+func test_force_hideでフェードイン中でも即座に非表示になる() -> void:
+	var overlay := _make_overlay()
+
+	overlay.show_outcome(ExamOutcome.Value.SUCCESS)
+	overlay.force_hide()
+
+	assert_bool(overlay.visible).is_false()

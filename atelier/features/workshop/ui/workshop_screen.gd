@@ -81,7 +81,7 @@ func get_toast_text() -> String:
 ## GameStateのsignalを購読しない設計のため、MainSceneが工房を可視化するたびに明示的にrefresh()を
 ## 呼ばないとゴールド表示・購入可否が開いた瞬間から古いままになる
 func refresh() -> void:
-	_refresh()
+	_refresh()  # 🔵 戻り値のstateは公開APIの呼び出し元では不要なため破棄する
 
 
 ## 画面表示時のフェードイン演出（ui-design/screens/workshop-shop.md L69）。🔵 タスク017。
@@ -95,9 +95,12 @@ func play_show_animation() -> Tween:
 
 
 ## GameState.get_state()を再取得し、ゴールド表示・タブ活性/非活性・両リストを再構築する。🔵 FR-105
-func _refresh() -> void:
+## 🔴 コードレビュー指摘対応。取得済みのstateを呼び出し元へ返すことで、_execute_purchase()が
+## gold_after取得のためにGameState.get_state()を再度呼ばずに済むようにする（get_state()は
+## inventory/pending_products等をディープコピーするコストの高い処理のため）
+func _refresh() -> Dictionary:
 	if _permanent_list == null:
-		return
+		return {}
 
 	var state := GameState.get_state()
 	var gold: int = state["gold"]
@@ -127,6 +130,7 @@ func _refresh() -> void:
 
 	_permanent_list.setup(permanent_upgrades, gold, purchased_counts, not can_purchase_permanent)
 	_consumable_list.setup(consumable_upgrades, gold, purchased_counts, false)  # 🔵 FR-203常時活性
+	return state
 
 
 func _update_tab_visibility() -> void:
@@ -239,12 +243,15 @@ static func _resolve_upgrade(state: Dictionary, upgrade_id: StringName) -> Upgra
 
 ## GameState.apply_upgrade()を実行し、結果に応じて表示を更新する。
 ## 即時購入経路（消耗投資）とダイアログ確認後の経路（恒久投資）の両方から呼ばれる
+## 🔴 コードレビュー指摘対応。GameState.get_state()（inventory/pending_products等をディープコピーする
+## コストの高い処理）を1回の購入操作で3回（gold_before, gold_after, _refresh()内部）呼んでいたのを、
+## _refresh()の戻り値からgold_afterを取得する形にして2回へ削減する
 func _execute_purchase(upgrade: UpgradeMaster) -> void:
 	var gold_before: int = GameState.get_state()["gold"]
 	var result := GameState.apply_upgrade(upgrade)
 	if result.success:
-		var gold_after: int = GameState.get_state()["gold"]
-		_refresh()  # 🔵 FR-102
+		var state := _refresh()  # 🔵 FR-102
+		var gold_after: int = state["gold"]
 		# 🟡 _refresh()内で_gold_labelは購入後の値へ即時更新済みだが、
 		# 同一フレーム内で_animate_gold_countdown()が購入前の値へ巻き戻してから
 		# カウントダウンを開始するため、描画上は即時更新が発生しない（workshop-shop.md L68）
@@ -255,11 +262,17 @@ func _execute_purchase(upgrade: UpgradeMaster) -> void:
 
 
 ## from_valueからto_valueへ_gold_labelの表示をカウントダウンさせる。
-## 開始と同時に_gold_labelをfrom_valueへ巻き戻してからTween.tween_method()で補間する
+## 開始と同時に_gold_labelをfrom_valueへ巻き戻してからTween.tween_method()で補間する。
+## 🔴 コードレビュー指摘対応: 短時間に連打購入されると本メソッドが連続で呼ばれ、前回のTweenが
+## 生きたまま新しいTweenが同じ_gold_label.textを奪い合ってちらつく/逆戻りする競合があった。
+## UiEffects.kill_active_tween()/track_active_tween()を_gold_label（実際に書き換える対象）に
+## 対して使い、UiEffectsの4関数と同じ仕組みで前回Tweenをkillしてから新規Tweenを開始する
 func _animate_gold_countdown(from_value: int, to_value: int, duration: float) -> Tween:
+	UiEffects.kill_active_tween(_gold_label)
 	_set_gold_label_value(from_value)
 	var tween := create_tween()
 	tween.tween_method(_set_gold_label_value, from_value, to_value, maxf(duration, 0.0))
+	UiEffects.track_active_tween(_gold_label, tween)
 	return tween
 
 

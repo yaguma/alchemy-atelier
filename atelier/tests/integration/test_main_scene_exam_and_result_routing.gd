@@ -35,6 +35,10 @@ func _current_phase() -> StringName:
 	return GameState.get_state()["current_phase"]
 
 
+func _overlay(main: MainScene) -> ExamOutcomeOverlay:
+	return main.find_child("ExamOutcomeOverlay", true, false) as ExamOutcomeOverlay
+
+
 ## 🔵 タスク014。SUCCESS/FAILURE確定後の画面遷移はExamOutcomeOverlayの確認ボタン押下まで
 ## 遅延されるようになったため、遷移後の状態を検証するテストは本ヘルパーで確認操作を挟む
 func _acknowledge_exam_outcome(main: MainScene) -> void:
@@ -119,6 +123,9 @@ func test_SUCCESS直後のgame_clearedでresultへ上書き確定する() -> voi
 	assert_that(main.get_visible_phase()).is_equal(&"result")
 	assert_bool(_screen(main, "WorkshopScreen").visible).is_false()
 	assert_array(_visible_screen_names(main)).contains_exactly(["ResultScreen"])
+	# 🔴 コードレビュー指摘対応。exam_result_pending中継で表示されたExamOutcomeOverlayが
+	# result遷移後もresultの上に乗って残らないことを保証する
+	assert_bool(_overlay(main).visible).is_false()
 
 
 ## 【本Planの受入の中核】試験失敗と同時のゲームオーバー確定。
@@ -138,6 +145,9 @@ func test_FAILURE直後のgame_overでresultへ上書き確定する() -> void:
 	assert_that(main.get_visible_phase()).is_equal(&"result")
 	assert_bool(_screen(main, "GardenScreen").visible).is_false()
 	assert_array(_visible_screen_names(main)).contains_exactly(["ResultScreen"])
+	# 🔴 コードレビュー指摘対応。exam_result_pending中継で表示されたExamOutcomeOverlayが
+	# result遷移後もresultの上に乗って残らないことを保証する
+	assert_bool(_overlay(main).visible).is_false()
 
 
 func test_game_cleared単独発行でもresultへ遷移しタブが無効化される() -> void:

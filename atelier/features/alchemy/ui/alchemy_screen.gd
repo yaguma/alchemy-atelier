@@ -19,7 +19,6 @@ signal delivery_confirmed
 # AlchemyScreen内の結果演出が描画前に消えてしまう問題があった。delivery_confirmedと同型のパターン
 signal exam_result_pending(outcome: ExamOutcome.Value)
 
-const AlchemySlotViewScene = preload("res://features/alchemy/ui/alchemy_slot_view.tscn")
 const RECIPE_PLACEHOLDER_TEXT := "選択してください"
 const ERROR_MESSAGES := {
 	&"unknown_recipe_id": "レシピが見つかりませんでした",
@@ -193,35 +192,21 @@ func _refresh_exam_ui(state: Dictionary) -> void:
 	)
 
 
-## 素材投入を決める前に現在の指定依頼を確認できるよう、_daily_order_for_preview
-## （🔵 _refresh()でキャッシュ済み。試験中はnull）の内容をラベルへ反映する。
-## 🔵 倍率は表示するだけで乗算は一切行わない（プレビュー側との二重乗算防止）
+## 指定依頼ラベルの更新。ロジック本体はAlchemyScreenPreviewへ委譲する。🔵
 func _update_daily_order_label() -> void:
-	if _daily_order_label == null:
-		return
-	if _daily_order_for_preview == null:
-		_daily_order_label.text = DAILY_ORDER_NONE_TEXT
-		return
-
-	var order := _daily_order_for_preview
-	if order.condition_type == "trait":
-		_daily_order_label.text = (
-			DAILY_ORDER_TRAIT_FORMAT % [order.target_trait, order.match_bonus_multiplier]
-		)
-		return
-	_daily_order_label.text = (
-		DAILY_ORDER_ITEM_FORMAT
-		% [_resolve_recipe_display_name(order.target_recipe_id), order.match_bonus_multiplier]
+	AlchemyScreenPreview.update_daily_order_label(
+		_daily_order_label,
+		_daily_order_for_preview,
+		_recipe_masters,
+		DAILY_ORDER_NONE_TEXT,
+		DAILY_ORDER_ITEM_FORMAT,
+		DAILY_ORDER_TRAIT_FORMAT
 	)
 
 
-## recipe_idに対応するRecipeMasterの表示名を返す。🔴 マスター未ロード等で解決できない場合は
-## 空欄にせずrecipe_id自体をフォールバック表示する（GardenScreenのSeedMaster欠落時と同方針）
+## recipe_idに対応するRecipeMasterの表示名を返す。ロジック本体はAlchemyScreenPreviewへ委譲する。🔴
 func _resolve_recipe_display_name(recipe_id: String) -> String:
-	var master: Variant = _recipe_masters.get(StringName(recipe_id))
-	if master is RecipeMaster:
-		return (master as RecipeMaster).name
-	return recipe_id
+	return AlchemyScreenPreview.resolve_recipe_display_name(_recipe_masters, recipe_id)
 
 
 ## ローカルキャッシュのみでプレビュー再計算とボタン活性状態を更新する。
@@ -239,115 +224,54 @@ func _on_preview_inputs_changed() -> void:
 		_execute_button.disabled = not _slot_state.can_execute()  # 🔵 AC-010
 
 
-## ProductProvisionalResolver（QualityCalculator -> TraitActivation -> ProductValueCalculator の
-## 3段階パイプライン） -> DeliveryResolver を同期呼び出しし、AlchemyPreviewPanelへ結果を渡す。🔵 AC-007
-## 🔴 コードレビュー指摘対応。GameStateAlchemyDelegate.execute_alchemy()と同一の
-## ProductProvisionalResolverを経由することで両者の計算結果が乖離しないようにし、
-## 指定依頼の判定にも_refresh()でキャッシュ済みの_daily_order_for_preview（試験中はnull）を使う
-## ことで、実際の納品処理（GameStateGuildDelegate.deliver_pending_products）と同じ扱いにする
-## 🔵 戻り値はTraitActivation.resolve_traits()が確定した発現済みタグ配列（ProductInstance経由）。
-## タスク007の新規発現ハイライト判定は、この戻り値を_on_preview_inputs_changed()側で
-## 前回結果と比較するだけであり、判定ロジック自体はここでもUI層でも新規実装しない
+## プレビュー再計算。ロジック本体はAlchemyScreenPreviewへ委譲する。🔵 AC-007
 func _recompute_preview(materials: Array[MaterialInstance]) -> Array[StringName]:
-	if _preview_panel == null:
-		return []
-	var recipe: Variant = _recipe_masters.get(_slot_state.selected_recipe_id)
-	if materials.is_empty() or not (recipe is RecipeMaster):
-		_preview_panel.show_empty()  # 🔵 AC-007異常系。レシピ未選択・0投入では計算自体を行わない
-		return []
-
-	var traits_unlocked := GameState.is_current_rank_traits_unlocked()
-	var provisional := ProductProvisionalResolver.resolve(
-		materials, recipe as RecipeMaster, traits_unlocked
+	return AlchemyScreenPreview.recompute_preview(
+		_preview_panel,
+		_recipe_masters,
+		_slot_state.selected_recipe_id,
+		_daily_order_for_preview,
+		materials
 	)
-	var result := DeliveryResolver.resolve(provisional, _daily_order_for_preview)
-
-	_preview_panel.show_preview(
-		provisional.quality_score,
-		provisional.activated_traits,
-		result.final_contribution,
-		result.final_reward,
-		result.order_matched
-	)
-	return provisional.activated_traits
 
 
-## 解禁済みレシピからドロップダウンを再構築する。選択中のレシピが解禁一覧から消えた場合は選択を解除する。🔵
+## 解禁済みレシピからドロップダウンを再構築する。ロジック本体はAlchemyScreenSlotsへ委譲する。🔵
 func _rebuild_recipe_options(unlocked_recipe_ids: Array) -> void:
-	_recipe_option_button.clear()
-	# 🔵 item 0は未選択プレースホルダー。metadataを持たせず、選択不可にする
-	_recipe_option_button.add_item(RECIPE_PLACEHOLDER_TEXT)
-	_recipe_option_button.set_item_disabled(0, true)
-
-	var selected_index := 0
-	for recipe_id in unlocked_recipe_ids:
-		var master: Variant = _recipe_masters.get(recipe_id)
-		if not (master is RecipeMaster):
-			continue
-		_recipe_option_button.add_item((master as RecipeMaster).name)
-		var index := _recipe_option_button.item_count - 1
-		_recipe_option_button.set_item_metadata(index, recipe_id)
-		if recipe_id == _slot_state.selected_recipe_id:
-			selected_index = index
-
-	if selected_index == 0:
-		_slot_state.selected_recipe_id = &""
-	_recipe_option_button.select(selected_index)
+	AlchemyScreenSlots.rebuild_recipe_options(
+		_recipe_option_button,
+		_recipe_masters,
+		unlocked_recipe_ids,
+		_slot_state,
+		RECIPE_PLACEHOLDER_TEXT
+	)
 
 
-## _placed_material_idsに対応するAlchemySlotViewを枠数ぶん並べ直す。🔵 AC-003
+## _placed_material_idsに対応するAlchemySlotViewを枠数ぶん並べ直す。ロジック本体はAlchemyScreenSlotsへ委譲する。🔵 AC-003
 func _rebuild_slots() -> void:
-	for child in _slots_container.get_children():
-		_slots_container.remove_child(child)
-		child.queue_free()
-	_slot_views.clear()
-
-	var placed := _placed_materials()
-	for slot_index in range(_slot_state.max_slots):
-		var slot_view: AlchemySlotView = AlchemySlotViewScene.instantiate()
-		slot_view.name = "AlchemySlot_%d" % slot_index
-		_slots_container.add_child(slot_view)
-		slot_view.clear_requested.connect(_on_slot_clear_requested)
-		if slot_index < placed.size():
-			slot_view.setup(slot_index, placed[slot_index])
-		else:
-			slot_view.setup_empty(slot_index)
-		_slot_views.append(slot_view)
+	_slot_views = AlchemyScreenSlots.rebuild_slots(
+		_slots_container, _slot_state, _placed_materials(), _on_slot_clear_requested
+	)
 
 
-## 投入済みIDに対応するMaterialInstanceをキャッシュ済み在庫から解決する。🔵
+## 投入済みIDに対応するMaterialInstanceをキャッシュ済み在庫から解決する。ロジック本体はAlchemyScreenSlotsへ委譲する。🔵
 func _placed_materials() -> Array[MaterialInstance]:
-	var materials: Array[MaterialInstance] = []
-	for instance_id in _placed_material_ids:
-		var material := _find_material(instance_id)
-		if material != null:
-			materials.append(material)
-	return materials
+	return AlchemyScreenSlots.placed_materials(_placed_material_ids, _inventory)
 
 
-## 在庫から投入済みを除外した配列を返す。🔵 除外責務はMaterialInventoryListではなく本画面が持つ契約
+## 在庫から投入済みを除外した配列を返す。ロジック本体はAlchemyScreenSlotsへ委譲する。🔵
 func _available_materials() -> Array[MaterialInstance]:
-	var materials: Array[MaterialInstance] = []
-	for material in _inventory:
-		if not _placed_material_ids.has(material.instance_id):
-			materials.append(material)
-	return materials
+	return AlchemyScreenSlots.available_materials(_placed_material_ids, _inventory)
 
 
 func _find_material(instance_id: String) -> MaterialInstance:
-	for material in _inventory:
-		if material.instance_id == instance_id:
-			return material
-	return null
+	return AlchemyScreenSlots.find_material(_inventory, instance_id)
 
 
 # 🔵 在庫に存在しなくなった投入済みIDを取り除く。調合成功時のリセットもこの経路で成立する
 func _drop_missing_placed_ids() -> void:
-	var kept: Array[String] = []
-	for instance_id in _placed_material_ids:
-		if _find_material(instance_id) != null:
-			kept.append(instance_id)
-	_placed_material_ids = kept
+	_placed_material_ids = AlchemyScreenSlots.drop_missing_placed_ids(
+		_placed_material_ids, _inventory
+	)
 
 
 func _on_recipe_selected(index: int) -> void:

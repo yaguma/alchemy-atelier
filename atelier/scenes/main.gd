@@ -29,7 +29,14 @@ var _phase_before_workshop: StringName = PHASE_GARDEN
 var _pause_menu: PauseMenu = null
 
 # 🔵 タスク014（ui-polish Plan）。show_outcome()呼び出し時点のoutcomeをacknowledged受信まで保持する。
-# acknowledgedシグナル自体は引数を持たないため、遷移先の分岐に必要な値をここに控える
+# acknowledgedシグナル自体は引数を持たないため、遷移先の分岐に必要な値をここに控える。
+# 🔴 コードレビュー指摘対応で一度GameState.get_state()["last_exam_outcome"]
+# （commit_exam_outcome()が設定する内部キャッシュ）参照に置き換えたが、多数の統合テストが
+# GameState.exam_outcome_confirmed/AlchemyScreen.exam_result_pendingを直接emit()して
+# commit_exam_outcome()自体を経由せずにこのフローを検証する確立されたパターンのため、
+# その場合last_exam_outcomeが更新されず遷移が起きない回帰を起こした（18件のテスト失敗で発覚）。
+# シグナル引数こそがこのタイミングでの正しい値であり、GameState内部キャッシュを
+# 別途参照する必要はないと判断し元の設計へ戻した
 var _pending_exam_outcome: ExamOutcome.Value = ExamOutcome.Value.CONTINUE
 
 @onready var _garden_screen: GardenScreen = %GardenScreen  # 🔵
@@ -276,15 +283,22 @@ func _on_exam_outcome_acknowledged() -> void:
 
 
 # 🔵 FR-111, FR-113, FR-202, FR-403。終局のためresultへ遷移しタブを操作不能にする。
-# MainScene側からresultを離脱させる経路は設けない（外部からのset_phase()は防がない）
+# MainScene側からresultを離脱させる経路は設けない（外部からのset_phase()は防がない）。
+# 🔴 コードレビュー指摘対応。commit_exam_outcome()はexam_outcome_confirmed→game_cleared/game_overを
+# 同一フレーム内で同期発行するため、最終ランク到達時は_on_alchemy_exam_result_pending()が
+# ExamOutcomeOverlayを表示した直後、同じフレームで本ハンドラがresultへ確定させる。
+# オーバーレイを閉じずにresultへ遷移すると、result構築後もオーバーレイが上に乗ったまま残り、
+# プレイヤーは意味のない2回目の確認クリックを強いられるため、遷移前にforce_hide()で閉じる
 func _on_game_cleared() -> void:
+	_exam_outcome_overlay.force_hide()
 	GameState.set_phase(PHASE_RESULT)
 	_set_tabs_disabled(true)
 
 
-# 🔵 FR-112, FR-113, FR-202, FR-403。_on_game_cleared()と同型。
+# 🔵 FR-112, FR-113, FR-202, FR-403。_on_game_cleared()と同型（force_hide()呼び出しの理由も同じ）。
 # demotion_countの表示はResultScreenの責務外（FR-404）のため本シーンでも使わない
 func _on_game_over(_demotion_count: int) -> void:
+	_exam_outcome_overlay.force_hide()
 	GameState.set_phase(PHASE_RESULT)
 	_set_tabs_disabled(true)
 

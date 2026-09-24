@@ -11,7 +11,9 @@ class_name AlchemyScreenEffects
 ## 演出は見た目のみで、直前の状態更新（投入枠反映・在庫除外）を一切ブロックしない
 ## （呼び出し元で状態更新を終えてから本関数を呼ぶ契約）。
 ## 🟡 在庫行は既にsetup()で破棄済みのため、複製元には代わりに新スロット自身の見た目
-## （slot_views[slot_index]）を使い、複製後にglobal_positionだけ開始位置へ差し替える
+## （slot_views[slot_index]）を使う。start_positionはfly_ghost()にfrom_global_positionとして
+## そのまま渡すため、本関数側で複製やglobal_position差し替えを行う必要はない
+## （fly_ghost()自体がtarget_slotを複製し、指定位置から目的地まで飛ばす）
 static func play_material_slide_in(
 	overlay_layer: Control,
 	slot_views: Array[AlchemySlotView],
@@ -24,12 +26,13 @@ static func play_material_slide_in(
 		return
 
 	var target_slot := slot_views[slot_index]
-	var ghost_template := target_slot.duplicate() as Control
-	ghost_template.global_position = start_position
 	UiEffects.fly_ghost(
-		overlay_layer, ghost_template, target_slot.global_position, UiTheme.ANIM_DURATION_FLY_GHOST
+		overlay_layer,
+		target_slot,
+		start_position,
+		target_slot.global_position,
+		UiTheme.ANIM_DURATION_FLY_GHOST
 	)
-	ghost_template.queue_free()
 
 
 ## 完成品確定直後、一瞬の生成演出（UiEffects.play_pop_in()）をoverlay_layerへ表示する。
@@ -44,7 +47,11 @@ static func play_craft_result_pop(
 
 	var popup := build_craft_result_popup(popup_text)
 	overlay_layer.add_child(popup)
-	popup.global_position = overlay_layer.get_global_rect().get_center()
+	# 🔴 global_position はControlの左上座標のため、中央点をそのまま代入すると自身のサイズの
+	# 半分だけ右下にズレる。get_combined_minimum_size()はコンテナのsort（次フレームまで遅延）を
+	# 待たずに子要素から同期的にサイズを算出できるため、add_child()直後でも正しい値が取れる
+	var popup_size := popup.get_combined_minimum_size()
+	popup.global_position = overlay_layer.get_global_rect().get_center() - popup_size / 2.0
 
 	var tween := UiEffects.play_pop_in(
 		popup, UiTheme.ANIM_DURATION_POP_IN, UiTheme.ANIM_EASE_DEFAULT

@@ -116,13 +116,24 @@ func test_結果行のポップ演出は順次適用され同時には発生し�
 	screen.visible = false
 
 	screen.show_with_animation()
-	# 1件目のポップ演出はshow_with_animation()呼び出しと同時に開始するが、2件目は
-	# RESULT_ROW_POP_STAGGER秒後まで開始しない。その間隔より十分前のタイミングでは
-	# 2件目のscaleがまだONEのまま変化していないことで「順次」を確認する
-	await get_tree().create_timer(GuildDeliveryScreen.RESULT_ROW_POP_STAGGER - 0.03).timeout
+	# 🔴 コードレビュー指摘対応: 以前は「stagger前はscale ONE（未着手=フルサイズ表示）」を
+	# 正としていたが、これは表示中に一瞬フルサイズで見えてしまうチラつきバグそのものだった。
+	# 修正後の_play_result_row_pop_ins()は全行を事前にscale ZEROへ揃え、さらに
+	# _entry_container（VBoxContainer）側の予約済みqueue_sort()（1フレーム後にscaleを
+	# Vector2.ONEへ巻き戻すGodotの既知の挙動）をやり過ごすため内部で1フレーム待ってから
+	# 改めてZEROへ揃え直す。stagger_tweenの生成自体もその内部待機の後になるため、
+	# 実時間の僅かな差分（RESULT_ROW_POP_STAGGER - 数十ms等）に依存する検証は
+	# テスト実行環境のフレーム時間のばらつきに弱くフレーキーになる。代わりに、
+	# stagger_tween生成からほぼ間を置かない安全なタイミング（2フレーム後）で
+	# 2件目（自分の番はRESULT_ROW_POP_STAGGER秒後まで来ない）がまだZEROのままであることを
+	# 確認することで「順次」（同時に全行がポップインしない）を検証する
+	await get_tree().process_frame
+	await get_tree().process_frame
 
 	var second_row := _find_row(screen, 1)
-	assert_vector(second_row.scale).is_equal(Vector2.ONE)
+	# 🔵 Control.scaleはGodot内部でCMP_EPSILON（0.00001）未満のゼロ成分をクランプするため、
+	# 他のscale検証（本ファイル内の他テスト）と同様にis_equal_approx()で比較する
+	assert_vector(second_row.scale).is_equal_approx(Vector2.ZERO, Vector2(0.001, 0.001))
 
 
 # 境界値

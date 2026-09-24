@@ -44,6 +44,24 @@ func test_購入成功後カウントダウン完了時にゴールド表示が�
 	assert_str(_find_gold_label(screen).text).is_equal("50 G")
 
 
+func test_連続で呼び出すと前回のカウントダウンTweenがkillされる() -> void:
+	# 🔴 コードレビュー指摘対応。連打購入等で短時間に_animate_gold_countdown()が連続呼び出しされると、
+	# 前回のTweenが生存したまま新しいTweenが同じ_gold_labelを奪い合い表示がちらつく/逆戻りする
+	# 競合があった。UiEffects.kill_active_tween()連携により前回Tweenがkillされることを検証する
+	var screen := _make_screen()
+
+	var first_tween: Tween = screen._animate_gold_countdown(
+		100, 50, UiTheme.ANIM_DURATION_GOLD_COUNTDOWN
+	)
+	var second_tween: Tween = screen._animate_gold_countdown(
+		50, 20, UiTheme.ANIM_DURATION_GOLD_COUNTDOWN
+	)
+
+	assert_bool(first_tween.is_valid()).is_false()
+	await second_tween.finished
+	assert_str(_find_gold_label(screen).text).is_equal("20 G")
+
+
 func test_カウントダウン中の中間値はfromとtoの範囲内に収まる() -> void:
 	var screen := _make_screen()
 	var observed_values: Array[int] = []

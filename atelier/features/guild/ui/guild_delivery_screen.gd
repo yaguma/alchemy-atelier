@@ -150,6 +150,16 @@ func _resolve_recipe_name(recipe_masters: Dictionary, recipe_id: StringName) -> 
 
 # 🟡 各結果行のポップ演出をRESULT_ROW_POP_STAGGER間隔でずらして開始する。
 # 行が0件の場合はTweenerを持たないTweenの生成自体を避け、警告ログの発生を防ぐ（AC-008相当）
+# 🔴 コードレビュー指摘対応: _add_entry_row()で生成された行はデフォルトscale ONE（フルサイズ）の
+# ままシーンツリーに追加されるため、stagger_tweenで自分の番が来るまでの間フルサイズで
+# 表示されてしまい、自分の番でscale ZEROへリセットされてから再ポップインする「チラつき」が
+# 発生していた。stagger開始前に全行をscale ZEROへ揃えておくことで、表示中は常に
+# 「未ポップイン=非表示」の状態を保ち、順番が来た行だけが自然にポップインするようにする。
+# 🔴 さらに、_entry_container（VBoxContainer）へのadd_child()時点で予約された
+# queue_sort()の遅延実行（Godotの既知の挙動でNOTIFICATION_SORT_CHILDREN時にContainerが
+# 子のscaleをVector2.ONEへ巻き戻す）が本関数呼び出し直後の最初のアイドルフレームで発火し、
+# 同期的に設定したscale ZEROを1フレームだけ上書きしてしまうため、1フレーム待って
+# レイアウトが落ち着いてから改めてZEROへ揃え直してからstagger_tweenを開始する
 func _play_result_row_pop_ins() -> void:
 	if _entry_container == null:
 		return
@@ -159,6 +169,13 @@ func _play_result_row_pop_ins() -> void:
 			rows.append(row as Control)
 	if rows.is_empty():
 		return
+
+	for row in rows:
+		row.scale = Vector2.ZERO
+	await get_tree().process_frame
+	for row in rows:
+		if is_instance_valid(row):
+			row.scale = Vector2.ZERO
 
 	var stagger_tween := create_tween()
 	for row in rows:

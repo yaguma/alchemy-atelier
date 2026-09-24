@@ -59,3 +59,12 @@ func show_outcome(outcome: ExamOutcome.Value) -> void:
 func _on_confirm_pressed() -> void:
 	visible = false
 	acknowledged.emit()
+
+
+## 🔴 コードレビュー指摘対応。最終ランク到達時、MainSceneはプレイヤーの確認操作
+## （acknowledged）を待たず本メソッドでオーバーレイを閉じてからresultへ遷移する
+## （commit_exam_outcome()がexam_outcome_confirmed→game_cleared/game_overを同一フレーム内で
+## 同期発行するため）。show_outcome()が起動したフェードインTweenが実行中でも即座に非表示にする
+func force_hide() -> void:
+	UiEffects.kill_active_tween(self)
+	visible = false

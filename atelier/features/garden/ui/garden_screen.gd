@@ -158,12 +158,16 @@ func _on_plant_seed_failed(_seed_id: StringName, error_code: StringName) -> void
 
 
 ## 🔵 ui-polish Plan タスク003。_refresh()が_slot_views[slot_index]をqueue_free()する「前」に
-## 収穫元スロットのノード参照を退避し、_refresh()後にUiEffects.fly_ghost()のsourceとして使う
-## （queue_free()は当該フレーム末尾まで実ノードを解放しないため、_refresh()を挟んでも参照は安全）
+## 収穫元スロットのノード参照とglobal_positionを退避し、_refresh()後にUiEffects.fly_ghost()の
+## sourceとして使う（queue_free()は当該フレーム末尾まで実ノードを解放しないため、_refresh()を
+## 挟んでも参照は安全。ただし_refresh()はremove_child()で即座にシーンツリーから外すため、
+## global_position自体は親を失う前にここで確保しておく必要がある）
 func _on_material_harvested(material: MaterialInstance, slot_index: int) -> void:
 	var source_slot_view: PlantSlotView = null
+	var source_global_position := Vector2.ZERO
 	if slot_index >= 0 and slot_index < _slot_views.size():
 		source_slot_view = _slot_views[slot_index]
+		source_global_position = source_slot_view.global_position
 
 	_refresh()
 
@@ -171,6 +175,7 @@ func _on_material_harvested(material: MaterialInstance, slot_index: int) -> void
 		UiEffects.fly_ghost(
 			_overlay_layer,
 			source_slot_view,
+			source_global_position,
 			_seed_inventory_list.global_position,
 			UiTheme.ANIM_DURATION_FLY_GHOST
 		)
