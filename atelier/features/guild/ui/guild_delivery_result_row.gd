@@ -14,6 +14,8 @@ const ORDER_MATCHED_TEXT := "指定合致"
 const TRAITS_NONE_TEXT := "なし"
 const TRAIT_SEPARATOR := ", "
 
+var _order_matched: bool = false
+
 # 🔴 コードレビュー指摘対応。AlchemyPreviewPanel/MaterialEntryRowと同名の
 # QualityLabel/TraitsLabel/ValueLabel/OrderMatchLabelは、本コンポーネントがAlchemyScreen配下に
 # 埋め込まれた際に範囲指定なしのfind_child()が誤ったノードを拾う脆さを生むため、Delivery接頭辞で一意化する
@@ -49,6 +51,23 @@ func setup(
 	# 🔵 NFR-201: 指定合致は色だけでなく専用テキストの表示/非表示でも判別できるようにする
 	_order_match_label.text = ORDER_MATCHED_TEXT
 	_order_match_label.visible = order_matched
+	_order_matched = order_matched
+
+
+## setup()で渡されたorder_matchedを返す（呼び出し元がハイライト演出要否を判定するために使う）。
+## 🟡 ui-polish Plan タスク012
+func is_order_matched() -> bool:
+	return _order_matched
+
+
+## 指定合致した結果行を強調するハイライト演出。UiEffects.play_highlight_pulse()の薄いラッパー
+## （AlchemySlotView.play_trait_highlight()と同型のパターン）。
+## 🟡 ui-polish Plan タスク012: GPUParticles2Dではなくself_modulateのパルスで代替する
+## （ドット絵デザインとの一貫性優先、design doc記載のキラキラ表現をユーザー決定で置換）
+func play_order_matched_highlight() -> Tween:
+	return UiEffects.play_highlight_pulse(
+		self, UiTheme.COLOR_ORDER_MATCHED_HIGHLIGHT, UiTheme.ANIM_DURATION_HIGHLIGHT_PULSE
+	)
 
 
 ## 品質スコアの表示文字列を組み立てる。🔵 AlchemyPreviewPanel.format_quality踏襲

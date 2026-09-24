@@ -1,10 +1,7 @@
 extends GdUnitTestSuite
 
-## G→F→Eの2段階連続昇格と工房強化購入までを、main.tscnのシーングラフ越しのUI操作だけで
-## 通しで検証するロングランプレイスルー結合シナリオ。
-##
-## 末尾の通しシナリオ1本が2段階昇格の全体を担い、その手前の各テストは
-## G→F昇格・工房強化購入・購入失敗といった局面ごとの回帰カバレッジとして併存する。
+## G→F→Eの2段階連続昇格と工房強化購入までを、main.tscnのシーングラフ越しのUI操作だけで通しで検証するロングランプレイスルー結合シナリオ。
+## 末尾の通しシナリオ1本が2段階昇格の全体を担い、その手前の各テストはG→F昇格・工房強化購入・購入失敗といった局面ごとの回帰カバレッジとして併存する。
 ## 既存のtest_main_scene_happy_path.gd（通常ターン1周）とtest_main_scene_exam_flow.gd（試験1回）が
 ## それぞれ単発の局面をカバーするのに対し、本スイートは複数ランクを跨いだ状態の引き継ぎを扱う。
 
@@ -30,8 +27,7 @@ const UPGRADE_ALCHEMY_SLOT_ID: StringName = &"upgrade_alchemy_slot"
 ## 工房画面は表示時点のゴールドで購入ボタンの活性/非活性を決めるため、試験開始より前に注入する
 const WORKSHOP_TEST_GOLD := 5000
 
-## 🔵 試験中の調合1回分の素材。通常ターン分（MATERIAL_INSTANCE_ID）は調合で消費されるため、
-## 試験ノルマを消し切るにはもう1個必要になる
+## 🔵 試験中の調合1回分の素材。通常ターン分（MATERIAL_INSTANCE_ID）は調合で消費されるため、試験ノルマを消し切るにはもう1個必要になる
 const EXAM_MATERIAL_INSTANCE_ID := "mat_full_loop_exam_1"
 
 ## 🟡 F→Eの2周目で使う素材。G→Fで使った2個は調合で消費済みのため、
@@ -106,8 +102,7 @@ func _setup_rank_masters() -> void:
 
 ## ランクノルマを「あと1回の納品で達成でき、かつ制限ターンには既に到達済み」の状態にする。
 ## 🟡 elapsed_turnを進める本番コードは未実装（rank_state.gdに既知ギャップとして明記）のため、
-## PROMOTION_ELIGIBLEへ到達させるにはRankStateの直接注入が必須。
-## 昇格するたびに次ランク用の状態を作り直す必要があるため、ランクを跨ぐたびに呼び直す。
+## PROMOTION_ELIGIBLEへ到達させるにはRankStateの直接注入が必須。昇格するたびに次ランク用の状態を作り直す必要があるため、ランクを跨ぐたびに呼び直す。
 func _enter_rank(rank_id: StringName) -> void:
 	var rank_state := RankState.new()
 	rank_state.quota = RANK_QUOTA_MAX
@@ -260,11 +255,19 @@ func _run_turn_until_exam_started(
 	await assert_signal(GameState).is_emitted("exam_started")
 
 
+## 🔵 タスク014。SUCCESS確定後の画面遷移はExamOutcomeOverlayの確認ボタン押下まで遅延されるため、
+## 本ヘルパーの呼び出し元は返ってきた時点で既にworkshopへの遷移まで完了しているものとして扱える
+func _acknowledge_exam_outcome(main: MainScene) -> void:
+	var overlay := main.find_child("ExamOutcomeOverlay", true, false) as ExamOutcomeOverlay
+	_press(overlay, "ConfirmButton")
+
+
 ## 試験中の調合1回と試験ターン送りを行い、合格が確定するところまで進める。
 func _pass_exam(main: MainScene, material_instance_id: String = EXAM_MATERIAL_INSTANCE_ID) -> void:
 	_craft_once_in_exam(main, material_instance_id)
 	_press(_alchemy(main), "AdvanceExamTurnButton")
 	await assert_signal(GameState).is_emitted("exam_outcome_confirmed", [ExamOutcome.Value.SUCCESS])
+	_acknowledge_exam_outcome(main)
 
 
 # --- 昇格回数の観測用リスナー ---
@@ -361,10 +364,9 @@ func test_G昇格試験に合格しworkshop画面へ自動遷移する() -> void
 ## Gランク昇格直後に強制表示される工房で恒久強化「投入枠+1」をUI操作のみで購入し、
 ## ゴールド減算と調合投入枠の増加が実際にGameStateへ反映されること、閉じたあと通常の
 ## ゲーム画面へ復帰できることを通しで確認する。
-##
 ## 🔴 復帰先は調合ではなく庭になる。MainScene._phase_before_workshopはshop_requested経由の
 ## 工房入場でしか更新されず（main.gd _on_shop_requested()）、試験合格時は
-## _on_exam_outcome_confirmed()がset_phase(PHASE_WORKSHOP)を直接呼ぶため初期値の庭が残るため
+## _on_alchemy_exam_result_pending()がset_phase(PHASE_WORKSHOP)を直接呼ぶため初期値の庭が残るため
 ## （main.gd _on_workshop_closed()のコメント「shop_requestedを経ずに工房へ入った場合は
 ## 初期値である庭へ戻る（AC-004異常系）」に一致）。昇格直後に新ランク用の仕込みへ戻る導線として
 ## 妥当と判断し、現状の挙動をそのまま固定する
@@ -451,7 +453,6 @@ func test_ランクを跨いで再度入場してもランク状態がリセッ�
 ## 【本Planの中核】G→F昇格、恒久強化の購入、F→E昇格までを1本のシナリオとして通しで実行し、
 ## ランクを跨いでも状態が正しく引き継がれること、およびその間MainSceneと4画面が一度も
 ## 破棄・再生成されないこと（NFR-001）を保証する。
-##
 ## 🔵 F→Eでは_enter_rank(RANK_F_ID)で低ノルマを再注入する。昇格時に本番コードが
 ## RankQuotaResolver.reset_for_retry()でquota=quota_max / elapsed_turn=0へ初期化する
 ## （game_state_rank_delegate.gd L231）ため、制限ターン到達済みの状態は毎回作り直す必要がある。

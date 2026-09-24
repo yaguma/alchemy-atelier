@@ -14,6 +14,7 @@ const ENTRY_SEPARATION := 8
 var _materials: Array[MaterialInstance] = []
 
 @onready var _entry_container: VBoxContainer = %EntryContainer
+@onready var _empty_state_label: Label = %EmptyStateLabel
 
 
 ## 表示対象のMaterialInstance配列を受け取り一覧を再構築する。🔵 US-001
@@ -29,8 +30,20 @@ func get_entry_count() -> int:
 	return _entry_container.get_child_count()
 
 
+## instance_idに対応する在庫行のglobal_positionを返す。🔵 ui-polish Plan タスク006。
+## 見つからない場合（行が既に破棄済み等）はリスト自体のglobal_positionをフォールバック値として返す
+func find_row_global_position(instance_id: String) -> Vector2:
+	if _entry_container == null:
+		return global_position
+	var row := _entry_container.get_node_or_null("MaterialEntry_%s" % instance_id)
+	if row is Control:
+		return (row as Control).global_position
+	return global_position
+
+
 func _ready() -> void:
 	_entry_container.add_theme_constant_override("separation", ENTRY_SEPARATION)
+	UiTheme.apply_pixel_font(_empty_state_label)
 	_rebuild()
 
 
@@ -47,6 +60,8 @@ func _rebuild() -> void:
 		if material == null:
 			continue
 		_add_entry_row(material)
+
+	_empty_state_label.visible = _entry_container.get_child_count() == 0
 
 
 # 🔵 MaterialEntryRowの@onready変数はadd_child()によるシーンツリー追加後の_ready()で解決されるため、

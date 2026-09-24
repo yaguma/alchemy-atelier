@@ -120,6 +120,22 @@ func test_SlotPanelにUiThemeの共通カードパネルスタイルボックス
 	assert_object(panel.get_theme_stylebox("panel")).is_same(UiTheme.make_panel_stylebox())
 
 
+# 🔵 ui-polish Plan タスク007
+func test_play_trait_highlightで有効なTweenが返りSlotPanelのself_modulateが元の色へ戻る() -> void:
+	var view := _make_view()
+	var tags: Array[StringName] = []
+	view.setup(0, _make_material(3, tags))
+	var panel := _find_panel(view)
+	var original_color := panel.self_modulate
+
+	var tween := view.play_trait_highlight()
+
+	assert_object(tween).is_not_null()
+	assert_bool(tween.is_valid()).is_true()
+	await tween.finished
+	assert_bool(panel.self_modulate == original_color).is_true()
+
+
 # 異常系
 
 

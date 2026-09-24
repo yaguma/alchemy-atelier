@@ -7,6 +7,7 @@
 [ext_resource type="PackedScene" path="res://features/rank/ui/result_screen.tscn" id="5_result_screen"]
 [ext_resource type="PackedScene" path="res://shared/ui/rank_hud.tscn" id="6_rank_hud"]
 [ext_resource type="PackedScene" path="res://shared/debug/debug_panel.tscn" id="7_debug_panel"]
+[ext_resource type="PackedScene" path="res://features/rank/ui/exam_outcome_overlay.tscn" id="8_exam_outcome_overlay"]
 
 [node name="Main" type="Control"]
 layout_mode = 3
@@ -63,6 +64,11 @@ unique_name_in_owner = true
 layout_mode = 2
 toggle_mode = true
 text = "調合"
+
+[node name="ExamOutcomeOverlay" parent="." instance=ExtResource("8_exam_outcome_overlay")]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
 
 [node name="SettingsOverlayLayer" type="Control" parent="."]
 unique_name_in_owner = true
