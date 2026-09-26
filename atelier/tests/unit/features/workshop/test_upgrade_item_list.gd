@@ -97,3 +97,38 @@ func test_ready前にsetupを呼んでもクラッシュせずready後に反映�
 
 	assert_int(list.get_entry_count()).is_equal(1)
 	assert_object(_find_row(list, &"slot_up")).is_not_null()
+
+
+# 正常系
+
+
+## 🔴 コードレビュー指摘対応の回帰テスト。UpgradeItemListはextends Controlのため、
+## _get_minimum_size()をEntryContainerへ転送する対応をしないと親のVBoxContainer
+## （workshop_screen.tscn）へ常に(0,0)を報告し、行が0高さに潰れて他の行と重なって描画される
+## 不具合があった。
+func test_get_minimum_sizeがエントリの内容に応じて0より大きくなる() -> void:
+	var list := _make_list()
+	var upgrade := _make_upgrade(&"slot_up", "調合枠拡張", 100, 1)
+
+	list.setup([upgrade], 500, {}, false)
+	var min_size := list.get_combined_minimum_size()
+
+	assert_float(min_size.y).is_greater(0.0)
+
+
+## 🔴 コードレビュー指摘対応（PR #62フォローアップ）。表示中に購入等でsetup()が
+## 再呼び出しされ行数が変わっても、ForwardingControl経由でEntryContainerの
+## minimum_size_changedを購読しているため、ノードをツリーから外さずに
+## get_combined_minimum_size()が追従することを確認する。
+func test_get_minimum_sizeがsetupの再呼び出しで行数増加に追従する() -> void:
+	var list := _make_list()
+	var upgrade_a := _make_upgrade(&"slot_up_a", "調合枠拡張A", 100, 1)
+	var upgrade_b := _make_upgrade(&"slot_up_b", "調合枠拡張B", 200, 1)
+	var upgrade_c := _make_upgrade(&"slot_up_c", "調合枠拡張C", 300, 1)
+	list.setup([upgrade_a], 500, {}, false)
+	var min_size_before := list.get_combined_minimum_size()
+
+	list.setup([upgrade_a, upgrade_b, upgrade_c], 500, {}, false)
+	var min_size_after := list.get_combined_minimum_size()
+
+	assert_float(min_size_after.y).is_greater(min_size_before.y)

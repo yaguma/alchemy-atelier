@@ -156,3 +156,32 @@ func test_指定合致の強調表示はshow_previewの呼び直しで切り替�
 
 	panel.show_preview(1, traits, 1.0, 1.0, false)
 	assert_bool(_find_label(panel, "OrderMatchLabel").visible).is_false()
+
+
+## 🔴 コードレビュー指摘対応の回帰テスト。AlchemyPreviewPanelはextends Controlのため、
+## _get_minimum_size()をPreviewPanelへ転送する対応をしないと親のVBoxContainer
+## （alchemy_screen.tscn）へ常に(0,0)を報告し、行が0高さに潰れて他の行と重なって描画される
+## 不具合があった。
+func test_get_minimum_sizeがPreviewPanelの内容に応じて0より大きくなる() -> void:
+	var panel := _make_panel()
+
+	var min_size := panel.get_combined_minimum_size()
+
+	assert_float(min_size.y).is_greater(0.0)
+
+
+## 🔴 コードレビュー指摘対応（PR #62フォローアップ）。表示中にshow_preview()が
+## 再呼び出しされOrderMatchLabelが非表示→表示に切り替わっても、ForwardingControl経由で
+## PreviewPanelのminimum_size_changedを購読しているため、ノードをツリーから外さずに
+## get_combined_minimum_size()が追従することを確認する（VBoxContainerは非表示の子を
+## 最小サイズ計算から除外するため、表示切替でPreviewPanel全体の必要高さが変わる）。
+func test_get_minimum_sizeがOrderMatchLabelの表示切替に追従する() -> void:
+	var panel := _make_panel()
+	var traits: Array[StringName] = []
+	panel.show_preview(1, traits, 1.0, 1.0, false)
+	var min_size_before := panel.get_combined_minimum_size()
+
+	panel.show_preview(1, traits, 1.0, 1.0, true)
+	var min_size_after := panel.get_combined_minimum_size()
+
+	assert_float(min_size_after.y).is_greater(min_size_before.y)

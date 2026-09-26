@@ -1,5 +1,5 @@
 class_name AlchemyPreviewPanel
-extends Control
+extends ForwardingControl
 
 ## 調合のライブプレビュー（品質・発現特性・見込み貢献度・見込み報酬）を表示する
 ## 表示専用コンポーネント（US-101, AC-007）。
@@ -25,6 +25,9 @@ var _value_text: String = ""
 
 
 func _ready() -> void:
+	# 🔴 コードレビュー指摘対応（PR #62）。AlchemyPreviewPanelはextends Controlのラッパーのため
+	# ForwardingControl（shared/ui/forwarding_control.gd）経由でPreviewPanelの実サイズを転送する
+	_bind_minimum_size_forward([_preview_panel])
 	# 🟡 プレビュー全体を1枚のカードで囲む。make_panel_stylebox()はキャッシュ済みの単一インスタンス
 	UiTheme.apply_panel_style(_preview_panel)
 	for label: Label in [_quality_label, _traits_label, _value_label, _order_match_label]:
