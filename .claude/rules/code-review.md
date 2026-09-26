@@ -33,6 +33,7 @@ PRコードレビュー時に適用する共通基準。全レビュアーはこ
 - テスト不足（新機能にテストなし, エッジケース未カバー）
 - パフォーマンス懸念（`_process()`内の重い処理, 不要なノード生成）
 - コーディング規約違反（命名規則, ファイル構成）
+- 「実コンテンツを持つContainerを丸ごと包むだけのControl」を`extends Control`のまま`GridContainer`/`VBoxContainer`等の子として配置している（`extends ForwardingControl`＋`_bind_minimum_size_forward()`が必要。🔴PR #62参照。親Container側で行の高さが0に潰れ他の行と重なって描画される実害があるため、再発時はCriticalへ格上げも検討する）
 
 ### Info の基準
 
