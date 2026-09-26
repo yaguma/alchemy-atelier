@@ -114,3 +114,21 @@ func test_get_minimum_sizeがエントリの内容に応じて0より大きく�
 	var min_size := list.get_combined_minimum_size()
 
 	assert_float(min_size.y).is_greater(0.0)
+
+
+## 🔴 コードレビュー指摘対応（PR #62フォローアップ）。表示中に購入等でsetup()が
+## 再呼び出しされ行数が変わっても、ForwardingControl経由でEntryContainerの
+## minimum_size_changedを購読しているため、ノードをツリーから外さずに
+## get_combined_minimum_size()が追従することを確認する。
+func test_get_minimum_sizeがsetupの再呼び出しで行数増加に追従する() -> void:
+	var list := _make_list()
+	var upgrade_a := _make_upgrade(&"slot_up_a", "調合枠拡張A", 100, 1)
+	var upgrade_b := _make_upgrade(&"slot_up_b", "調合枠拡張B", 200, 1)
+	var upgrade_c := _make_upgrade(&"slot_up_c", "調合枠拡張C", 300, 1)
+	list.setup([upgrade_a], 500, {}, false)
+	var min_size_before := list.get_combined_minimum_size()
+
+	list.setup([upgrade_a, upgrade_b, upgrade_c], 500, {}, false)
+	var min_size_after := list.get_combined_minimum_size()
+
+	assert_float(min_size_after.y).is_greater(min_size_before.y)

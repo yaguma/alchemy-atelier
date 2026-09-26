@@ -1,5 +1,5 @@
 class_name PlantSlotView
-extends Control
+extends ForwardingControl
 
 ## 庭の1スロットを表示する表示専用コンポーネント（FR-201〜204, NFR-201, AC-010）。
 ## 空き/生育中/収穫可能/枯死警告の4状態を色・アイコン・テキストの併記で表示する。
@@ -38,22 +38,13 @@ var _harvest_enabled: bool = false
 @onready var _wait_button: Button = %WaitButton
 
 
-## 🔴 コードレビュー指摘対応。PlantSlotViewはextends Controlであり、素のControlの
-## get_minimum_size()は常に(0,0)を返す（子の内容を自動集計しない）。SlotsContainer
-## （GridContainer）はこの(0,0)をそのまま採用してセル高さを0にしてしまい、_slot_panel内の
-## 実際のラベル・ボタンは表示上あふれ出るだけで、行の確保領域自体は0のまま次のSeedInventoryList等と
-## ほぼ同じY座標に重なって描画される不具合があった。_slot_panel（PanelContainer、実際のコンテンツを
-## 持つ）のcombined_minimum_sizeをそのまま転送することで、GridContainerに正しい行高を伝える
-func _get_minimum_size() -> Vector2:
-	if _slot_panel == null:
-		return Vector2.ZERO
-	return _slot_panel.get_combined_minimum_size()
-
-
 ## 🟡 garden-alchemy-visual-refresh Plan タスク007: ドット絵カードパネル・ボタン・
 ## DotGothic16フォントを統合する。HarvestButton=確定操作でPRIMARY、WaitButton=
 ## 「様子を見る」という消極的な操作でSECONDARYとした（タスクファイルの暫定割り当てに従う）
 func _ready() -> void:
+	# 🔴 コードレビュー指摘対応（PR #62）。PlantSlotViewはextends Controlのラッパーのため
+	# ForwardingControl（shared/ui/forwarding_control.gd）経由でSlotPanelの実サイズを転送する
+	_bind_minimum_size_forward([_slot_panel])
 	UiTheme.apply_panel_style(_slot_panel)
 	_harvest_button.pressed.connect(_on_harvest_pressed)
 	_wait_button.pressed.connect(_on_wait_pressed)

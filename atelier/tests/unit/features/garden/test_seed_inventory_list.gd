@@ -159,3 +159,32 @@ func test_get_minimum_sizeがエントリの内容に応じて0より大きく�
 	var min_size := list.get_combined_minimum_size()
 
 	assert_float(min_size.y).is_greater(0.0)
+
+
+## 🔴 コードレビュー指摘対応（PR #62フォローアップ）。表示中に植え付け等でsetup()が
+## 再呼び出しされ行数が増えても、ForwardingControl経由でEntryContainerのminimum_size_changed
+## を購読しているため、ノードをツリーから外さずにget_combined_minimum_size()が追従することを確認する。
+func test_get_minimum_sizeがsetupの再呼び出しで行数増加に追従する() -> void:
+	var list := _make_list()
+	var master := _make_seed_master(&"seed_herb", "薬草の種")
+	list.setup([{"seed_id": &"seed_herb", "count": 1}], {&"seed_herb": master})
+	var min_size_before := list.get_combined_minimum_size()
+
+	(
+		list
+		. setup(
+			[
+				{"seed_id": &"seed_herb", "count": 1},
+				{"seed_id": &"seed_ore", "count": 1},
+				{"seed_id": &"seed_gem", "count": 1},
+			],
+			{
+				&"seed_herb": master,
+				&"seed_ore": _make_seed_master(&"seed_ore", "鉱石の種"),
+				&"seed_gem": _make_seed_master(&"seed_gem", "宝石の種"),
+			}
+		)
+	)
+	var min_size_after := list.get_combined_minimum_size()
+
+	assert_float(min_size_after.y).is_greater(min_size_before.y)

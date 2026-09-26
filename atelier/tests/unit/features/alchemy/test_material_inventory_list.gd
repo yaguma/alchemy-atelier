@@ -258,3 +258,28 @@ func test_get_minimum_sizeが空状態でも0より大きくなる() -> void:
 	var min_size := list.get_combined_minimum_size()
 
 	assert_float(min_size.y).is_greater(0.0)
+
+
+## 🔴 コードレビュー指摘対応（PR #62フォローアップ）。表示中に素材配置/取消でsetup()が
+## 再呼び出しされ件数が変わっても、ForwardingControl経由でEntryContainerの
+## minimum_size_changedを購読しているため、ノードをツリーから外さずに
+## get_combined_minimum_size()が追従することを確認する。
+func test_get_minimum_sizeがsetupの再呼び出しで件数増加に追従する() -> void:
+	var list := _make_list()
+	var no_tags: Array[StringName] = []
+	list.setup([_make_material("mat_1", &"herb_common", 3, no_tags)])
+	var min_size_before := list.get_combined_minimum_size()
+
+	(
+		list
+		. setup(
+			[
+				_make_material("mat_1", &"herb_common", 3, no_tags),
+				_make_material("mat_2", &"ore_common", 2, no_tags),
+				_make_material("mat_3", &"gem_common", 4, no_tags),
+			]
+		)
+	)
+	var min_size_after := list.get_combined_minimum_size()
+
+	assert_float(min_size_after.y).is_greater(min_size_before.y)

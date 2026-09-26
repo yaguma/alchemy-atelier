@@ -1,5 +1,5 @@
 class_name MaterialInventoryList
-extends Control
+extends ForwardingControl
 
 ## 在庫素材を一覧表示し、投入枠への配置操作の起点となる表示専用コンポーネント（US-001, AC-002, AC-004）。
 ## GameStateには依存せず、表示対象のMaterialInstance配列をsetup()で受け取る。
@@ -41,23 +41,11 @@ func find_row_global_position(instance_id: String) -> Vector2:
 	return global_position
 
 
-## 🔴 コードレビュー指摘対応。MaterialInventoryListはextends Controlであり、素のControlの
-## get_minimum_size()は常に(0,0)を返す（子の内容を自動集計しない）。alchemy_screen.tscnの
-## 親VBoxContainerはこれをそのまま採用し本コンポーネントの行を0高さにしてしまい、
-## _entry_container内の実際の在庫行は表示上あふれ出るだけで、行の確保領域自体は0のまま
-## 直前のAlchemyPreviewPanel等とほぼ同じY座標に重なって描画される不具合があった
-## （plant_slot_view.gdと同根）。在庫あり時は_entry_container、空状態時は_empty_state_labelの
-## どちらか大きい方を転送する（どちらが表示中でも親に正しい行高を伝えるため、可視状態で分岐せず
-## 常にmaxを取る）
-func _get_minimum_size() -> Vector2:
-	if _entry_container == null or _empty_state_label == null:
-		return Vector2.ZERO
-	var entry_min := _entry_container.get_combined_minimum_size()
-	var empty_min := _empty_state_label.get_combined_minimum_size()
-	return Vector2(maxf(entry_min.x, empty_min.x), maxf(entry_min.y, empty_min.y))
-
-
 func _ready() -> void:
+	# 🔴 コードレビュー指摘対応（PR #62）。MaterialInventoryListはextends Controlのラッパーのため
+	# ForwardingControl（shared/ui/forwarding_control.gd）経由でEntryContainer/EmptyStateLabelの
+	# 実サイズを転送する（在庫あり時と空状態時、どちらが表示中でも大きい方を報告する）
+	_bind_minimum_size_forward([_entry_container, _empty_state_label])
 	_entry_container.add_theme_constant_override("separation", ENTRY_SEPARATION)
 	UiTheme.apply_pixel_font(_empty_state_label)
 	_rebuild()

@@ -1,5 +1,5 @@
 class_name UpgradeItemList
-extends Control
+extends ForwardingControl
 
 ## 1タブ分（恒久 or 消耗）のアイテム一覧を表示し、購入操作の起点となる表示専用コンポーネント。
 ## GameStateに依存せず、整形済み配列をsetup()で受け取る（SeedInventoryListと同型）。
@@ -38,20 +38,10 @@ func get_entry_count() -> int:
 	return _entry_container.get_child_count()
 
 
-## 🔴 コードレビュー指摘対応。UpgradeItemListはextends Controlであり、素のControlの
-## get_minimum_size()は常に(0,0)を返す（子の内容を自動集計しない）。workshop_screen.tscnの
-## 親VBoxContainerはこれをそのまま採用し本コンポーネントの行を0高さにしてしまい、
-## _entry_container内の実際のアイテム行は表示上あふれ出るだけで、行の確保領域自体は0のまま
-## PermanentList/ConsumableList同士やToastLabel等とほぼ同じY座標に重なって描画される
-## 不具合があった（plant_slot_view.gdと同根）。_entry_containerのcombined_minimum_sizeを
-## そのまま転送することで、親に正しい行高を伝える
-func _get_minimum_size() -> Vector2:
-	if _entry_container == null:
-		return Vector2.ZERO
-	return _entry_container.get_combined_minimum_size()
-
-
 func _ready() -> void:
+	# 🔴 コードレビュー指摘対応（PR #62）。UpgradeItemListはextends Controlのラッパーのため
+	# ForwardingControl（shared/ui/forwarding_control.gd）経由でEntryContainerの実サイズを転送する
+	_bind_minimum_size_forward([_entry_container])
 	_entry_container.add_theme_constant_override("separation", UiTheme.SPACING_LIST_ENTRY)
 	_rebuild()
 

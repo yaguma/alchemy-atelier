@@ -175,6 +175,33 @@ func setup(plants: Array[PlantState]) -> void:
 # 明示的なdestroy()の呼び出しや_exit_tree()での個別破棄は不要
 ```
 
+### Controlラッパーの最小サイズ転送（`ForwardingControl`）
+
+> 🔴 PR #62で6箇所（`PlantSlotView`/`SeedInventoryList`/`AlchemyPreviewPanel`/`MaterialInventoryList`/`UpgradeItemList`/`GuildDeliveryScreen`）に渡って独立に踏まれた罠を集約した節。
+
+「実コンテンツを持つ`PanelContainer`/`VBoxContainer`等を丸ごと包むだけの`Control`」を、`GridContainer`/`VBoxContainer`等の**Container系の子として配置する**場合は要注意。素の`Control`の`get_minimum_size()`は常に`(0,0)`を返し、子の内容を自動集計しない（この自動集計はContainer系ノードだけが持つ特別な機能）。親Containerはこの`(0,0)`をそのまま採用して行を0高さに潰してしまい、内部の実コンテンツは表示上あふれ出るだけで、行の確保領域自体は0のまま次の行とほぼ同じY座標に重なって描画される。
+
+このパターンに当てはまるコンポーネント（`extends Control`で、内部に実コンテンツを持つ1つ以上のContainer/Labelを`layout_mode=1`のanchors-fillで抱えている）は、`res://shared/ui/forwarding_control.gd`の`ForwardingControl`を継承し、`_ready()`（`@onready`変数解決後）で`_bind_minimum_size_forward([...])`を呼ぶこと。
+
+```gdscript
+class_name SeedInventoryList
+extends ForwardingControl  # extends Controlではなくこちらを使う
+
+@onready var _entry_container: VBoxContainer = %EntryContainer
+
+func _ready() -> void:
+	_bind_minimum_size_forward([_entry_container])  # 他の初期化より先に呼ぶ
+	...
+```
+
+複数の子のうち「表示中のものが大きい方」を報告したい場合（例: 通常リストと空状態ラベルのどちらか一方だけが可視）は配列に複数渡す（各軸の最大値を報告する）。
+
+```gdscript
+_bind_minimum_size_forward([_entry_container, _empty_state_label])
+```
+
+`_get_minimum_size()`を自前でオーバーライドして`_entry_container.get_combined_minimum_size()`を返すだけでは**不十分**な点に注意: `setup()`の再呼び出し等でノードをツリーから外さずに内容が変化した場合（例: 調合中に素材を投入/取り消しして在庫件数が変わる）、対象の`combined_minimum_size`自体は変化していても、誰も本コンポーネントの`update_minimum_size()`を呼ばないため、親Containerへ再レイアウトの通知が届かず、古いサイズのまま次第にズレていく（`ForwardingControl`は対象の`minimum_size_changed`シグナルを購読しこれを解決する）。
+
 ## アニメーション
 
 ### `Tween`の使用
@@ -239,3 +266,4 @@ func _on_mouse_exited() -> void:
 - `UiTheme`を使わずに色をハードコーディングする
 - `Tween`/`Timer`の停止漏れ（ノード跨ぎで使い回す場合のみ該当）
 - シーン外で`Control`ノードを`new()`して管理する（Godotでは`.tscn`の`instantiate()`を使う）
+- Container系ノードの子として配置する「実コンテンツを丸ごと包むだけの`Control`」ラッパーで、`ForwardingControl`（「Controlラッパーの最小サイズ転送」節参照）を継承せずに済ませる（親Containerへの行の高さが0に潰れ、他の行と重なって描画される）

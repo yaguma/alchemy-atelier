@@ -1,5 +1,5 @@
 class_name GuildDeliveryScreen
-extends Control
+extends ForwardingControl
 
 ## ギルド納品結果画面。納品1件ごとの結果リスト・合計貢献度/合計報酬・ランクノルマ簡易バーを表示し、
 ## 「続ける」ボタンで導線シグナルを発行する（US-001〜US-401, AC-001〜AC-008）。
@@ -39,18 +39,10 @@ var _total_reward: float = 0.0
 ## 🔴 コードレビュー指摘対応: apply_pixel_font(self)はGodotのadd_theme_font_overrideが
 ## 子孫へ伝播しないため実質no-opだった（ルート自身はテキストを持たない）。garden_screen.gd等の
 ## 既存実装と同じく、テキストを持つ各ノードへ個別に適用する
-## 🔴 コードレビュー指摘対応。GuildDeliveryScreenはextends Controlであり、素のControlの
-## get_minimum_size()は常に(0,0)を返す（子の内容を自動集計しない）。alchemy_screen.tscnに
-## インライン埋め込みされる際、visible=trueで表示された瞬間に親VBoxContainerがこれをそのまま
-## 採用し本コンポーネントの行を0高さにしてしまう（plant_slot_view.gdと同根）。_content_panel
-## （PanelContainer、実際のコンテンツを持つ）のcombined_minimum_sizeをそのまま転送する
-func _get_minimum_size() -> Vector2:
-	if _content_panel == null:
-		return Vector2.ZERO
-	return _content_panel.get_combined_minimum_size()
-
-
 func _ready() -> void:
+	# 🔴 コードレビュー指摘対応（PR #62）。GuildDeliveryScreenはextends Controlのラッパーのため
+	# ForwardingControl（shared/ui/forwarding_control.gd）経由でContentPanelの実サイズを転送する
+	_bind_minimum_size_forward([_content_panel])
 	UiTheme.apply_panel_style(_content_panel)
 	_entry_container.add_theme_constant_override("separation", ENTRY_SEPARATION)
 	_continue_button.pressed.connect(_on_continue_pressed)
