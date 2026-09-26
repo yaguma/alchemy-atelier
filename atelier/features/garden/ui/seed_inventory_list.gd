@@ -31,6 +31,18 @@ func get_entry_count() -> int:
 	return _entry_container.get_child_count()
 
 
+## 🔴 コードレビュー指摘対応。SeedInventoryListはextends Controlであり、素のControlの
+## get_minimum_size()は常に(0,0)を返す（子の内容を自動集計しない）。garden_screen.tscnの
+## 親VBoxContainerはこれをそのまま採用し本コンポーネントの行を0高さにしてしまい、
+## _entry_container内の実際の種エントリ行は表示上あふれ出るだけで、SlotsContainer等の
+## 直前の行とほぼ同じY座標に重なって描画される不具合があった（plant_slot_view.gdと同根）。
+## _entry_containerのcombined_minimum_sizeをそのまま転送することで、親に正しい行高を伝える
+func _get_minimum_size() -> Vector2:
+	if _entry_container == null:
+		return Vector2.ZERO
+	return _entry_container.get_combined_minimum_size()
+
+
 func _ready() -> void:
 	_entry_container.add_theme_constant_override("separation", ENTRY_SEPARATION)
 	_rebuild()

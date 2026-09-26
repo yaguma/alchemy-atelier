@@ -97,3 +97,20 @@ func test_ready前にsetupを呼んでもクラッシュせずready後に反映�
 
 	assert_int(list.get_entry_count()).is_equal(1)
 	assert_object(_find_row(list, &"slot_up")).is_not_null()
+
+
+# 正常系
+
+
+## 🔴 コードレビュー指摘対応の回帰テスト。UpgradeItemListはextends Controlのため、
+## _get_minimum_size()をEntryContainerへ転送する対応をしないと親のVBoxContainer
+## （workshop_screen.tscn）へ常に(0,0)を報告し、行が0高さに潰れて他の行と重なって描画される
+## 不具合があった。
+func test_get_minimum_sizeがエントリの内容に応じて0より大きくなる() -> void:
+	var list := _make_list()
+	var upgrade := _make_upgrade(&"slot_up", "調合枠拡張", 100, 1)
+
+	list.setup([upgrade], 500, {}, false)
+	var min_size := list.get_combined_minimum_size()
+
+	assert_float(min_size.y).is_greater(0.0)

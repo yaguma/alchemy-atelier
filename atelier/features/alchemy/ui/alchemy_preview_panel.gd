@@ -24,6 +24,18 @@ var _value_text: String = ""
 @onready var _order_match_label: Label = %OrderMatchLabel
 
 
+## 🔴 コードレビュー指摘対応。AlchemyPreviewPanelはextends Controlであり、素のControlの
+## get_minimum_size()は常に(0,0)を返す（子の内容を自動集計しない）。alchemy_screen.tscnの
+## 親VBoxContainerはこれをそのまま採用し本コンポーネントの行を0高さにしてしまい、_preview_panel内の
+## 実際のラベル群は表示上あふれ出るだけで、行の確保領域自体は0のまま直後のMaterialInventoryList等と
+## ほぼ同じY座標に重なって描画される不具合があった（plant_slot_view.gdと同根）。_preview_panel
+## （PanelContainer、実際のコンテンツを持つ）のcombined_minimum_sizeをそのまま転送する
+func _get_minimum_size() -> Vector2:
+	if _preview_panel == null:
+		return Vector2.ZERO
+	return _preview_panel.get_combined_minimum_size()
+
+
 func _ready() -> void:
 	# 🟡 プレビュー全体を1枚のカードで囲む。make_panel_stylebox()はキャッシュ済みの単一インスタンス
 	UiTheme.apply_panel_style(_preview_panel)

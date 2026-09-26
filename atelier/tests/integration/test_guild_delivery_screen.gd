@@ -391,3 +391,18 @@ func test_見出しと合計ラベルと続けるボタンにドット絵フォ�
 	assert_object(rank_name_label.get_theme_font("font")).is_same(UiTheme.FONT_PIXEL_JP)
 	assert_object(total_label.get_theme_font("font")).is_same(UiTheme.FONT_PIXEL_JP)
 	assert_object(continue_button.get_theme_font("font")).is_same(UiTheme.FONT_PIXEL_JP)
+
+
+## 🔴 コードレビュー指摘対応の回帰テスト。GuildDeliveryScreenはextends Controlのため、
+## _get_minimum_size()をContentPanelへ転送する対応をしないと、alchemy_screen.tscnへ
+## インライン埋め込みされた際に親のVBoxContainerへ常に(0,0)を報告し、行が0高さに潰れて
+## 他の行と重なって描画される不具合があった。
+func test_get_minimum_sizeが結果表示の内容に応じて0より大きくなる() -> void:
+	var screen := _make_screen()
+	var products: Array[ProductInstance] = [_make_product(RECIPE_A, 4)]
+	var results: Array[DeliveryResult] = [_make_result(12.5, 30.0)]
+
+	screen.display_results(products, results)
+	var min_size := screen.get_combined_minimum_size()
+
+	assert_float(min_size.y).is_greater(0.0)

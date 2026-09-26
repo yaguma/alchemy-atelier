@@ -38,6 +38,18 @@ var _harvest_enabled: bool = false
 @onready var _wait_button: Button = %WaitButton
 
 
+## 🔴 コードレビュー指摘対応。PlantSlotViewはextends Controlであり、素のControlの
+## get_minimum_size()は常に(0,0)を返す（子の内容を自動集計しない）。SlotsContainer
+## （GridContainer）はこの(0,0)をそのまま採用してセル高さを0にしてしまい、_slot_panel内の
+## 実際のラベル・ボタンは表示上あふれ出るだけで、行の確保領域自体は0のまま次のSeedInventoryList等と
+## ほぼ同じY座標に重なって描画される不具合があった。_slot_panel（PanelContainer、実際のコンテンツを
+## 持つ）のcombined_minimum_sizeをそのまま転送することで、GridContainerに正しい行高を伝える
+func _get_minimum_size() -> Vector2:
+	if _slot_panel == null:
+		return Vector2.ZERO
+	return _slot_panel.get_combined_minimum_size()
+
+
 ## 🟡 garden-alchemy-visual-refresh Plan タスク007: ドット絵カードパネル・ボタン・
 ## DotGothic16フォントを統合する。HarvestButton=確定操作でPRIMARY、WaitButton=
 ## 「様子を見る」という消極的な操作でSECONDARYとした（タスクファイルの暫定割り当てに従う）

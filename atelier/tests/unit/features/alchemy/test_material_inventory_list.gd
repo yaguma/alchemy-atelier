@@ -231,3 +231,30 @@ func test_20件の素材を渡しても全件表示され末尾のシグナル�
 
 	assert_int(list.get_entry_count()).is_equal(20)
 	await assert_signal(list).is_emitted("material_place_requested", ["mat_19"])
+
+
+# 正常系
+
+
+## 🔴 コードレビュー指摘対応の回帰テスト。MaterialInventoryListはextends Controlのため、
+## _get_minimum_size()をEntryContainer/EmptyStateLabelへ転送する対応をしないと親のVBoxContainer
+## （alchemy_screen.tscn）へ常に(0,0)を報告し、行が0高さに潰れて他の行と重なって描画される
+## 不具合があった。在庫あり・空状態それぞれで確認する。
+func test_get_minimum_sizeが在庫の内容に応じて0より大きくなる() -> void:
+	var list := _make_list()
+	var no_tags: Array[StringName] = []
+	list.setup([_make_material("mat_1", &"herb_common", 3, no_tags)])
+
+	var min_size := list.get_combined_minimum_size()
+
+	assert_float(min_size.y).is_greater(0.0)
+
+
+func test_get_minimum_sizeが空状態でも0より大きくなる() -> void:
+	var list := _make_list()
+
+	list.setup([])
+
+	var min_size := list.get_combined_minimum_size()
+
+	assert_float(min_size.y).is_greater(0.0)

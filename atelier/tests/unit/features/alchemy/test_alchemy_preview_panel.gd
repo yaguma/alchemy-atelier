@@ -156,3 +156,15 @@ func test_指定合致の強調表示はshow_previewの呼び直しで切り替�
 
 	panel.show_preview(1, traits, 1.0, 1.0, false)
 	assert_bool(_find_label(panel, "OrderMatchLabel").visible).is_false()
+
+
+## 🔴 コードレビュー指摘対応の回帰テスト。AlchemyPreviewPanelはextends Controlのため、
+## _get_minimum_size()をPreviewPanelへ転送する対応をしないと親のVBoxContainer
+## （alchemy_screen.tscn）へ常に(0,0)を報告し、行が0高さに潰れて他の行と重なって描画される
+## 不具合があった。
+func test_get_minimum_sizeがPreviewPanelの内容に応じて0より大きくなる() -> void:
+	var panel := _make_panel()
+
+	var min_size := panel.get_combined_minimum_size()
+
+	assert_float(min_size.y).is_greater(0.0)
