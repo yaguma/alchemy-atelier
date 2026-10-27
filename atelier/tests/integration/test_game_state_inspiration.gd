@@ -7,11 +7,14 @@ const SOURCE_RECIPE_ID := &"recipe_healing_potion"
 const HOLY_RESULT_ID := &"recipe_holy_water"
 const HEAL_RESULT_ID := &"recipe_high_healing_potion"
 const RANK_ID := &"rank_e"
+const CODEX_TEST_PATH := "user://test_codex_inspiration.json"
 
 var _material_seq := 0
 
 
 func before_test() -> void:
+	# 🔵 Issue #69。ひらめくとCodexServiceが図鑑ファイルへ書き込むため、本番の図鑑を汚さないよう差し替える
+	CodexService.reset_for_test(CODEX_TEST_PATH)
 	GameState.reset_for_test()
 	var recipes := {
 		SOURCE_RECIPE_ID: _make_recipe(SOURCE_RECIPE_ID),
@@ -33,6 +36,9 @@ func before_test() -> void:
 
 func after_test() -> void:
 	GameState.reset_for_test()
+	if FileAccess.file_exists(CODEX_TEST_PATH):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(CODEX_TEST_PATH))
+	CodexService.reset_for_test(CODEX_TEST_PATH)
 
 
 func _make_recipe(id: StringName) -> RecipeMaster:

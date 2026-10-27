@@ -70,6 +70,13 @@ layout_mode = 2
 size_flags_horizontal = 4
 text = "つづきから"
 
+[node name="CodexButton" type="Button" parent="RootContainer"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(240, 0)
+layout_mode = 2
+size_flags_horizontal = 4
+text = "ずかん"
+
 [node name="SettingsButton" type="Button" parent="RootContainer"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(240, 0)
