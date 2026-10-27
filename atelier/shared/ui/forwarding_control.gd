@@ -25,19 +25,29 @@ extends Control
 var _forward_targets: Array[Control] = []
 
 
+## 再呼び出しされた場合は旧対象の購読を解除してから差し替える（旧対象の内容変化で
+## 不要な再レイアウトが走り続けるのを防ぐ）。差し替え直後の値を即座に親へ反映するため、
+## 最後にupdate_minimum_size()を呼ぶ。
 func _bind_minimum_size_forward(targets: Array[Control]) -> void:
+	for old_target in _forward_targets:
+		if not is_instance_valid(old_target):
+			continue
+		if old_target.minimum_size_changed.is_connected(_on_forward_target_minimum_size_changed):
+			old_target.minimum_size_changed.disconnect(_on_forward_target_minimum_size_changed)
 	_forward_targets = targets
 	for target in _forward_targets:
-		if target == null:
+		if not is_instance_valid(target):
 			continue
 		if not target.minimum_size_changed.is_connected(_on_forward_target_minimum_size_changed):
 			target.minimum_size_changed.connect(_on_forward_target_minimum_size_changed)
+	update_minimum_size()
 
 
 func _get_minimum_size() -> Vector2:
 	var result := Vector2.ZERO
 	for target in _forward_targets:
-		if target == null:
+		# 解放済みの対象（queue_free後）に触れるとエラーになるため、nullだけでなく有効性も確認する
+		if not is_instance_valid(target):
 			continue
 		var target_min := target.get_combined_minimum_size()
 		result.x = maxf(result.x, target_min.x)
