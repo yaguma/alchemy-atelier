@@ -197,6 +197,23 @@ func test_相場が下がったレシピはプレビューにも相場倍率が�
 	assert_str(_preview_label_text(screen, "ValueLabel")).is_equal("見込み貢献度: 15.8 / 見込み報酬: 7.9")
 
 
+## 🔴 PR #73レビュー指摘対応。通常ターンは調合物がターン終了まで納品待ちに溜まるため、
+## 同じレシピを既に納品待ちに持っている状態のプレビューは、実際の納品と同じく下落後の相場で表示する
+func test_同じレシピが納品待ちにあるとプレビューは納品時の下落後の相場で表示される() -> void:
+	var no_traits: Array[StringName] = []
+	GameState._inject_pending_product_for_test(
+		ProductInstance.new(RECIPE_ID, 3, no_traits, 1.0, 1.0)
+	)
+	_inject_material("mat_1", 4)
+	var screen := _make_screen()
+
+	_select_recipe(screen, RECIPE_ID)
+	_place_material(screen, "mat_1")
+
+	# 納品待ちの1つ目が先に納品され相場0.9へ下がるため、2つ目（プレビュー対象）は0.9倍
+	assert_str(_preview_label_text(screen, "ValueLabel")).is_equal("見込み貢献度: 15.8 / 見込み報酬: 7.9")
+
+
 ## 🔵 Issue #65（FR-712-006）。レシピを選ぶ前に相場の上下が分かる
 func test_相場が動いたレシピは選択肢に相場が表示される() -> void:
 	var no_traits: Array[StringName] = []

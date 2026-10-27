@@ -128,3 +128,12 @@ static func turns_until_decay_by_id(
 			material, FreshnessResolver.decay_interval_of(material, material_masters)
 		)
 	return turns
+
+
+## 🔴 PR #73レビュー指摘対応。納品待ちの調合物のレシピIDを納品順（キューの並び順）で返す。
+## MarketRateResolver.project_after_deliveries()に渡し、プレビューの見込み相場を求めるために使う
+static func recipe_ids_of(products: Array[ProductInstance]) -> Array[StringName]:
+	var recipe_ids: Array[StringName] = []
+	for product in products:
+		recipe_ids.append(product.recipe_id)
+	return recipe_ids
