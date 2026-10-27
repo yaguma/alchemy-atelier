@@ -20,7 +20,7 @@ func after_test() -> void:
 func test_upgradesカテゴリで実データの全件をUpgradeMasterとしてロードする() -> void:
 	var upgrades := MasterDataLoader.load_all(&"upgrades")
 
-	assert_int(upgrades.size()).is_equal(5)
+	assert_int(upgrades.size()).is_equal(6)
 	for u in upgrades:
 		assert_bool(u is UpgradeMaster).is_true()
 
@@ -68,6 +68,13 @@ func test_ロードしたUpgradeMasterのフィールドが実データと一致
 		GameBalance.WORKSHOP_RECIPE_UNLOCK_MAX_PURCHASE_COUNT
 	)
 
+	# 🔵 Issue #66（FR-713-008）。通常の中間素材レシピはショップの「レシピ解禁」で入手する
+	var holy_water_unlock: UpgradeMaster = by_id.get(&"upgrade_recipe_unlock_holy_water")
+	assert_object(holy_water_unlock).is_not_null()
+	assert_int(holy_water_unlock.price).is_equal(GameBalance.WORKSHOP_RECIPE_UNLOCK_PRICE)
+	assert_that(holy_water_unlock.effect_type).is_equal(&"recipe_unlock")
+	assert_that(holy_water_unlock.effect_value).is_equal(&"recipe_holy_water")
+
 	var catalyst: UpgradeMaster = by_id.get(&"upgrade_catalyst")
 	assert_object(catalyst).is_not_null()
 	assert_str(catalyst.name).is_equal("触媒常備")
@@ -102,7 +109,7 @@ func test_materialsカテゴリのロードが既存どおり動作する() -> v
 			material_count += 1
 
 	assert_int(seed_count).is_equal(2)
-	assert_int(material_count).is_equal(3)
+	assert_int(material_count).is_equal(4)
 	assert_int(materials.size()).is_equal(seed_count + material_count)
 	assert_bool(MasterDataLoader.validate_references(materials)).is_true()
 
@@ -110,7 +117,7 @@ func test_materialsカテゴリのロードが既存どおり動作する() -> v
 func test_recipesカテゴリのロードが既存どおり動作する() -> void:
 	var recipes := MasterDataLoader.load_all(&"recipes")
 
-	assert_int(recipes.size()).is_equal(2)
+	assert_int(recipes.size()).is_equal(3)
 	for r in recipes:
 		assert_bool(r is RecipeMaster).is_true()
 
@@ -124,7 +131,7 @@ func test_upgradesディレクトリにUpgradeMaster以外が混在してもUpgr
 
 	var upgrades := MasterDataLoader.load_all(&"upgrades")
 
-	assert_int(upgrades.size()).is_equal(5)
+	assert_int(upgrades.size()).is_equal(6)
 	for u in upgrades:
 		assert_bool(u is UpgradeMaster).is_true()
 		assert_bool(u is MaterialMaster).is_false()

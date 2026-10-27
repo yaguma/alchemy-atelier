@@ -52,6 +52,9 @@ static func execute_alchemy(
 	# （ProductProvisionalResolver）を通すことで、両者の乖離を防ぐ
 	var traits_unlocked := state._get_current_rank_master_or_fallback().traits_unlocked
 	var recipe: RecipeMaster = state._recipe_masters[recipe_id]
+	if recipe.is_intermediate():
+		return _craft_intermediate(state, recipe, materials, indices, traits_unlocked)
+
 	var product := ProductProvisionalResolver.resolve(materials, recipe, traits_unlocked)
 
 	# 🔴 コードレビュー指摘対応。指定依頼の合致判定自体はDeliveryResolverの責務（FR-403,
@@ -63,24 +66,49 @@ static func execute_alchemy(
 	product.daily_order_snapshot = state.resolve_daily_order_for_delivery()
 
 	# 🔵 副作用はすべての検証・計算が成功した後にのみ適用する（FR-113のアトミック性）。
-	# 🔴 remove_atのインデックスずれを避けるため降順に削除する
-	indices.sort()
-	indices.reverse()
-	for index in indices:
-		state._inventory.remove_at(index)
+	_consume_materials_and_exam_turn(state, indices)
 	# 🔴 harvest()の_inventory.append(material.clone())と同方針。正本は独立コピーとして保持し、
 	# シグナル購読側・戻り値の受け取り側による事後変更から守る
 	state._pending_products.append(product.clone())
 
-	# 🔵 FR-102。試験中は調合成功1回につき試験内ターンを1消費する。advance_turn()は
-	# 新規ExamStateを返す純粋関数（in-place書き換えではない）ため、戻り値で明示的に置き換える。
-	# 同期リスナーが更新前の値を読むのを防ぐため、product_crafted.emit()より前に状態更新を完了させる
-	# （commit_rank_outcome()のシグナル発行順序と同方針）
-	if state._in_exam:
-		state._exam_state = PromotionExamResolver.advance_turn(state._exam_state)
-
 	state.product_crafted.emit(product)
 	return Result.ok(product)
+
+
+## 🔵 Issue #66（FR-713-002）。中間素材レシピは調合物を納品待ちに積まず、凝縮した素材を在庫へ加える。
+## 素材の消費・試験ターンの消費は納品用の調合と同じ扱いにする
+static func _craft_intermediate(
+	state: GameStateScript,
+	recipe: RecipeMaster,
+	materials: Array[MaterialInstance],
+	indices: Array[int],
+	traits_unlocked: bool
+) -> Result:
+	var crafted := IntermediateCrafter.craft(
+		materials, recipe, traits_unlocked, state._next_material_instance_id()
+	)
+	_consume_materials_and_exam_turn(state, indices)
+	state._inventory.append(crafted.clone())
+
+	state.intermediate_crafted.emit(crafted)
+	return Result.ok(crafted)
+
+
+## 投入素材を在庫から取り除き、試験中なら試験ターンを1消費する。
+## 🔴 remove_atのインデックスずれを避けるため降順に削除する
+## 🔵 FR-102。試験中は調合成功1回につき試験内ターンを1消費する。advance_turn()は
+## 新規ExamStateを返す純粋関数（in-place書き換えではない）ため、戻り値で明示的に置き換える。
+## 同期リスナーが更新前の値を読むのを防ぐため、シグナル発行より前に呼び出し元が本関数を済ませる
+## （commit_rank_outcome()のシグナル発行順序と同方針）
+static func _consume_materials_and_exam_turn(state: GameStateScript, indices: Array[int]) -> void:
+	var descending := indices.duplicate()
+	descending.sort()
+	descending.reverse()
+	for index in descending:
+		state._inventory.remove_at(index)
+
+	if state._in_exam:
+		state._exam_state = PromotionExamResolver.advance_turn(state._exam_state)
 
 
 ## 🔵 FR-102の4段階検証。問題がなければ空のStringNameを返す。
@@ -95,6 +123,10 @@ static func _validate_alchemy_request(
 		return &"unknown_recipe_id"
 	if not state._unlocked_recipe_ids.has(recipe_id):
 		return &"recipe_not_unlocked"
+	# 🔵 Issue #66。出力先の素材IDがない中間素材レシピは、材料だけ失う事態を防ぐため実行させない
+	var recipe: RecipeMaster = state._recipe_masters[recipe_id]
+	if recipe.is_intermediate() and recipe.output_material_id == &"":
+		return &"intermediate_output_missing"
 	if indices.has(-1):
 		return &"material_not_owned"
 	if _has_duplicate_ids(material_instance_ids):

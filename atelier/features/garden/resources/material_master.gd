@@ -12,3 +12,5 @@ extends Resource
 @export var shop_base_quality: int = 1  # 🔵 shop_purchasable == trueの場合のみ使用
 ## 🔵 Issue #64（FR-711-003/005）。品質が1段下がるまでのターン数。0以下なら劣化しない
 @export var decay_interval_turns: int = 0
+## 🔵 Issue #66。中間素材レシピで作られる素材か（昇格試験のuse_intermediateルール判定などに使う）
+@export var is_intermediate: bool = false

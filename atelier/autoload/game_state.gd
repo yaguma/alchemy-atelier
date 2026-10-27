@@ -10,6 +10,7 @@ signal plants_withered(slot_indices: Array)
 signal turn_growth_advanced(turn: int)  # 🔴 UI再描画トリガ用の新規補完
 signal materials_rotted(instance_ids: Array)  # 🔵 Issue #64（FR-711-006）。Array[String]相当
 signal product_crafted(product: ProductInstance)  # 🔵 FR-112
+signal intermediate_crafted(material: MaterialInstance)  # 🔵 Issue #66（FR-713-002）
 # 🔴 garden の plant_seed_failed/harvest_failed パターン踏襲（FR-113）
 signal execute_alchemy_failed(recipe_id: StringName, error_code: StringName)
 signal delivered(results: Array[DeliveryResult])  # 🔴 FR-108

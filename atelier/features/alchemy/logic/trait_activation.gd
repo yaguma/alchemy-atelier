@@ -23,14 +23,15 @@ static func resolve_traits(
 	return activated
 
 
-## 🔵 投入素材中の特定特性タグの出現数を数える
+## 🔵 投入素材中の特定特性タグの出現数を数える。
+## 🔵 Issue #66（FR-713-005）。中間素材は同じタグを重複して持つ（凝縮）ため、素材ごとに1回ではなく
+## trait_tags内の同じタグの数をすべて合計する。特性を最大1個しか持たない庭産・ショップ品の結果は変わらない
 static func count_trait_occurrences(
 	materials: Array[MaterialInstance], trait_tag: StringName
 ) -> int:
 	var count := 0
 	for material in materials:
-		if material.trait_tags.has(trait_tag):
-			count += 1
+		count += material.trait_tags.count(trait_tag)
 	return count
 
 

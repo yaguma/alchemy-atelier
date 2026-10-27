@@ -51,13 +51,14 @@ func test_reset_for_test直後はget_stateのupgrade_mastersが空である() ->
 	assert_int((state["upgrade_masters"] as Dictionary).size()).is_equal(0)
 
 
-## FR-007, FR-011。load_workshop_master_data()呼び出し後、実データ由来のUpgradeMasterが5件反映される
-func test_load_workshop_master_data後にget_stateのupgrade_mastersに実データ5件が反映される() -> void:
+## FR-007, FR-011。load_workshop_master_data()呼び出し後、実データ由来のUpgradeMasterが6件反映される
+## （🔵 Issue #66で聖水のレシピ解禁を追加）
+func test_load_workshop_master_data後にget_stateのupgrade_mastersに実データ6件が反映される() -> void:
 	GameState.load_workshop_master_data()
 
 	var upgrade_masters: Dictionary = GameState.get_state()["upgrade_masters"]
 
-	assert_int(upgrade_masters.size()).is_equal(5)
+	assert_int(upgrade_masters.size()).is_equal(6)
 	assert_bool(upgrade_masters.has(&"upgrade_alchemy_slot")).is_true()
 	var upgrade: UpgradeMaster = upgrade_masters[&"upgrade_alchemy_slot"]
 	assert_object(upgrade).is_instanceof(UpgradeMaster)
@@ -135,7 +136,7 @@ func test_get_state戻り値のupgrade_mastersへキーを追加削除しても�
 	upgrade_masters.erase(&"upgrade_alchemy_slot")
 
 	var upgrade_masters_after: Dictionary = GameState.get_state()["upgrade_masters"]
-	assert_int(upgrade_masters_after.size()).is_equal(5)
+	assert_int(upgrade_masters_after.size()).is_equal(6)
 	assert_bool(upgrade_masters_after.has(&"upgrade_injected")).is_false()
 	assert_bool(upgrade_masters_after.has(&"upgrade_alchemy_slot")).is_true()
 
