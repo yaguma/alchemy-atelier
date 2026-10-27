@@ -19,6 +19,19 @@ static func after_delivery(market_rates: Dictionary, recipe_id: StringName) -> D
 	return updated
 
 
+## 🔵 納品待ちの調合物がすべて納品された後の相場を返す（PR #73レビュー指摘対応）。
+## 納品は1つずつafter_deliveryを適用する（GameState.deliver_pending_products()と同じ順序規則）ため、
+## 調合画面のプレビューがこの見込み相場を使えば、同じターンに同じレシピを複数作っても
+## 2つ目以降のプレビューが実際の納品結果（下落後の倍率）と一致する
+static func project_after_deliveries(
+	market_rates: Dictionary, pending_recipe_ids: Array[StringName]
+) -> Dictionary:
+	var projected := market_rates
+	for recipe_id in pending_recipe_ids:
+		projected = after_delivery(projected, recipe_id)
+	return projected
+
+
 ## 🔵 ターン終了時の相場を返す。そのターンに納品されなかった登録済みレシピの倍率を回復幅だけ上げ、
 ## 上限でクランプする（FR-712-004）。
 ## 🟡 一度も納品していないレシピは未登録のまま等倍に留める（登録済みのみを回復対象とする）
