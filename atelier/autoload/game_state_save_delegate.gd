@@ -113,13 +113,18 @@ static func _collect_pending_products(pending_products: Array[ProductInstance]) 
 			"reward": product.reward,
 			"has_daily_order_snapshot": product.has_daily_order_snapshot,
 			"daily_order_snapshot_id": snapshot.id if snapshot else "",
+			"used_intermediate": product.used_intermediate,
 		}
 		collected.append(entry)
 	return collected
 
 
 static func _collect_rank_state(rank_state: RankState) -> Dictionary:
-	return {"quota": rank_state.quota, "elapsed_turn": rank_state.elapsed_turn}
+	return {
+		"quota": rank_state.quota,
+		"elapsed_turn": rank_state.elapsed_turn,
+		"announced_exam_rule_id": String(rank_state.announced_exam_rule_id),
+	}
 
 
 static func _collect_exam_state(exam_state: ExamState) -> Dictionary:
@@ -128,6 +133,8 @@ static func _collect_exam_state(exam_state: ExamState) -> Dictionary:
 		"exam_quota_max": exam_state.exam_quota_max,
 		"exam_elapsed_turn": exam_state.exam_elapsed_turn,
 		"exam_turn_limit": exam_state.exam_turn_limit,
+		"exam_rule_id": String(exam_state.exam_rule_id),
+		"progress": exam_state.progress.duplicate(),
 	}
 
 
@@ -293,6 +300,7 @@ static func _restore_pending_products(
 		product.daily_order_snapshot = _find_daily_order_master_by_id(
 			daily_order_masters, String(entry["daily_order_snapshot_id"])
 		)
+		product.used_intermediate = bool(entry.get("used_intermediate", false))  # 🔵 Issue #68
 		pending_products.append(product)
 	return pending_products
 
@@ -301,6 +309,8 @@ static func _restore_rank_state(data: Dictionary) -> RankState:
 	var rank_state := RankState.new()
 	rank_state.quota = float(data["quota"])
 	rank_state.elapsed_turn = int(data["elapsed_turn"])
+	# 🔵 Issue #68（FR-717-002）。試験ルール導入前のデータは予告なし（従来の試験ノルマ方式）として扱う
+	rank_state.announced_exam_rule_id = StringName(data.get("announced_exam_rule_id", ""))
 	return rank_state
 
 
@@ -310,4 +320,11 @@ static func _restore_exam_state(data: Dictionary) -> ExamState:
 	exam_state.exam_quota_max = float(data["exam_quota_max"])
 	exam_state.exam_elapsed_turn = int(data["exam_elapsed_turn"])
 	exam_state.exam_turn_limit = int(data["exam_turn_limit"])
+	exam_state.exam_rule_id = StringName(data.get("exam_rule_id", ""))
+	# 🔵 進捗の値は納品数（int）のみ。JSON往復でfloatになるためintへ戻す
+	var progress: Dictionary = {}
+	var saved_progress: Dictionary = data.get("progress", {})
+	for key in saved_progress:
+		progress[String(key)] = int(saved_progress[key])
+	exam_state.progress = progress
 	return exam_state

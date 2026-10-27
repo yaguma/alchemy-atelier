@@ -81,6 +81,7 @@ var _in_exam: bool = false
 # 🟡 design phase確定。_rank_stateと同型パターンだが、ExamStateはRankMasterを再参照せず
 # start_exam()時点で計算済みのexam_quota_maxを自身のフィールドとして保持する自己完結型
 var _exam_state: ExamState = ExamState.new()
+var _exam_rule_masters: Dictionary = {}  # 🔵 Issue #68。Dictionary[StringName, ExamRuleMaster]
 # 🔵 FR-113（_last_rank_outcomeと同型）。試験結果確定後にcommit_exam_outcome()が
 # 冪等に返すための直近確定結果（後続taskで使用）
 var _last_exam_outcome: ExamOutcome.Value = ExamOutcome.Value.CONTINUE
@@ -360,6 +361,11 @@ func _set_alchemy_slot_count_for_test(count: int) -> void:
 ## 🟡 テスト専用。実.tresロードを介さずRankMasterを直接注入する（FR-301）
 func _set_rank_masters_for_test(masters: Dictionary) -> void:
 	GameStateTestSupport.set_rank_masters(self, masters)
+
+
+## 🟡 テスト専用。実.tresロードを介さずExamRuleMasterを直接注入する（Issue #68）
+func _set_exam_rule_masters_for_test(masters: Dictionary) -> void:
+	GameStateTestSupport.set_exam_rule_masters(self, masters)
 
 
 ## 🟡 テスト専用。current_rank_idを昇格・降格を介さず直接注入する（FR-301）

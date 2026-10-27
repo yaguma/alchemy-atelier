@@ -31,6 +31,12 @@ unique_name_in_owner = true
 visible = false
 layout_mode = 2
 
+[node name="ExamRuleLabel" type="Label" parent="VBoxContainer"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+autowrap_mode = 3
+
 [node name="RecipeOptionButton" type="OptionButton" parent="VBoxContainer"]
 unique_name_in_owner = true
 layout_mode = 2

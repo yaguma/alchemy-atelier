@@ -48,7 +48,7 @@ static func execute_alchemy(
 	# 🔵 FR-103。UI側の先出し判定を信頼せず、状態変更の直前にDomain層の実行可否を再評価する
 	var slot_state := SlotState.new()
 	slot_state.selected_recipe_id = recipe_id
-	slot_state.max_slots = state._alchemy_slot_count
+	slot_state.max_slots = effective_slot_count(state)
 	slot_state.materials = materials
 	if not slot_state.can_execute():
 		state.execute_alchemy_failed.emit(recipe_id, &"slot_execution_invalid")
@@ -63,6 +63,7 @@ static func execute_alchemy(
 		return _craft_intermediate(state, recipe, materials, indices, traits_unlocked)
 
 	var product := ProductProvisionalResolver.resolve(materials, recipe, traits_unlocked)
+	product.used_intermediate = _uses_intermediate(state, materials)  # 🔵 Issue #68
 
 	# 🔴 コードレビュー指摘対応。指定依頼の合致判定自体はDeliveryResolverの責務（FR-403,
 	# 二重乗算バグ防止）のためここでは倍率を適用しないが、「どの指定依頼を基準に納品時ボーナスを
@@ -221,4 +222,22 @@ static func _has_duplicate_ids(ids: Array[String]) -> bool:
 		if seen.has(instance_id):
 			return true
 		seen[instance_id] = true
+	return false
+
+
+## 🔵 Issue #68（FR-715-004）。試験中は試験ルールによって投入枠の上限が下がる場合がある
+static func effective_slot_count(state: GameStateScript) -> int:
+	if not state._in_exam:
+		return state._alchemy_slot_count
+	return ExamRuleResolver.effective_slot_limit(
+		GameStateRankDelegate.current_exam_rule(state), state._alchemy_slot_count
+	)
+
+
+## 🔵 Issue #68。投入素材に中間素材（MaterialMaster.is_intermediate）が含まれているか
+static func _uses_intermediate(state: GameStateScript, materials: Array[MaterialInstance]) -> bool:
+	for material in materials:
+		var master: MaterialMaster = state._material_masters.get(material.material_id)
+		if master != null and master.is_intermediate:
+			return true
 	return false

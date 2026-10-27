@@ -66,6 +66,13 @@ static func build_state(state: GameStateScript) -> Dictionary:
 		"exam_quota_max": state._exam_state.exam_quota_max,
 		"exam_elapsed_turn": state._exam_state.exam_elapsed_turn,
 		"exam_turn_limit": state._exam_state.exam_turn_limit,
+		# 🔵 Issue #68（FR-715）。試験ルール関連。ExamRuleMasterは不変前提のマスターデータのため複製しない
+		"exam_rule_id": state._exam_state.exam_rule_id,
+		"exam_rule": GameStateRankDelegate.current_exam_rule(state),
+		"exam_progress": state._exam_state.progress.duplicate(),
+		"announced_exam_rule":
+		state._exam_rule_masters.get(state._rank_state.announced_exam_rule_id),
+		"effective_alchemy_slot_count": GameStateAlchemyDelegate.effective_slot_count(state),
 		"can_purchase_permanent": state._can_purchase_permanent,  # 🔵 FR-017
 		# 🔵 FR-007。seed_masters/recipe_masters公開と同型。UpgradeMasterはResource（不変前提の
 		# マスターデータ）のため、Dictionary自体の浅いduplicate()のみで防御的コピー要件を満たす

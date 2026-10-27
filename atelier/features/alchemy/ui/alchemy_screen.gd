@@ -75,6 +75,7 @@ var _previous_activated_traits: Array[StringName] = []
 @onready var _shop_button: Button = %ShopButton
 @onready var _toast_label: Label = %ToastLabel
 @onready var _exam_turn_label: Label = %ExamTurnLabel
+@onready var _exam_rule_label: Label = %ExamRuleLabel
 @onready var _exam_guidance_label: Label = %ExamGuidanceLabel
 @onready var _advance_exam_turn_button: Button = %AdvanceExamTurnButton
 @onready var _overlay_layer: Control = %OverlayLayer  # 🔵 ui-polish Plan タスク006: 素材投入演出の追加先
@@ -129,7 +130,12 @@ func _exit_tree() -> void:
 ## 🟡 ShopButtonは他画面への導線（確定・危険操作のいずれでもない）のためSECONDARYとする
 func _apply_theme() -> void:
 	for label: Label in [
-		_daily_order_label, _mastery_label, _toast_label, _exam_turn_label, _exam_guidance_label
+		_daily_order_label,
+		_mastery_label,
+		_toast_label,
+		_exam_turn_label,
+		_exam_rule_label,
+		_exam_guidance_label,
 	]:
 		UiTheme.apply_pixel_font(label)
 	UiTheme.apply_pixel_font(_recipe_option_button)
@@ -184,7 +190,8 @@ func _refresh() -> Dictionary:
 	_market_rates = state["market_rates"]
 	_recipe_mastery = state["recipe_mastery"]
 	_inspiration_unlocked = GameState.get_current_rank_master().inspiration_unlocked
-	_slot_state.max_slots = state["alchemy_slot_count"]
+	# 🔵 Issue #68（FR-715-004）。試験ルールで投入枠が減る場合も実行時の再検証と同じ値を使う
+	_slot_state.max_slots = state["effective_alchemy_slot_count"]
 	# 🔴 コードレビュー指摘対応。_recompute_preview()側でGameState.get_state()を再度呼ばずに済むよう
 	# ここでキャッシュする。GameState側のロジックと同一の式（試験中はnull）を経由する
 	_daily_order_for_preview = GameState.resolve_daily_order_for_delivery()
@@ -213,6 +220,7 @@ func _refresh_exam_ui(state: Dictionary) -> void:
 		_end_turn_button,
 		_exam_guidance_label
 	)
+	AlchemyScreenExam.refresh_exam_rule_label(state, _exam_rule_label)
 
 
 ## 指定依頼ラベルの更新。ロジック本体はAlchemyScreenPreviewへ委譲する。🔵
