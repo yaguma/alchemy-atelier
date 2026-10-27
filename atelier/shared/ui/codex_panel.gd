@@ -78,8 +78,9 @@ func _rebuild() -> void:
 		_entry_container.remove_child(child)
 		child.queue_free()
 
-	for master: InspirationMaster in MasterDataLoader.load_all(&"inspirations"):
-		var entry := CodexCodec.find_entry(entries, master.result_recipe_id)
+	var inspirations := MasterDataLoader.load_all(&"inspirations")
+	for recipe_id in CodexCodec.codex_recipe_ids(inspirations):
+		var entry := CodexCodec.find_entry(entries, recipe_id)
 		var text := UNKNOWN_TEXT
 		if not entry.is_empty():
 			_discovered_count += 1

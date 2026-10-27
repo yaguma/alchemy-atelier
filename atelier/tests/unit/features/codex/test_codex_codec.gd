@@ -100,3 +100,37 @@ func test_空の図鑑もラップして復元できる() -> void:
 	var raw: Variant = JSON.parse_string(JSON.stringify(CodexCodec.wrap(empty)))
 
 	assert_array(CodexCodec.unwrap(raw)).is_empty()
+
+
+# 図鑑に並べるレシピ（PR #77レビュー指摘対応）
+
+
+func _inspiration(source: StringName, result: StringName) -> InspirationMaster:
+	var master := InspirationMaster.new()
+	master.source_recipe_id = source
+	master.result_recipe_id = result
+	return master
+
+
+func test_図鑑のレシピはひらめき対応表の結果を初出順に並べる() -> void:
+	var masters: Array = [
+		_inspiration(&"recipe_src", &"recipe_b"), _inspiration(&"recipe_src", &"recipe_a")
+	]
+
+	assert_array(CodexCodec.codex_recipe_ids(masters)).contains_exactly(
+		[&"recipe_b", &"recipe_a"] as Array[StringName]
+	)
+
+
+func test_同じレシピへ複数の経路でひらめけても図鑑の枠は1つにまとめる() -> void:
+	var masters: Array = [
+		_inspiration(&"recipe_src", &"recipe_a"), _inspiration(&"recipe_other", &"recipe_a")
+	]
+
+	assert_array(CodexCodec.codex_recipe_ids(masters)).contains_exactly(
+		[&"recipe_a"] as Array[StringName]
+	)
+
+
+func test_対応表が空なら図鑑のレシピも空になる() -> void:
+	assert_array(CodexCodec.codex_recipe_ids([])).is_empty()

@@ -44,6 +44,17 @@ static func find_entry(entries: Array[Dictionary], recipe_id: StringName) -> Dic
 	return {}
 
 
+## 🔵 図鑑に枠を並べるレシピID（ひらめき対応表の結果のレシピ、初出順）を返す（FR-716-005）。
+## 🔵 PR #77レビュー指摘対応。同じレシピへ複数の経路（元レシピ×特性）でひらめける場合も、
+## 記録はレシピ単位のため枠は1つにまとめる（でないと「発見 x/y」の両方が二重に数えられる）
+static func codex_recipe_ids(inspiration_masters: Array) -> Array[StringName]:
+	var recipe_ids: Array[StringName] = []
+	for master: InspirationMaster in inspiration_masters:
+		if not recipe_ids.has(master.result_recipe_id):
+			recipe_ids.append(master.result_recipe_id)
+	return recipe_ids
+
+
 ## 🔵 保存用にチェックサム付きでラップする（FR-716-003）。チェックサム方式はセーブデータと共通
 static func wrap(entries: Array[Dictionary]) -> Dictionary:
 	var data := {"version": FORMAT_VERSION, "entries": entries.duplicate(true)}

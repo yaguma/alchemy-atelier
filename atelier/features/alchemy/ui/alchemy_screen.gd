@@ -53,6 +53,7 @@ var _turns_until_decay: Dictionary = {}  # 🔵 Issue #64。_inventoryと同じ�
 var _market_rates: Dictionary = {}  # 🔵 Issue #65。プレビューとレシピ選択の相場表示に使う
 var _recipe_mastery: Dictionary = {}  # 🔵 Issue #67。熟練度表示に使う
 var _inspiration_unlocked: bool = false  # 🔵 Issue #67
+var _inspirable_recipe_ids: Array = []  # 🔵 PR #75レビュー指摘対応。まだひらめく先がある元レシピ
 # 🔴 コードレビュー指摘対応。_recompute_preview()のたびにGameState.get_state()を再度フル呼び出し
 # していた（_inventory/_recipe_masters同様に_refresh()時点でキャッシュすべきコスト）のを解消する。
 # GameState.resolve_daily_order_for_delivery()経由で取得するため、試験中(_in_exam)は
@@ -187,8 +188,14 @@ func _refresh() -> Dictionary:
 	_turns_until_decay = AlchemyScreenSlots.turns_until_decay_by_id(
 		_inventory, state["material_masters"]
 	)
-	_market_rates = state["market_rates"]
+	# 🔴 PR #73レビュー指摘対応。通常ターンは調合物がターン終了まで納品待ちに溜まるため、
+	# 現在の相場をそのまま使うと、同じレシピの2つ目以降のプレビューが実際の納品（下落後の倍率）より高く出る。
+	# 納品待ちがすべて納品された後の見込み相場をプレビューとレシピ選択の表示に使う
+	_market_rates = MarketRateResolver.project_after_deliveries(
+		state["market_rates"], AlchemyScreenSlots.recipe_ids_of(state["pending_products"])
+	)
 	_recipe_mastery = state["recipe_mastery"]
+	_inspirable_recipe_ids = state["inspirable_recipe_ids"]
 	_inspiration_unlocked = GameState.get_current_rank_master().inspiration_unlocked
 	# 🔵 Issue #68（FR-715-004）。試験ルールで投入枠が減る場合も実行時の再検証と同じ値を使う
 	_slot_state.max_slots = state["effective_alchemy_slot_count"]
@@ -197,7 +204,8 @@ func _refresh() -> Dictionary:
 	_daily_order_for_preview = GameState.resolve_daily_order_for_delivery()
 	_update_daily_order_label()
 
-	# 🔵 在庫から消えた素材（調合実行で消費された等）が投入枠に残らないよう先に整合を取る
+	# 🔵 在庫から消えた素材（調合実行で消費された等）が投入枠に残らないよう先に整合を取る。
+	# 上のmax_slots更新の後に呼ぶ（試験ルールで枠が減った場合の超過分もここで在庫一覧へ戻す）
 	_drop_missing_placed_ids()
 
 	_rebuild_recipe_options(state["unlocked_recipe_ids"])
@@ -247,6 +255,7 @@ func _update_mastery_label() -> void:
 		_slot_state.selected_recipe_id,
 		_recipe_mastery,
 		_inspiration_unlocked,
+		_inspirable_recipe_ids,
 		MASTERY_TEXT_FORMAT
 	)
 
@@ -312,10 +321,10 @@ func _find_material(instance_id: String) -> MaterialInstance:
 	return AlchemyScreenSlots.find_material(_inventory, instance_id)
 
 
-# 🔵 在庫に存在しなくなった投入済みIDを取り除く。調合成功時のリセットもこの経路で成立する
+# 🔵 在庫に存在しなくなった投入済みIDと、投入枠の上限を超えた分を取り除く。調合成功時のリセットもこの経路で成立する
 func _drop_missing_placed_ids() -> void:
 	_placed_material_ids = AlchemyScreenSlots.drop_missing_placed_ids(
-		_placed_material_ids, _inventory
+		_placed_material_ids, _inventory, _slot_state.max_slots
 	)
 
 

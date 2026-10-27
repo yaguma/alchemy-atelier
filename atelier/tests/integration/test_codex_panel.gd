@@ -33,7 +33,7 @@ func test_ひらめき対応表の全レシピぶんの枠が並ぶ() -> void:
 	var panel := _make_panel()
 
 	var inspirations := MasterDataLoader.load_all(&"inspirations")
-	assert_int(panel.get_entry_count()).is_equal(inspirations.size())
+	assert_int(panel.get_entry_count()).is_equal(CodexCodec.codex_recipe_ids(inspirations).size())
 
 
 func test_未発見のレシピはハテナで表示される() -> void:
@@ -64,7 +64,7 @@ func test_発見数と総数が見出しに表示される() -> void:
 
 	var panel := _make_panel()
 
-	var total := MasterDataLoader.load_all(&"inspirations").size()
+	var total := CodexCodec.codex_recipe_ids(MasterDataLoader.load_all(&"inspirations")).size()
 	assert_str(panel.get_summary_text()).contains("1/%d" % total)
 
 

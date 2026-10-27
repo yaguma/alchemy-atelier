@@ -206,6 +206,23 @@ func test_相場が下がったレシピはプレビューにも相場倍率が�
 	assert_str(_preview_label_text(screen, "ValueLabel")).is_equal("見込み貢献度: 15.8 / 見込み報酬: 7.9")
 
 
+## 🔴 PR #73レビュー指摘対応。通常ターンは調合物がターン終了まで納品待ちに溜まるため、
+## 同じレシピを既に納品待ちに持っている状態のプレビューは、実際の納品と同じく下落後の相場で表示する
+func test_同じレシピが納品待ちにあるとプレビューは納品時の下落後の相場で表示される() -> void:
+	var no_traits: Array[StringName] = []
+	GameState._inject_pending_product_for_test(
+		ProductInstance.new(RECIPE_ID, 3, no_traits, 1.0, 1.0)
+	)
+	_inject_material("mat_1", 4)
+	var screen := _make_screen()
+
+	_select_recipe(screen, RECIPE_ID)
+	_place_material(screen, "mat_1")
+
+	# 納品待ちの1つ目が先に納品され相場0.9へ下がるため、2つ目（プレビュー対象）は0.9倍
+	assert_str(_preview_label_text(screen, "ValueLabel")).is_equal("見込み貢献度: 15.8 / 見込み報酬: 7.9")
+
+
 ## 🔵 Issue #65（FR-712-006）。レシピを選ぶ前に相場の上下が分かる
 func test_相場が動いたレシピは選択肢に相場が表示される() -> void:
 	var no_traits: Array[StringName] = []
@@ -1095,6 +1112,30 @@ func test_ひらめき未解禁のランクでは熟練度が表示されない(
 	assert_bool((screen.find_child("MasteryLabel", true, false) as Label).visible).is_false()
 
 
+## 🔵 PR #75レビュー指摘対応。ひらめく先がないレシピに「次のひらめき」を出すと、無駄な修行を促してしまう
+func test_ひらめく先がないレシピでは熟練度が表示されない() -> void:
+	_setup_inspiration(2)
+	GameState._set_unlocked_recipe_ids_for_test([RECIPE_ID, &"recipe_high"] as Array[StringName])
+	var screen := _make_screen()
+
+	_select_recipe(screen, RECIPE_ID)
+
+	assert_bool((screen.find_child("MasteryLabel", true, false) as Label).visible).is_false()
+
+
+## 🔵 PR #75レビュー指摘対応。当選しても候補がなければ熟練度は天井を超えて増える（FR-714-007）
+func test_熟練度が天井を超えても表示は天井で止まる() -> void:
+	_setup_inspiration(GameBalance.INSPIRATION_CEILING_COUNT + 2)
+	var screen := _make_screen()
+
+	_select_recipe(screen, RECIPE_ID)
+
+	var mastery_label := screen.find_child("MasteryLabel", true, false) as Label
+	var ceiling := GameBalance.INSPIRATION_CEILING_COUNT
+	assert_str(mastery_label.text).contains("%d/%d" % [ceiling, ceiling])
+	assert_str(mastery_label.text).contains("100%")
+
+
 func test_ひらめくとトーストで知らせ新しいレシピが選択肢に加わる() -> void:
 	_setup_inspiration(GameBalance.INSPIRATION_CEILING_COUNT - 1)
 	_inject_material("mat_1", 3, [&"heal"])
@@ -1156,3 +1197,21 @@ func test_投入枠制限ルールの試験中は投入枠の数が減る() -> v
 
 	var container := screen.find_child("SlotsContainer", true, false) as Container
 	assert_int(container.get_child_count()).is_equal(1)
+
+
+## 🔵 PR #76レビュー指摘対応。投入済みのまま投入枠制限の試験が始まると、超過分が枠にも在庫一覧にも
+## 出ず、実行ボタンも押せないまま理由が分からなくなっていた
+func test_投入枠制限の試験が始まると枠を超えた投入済み素材は在庫一覧に戻る() -> void:
+	_inject_material("mat_1", 3)
+	_inject_material("mat_2", 3)
+	var screen := _make_screen()
+	_select_recipe(screen, RECIPE_ID)
+	_place_material(screen, "mat_1")
+	_place_material(screen, "mat_2")
+	_start_rule_exam(ExamRuleMaster.RULE_QUALITY_WITH_SLOT_LIMIT)
+
+	GameState.exam_started.emit()
+
+	assert_that(_find_slot_view(screen, 0).get_status()).is_equal(AlchemySlotView.Status.FILLED)
+	assert_int(_inventory_list(screen).get_entry_count()).is_equal(1)
+	assert_bool(_find_button(screen, "ExecuteButton").disabled).is_false()
