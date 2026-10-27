@@ -180,6 +180,53 @@ func test_試験中は指定依頼に合致していてもプレビューにボ�
 	assert_str(_preview_label_text(screen, "ValueLabel")).is_equal("見込み貢献度: 17.5 / 見込み報酬: 8.8")
 
 
+## 🔵 Issue #65（FR-712）。相場が下がったレシピは、プレビューにも実際の納品と同じ相場倍率が掛かる
+func test_相場が下がったレシピはプレビューにも相場倍率が適用される() -> void:
+	var no_traits: Array[StringName] = []
+	GameState._inject_pending_product_for_test(
+		ProductInstance.new(RECIPE_ID, 3, no_traits, 1.0, 1.0)
+	)
+	GameState.deliver_pending_products()  # 1回納品して相場を下げる
+	_inject_material("mat_1", 4)
+	var screen := _make_screen()
+
+	_select_recipe(screen, RECIPE_ID)
+	_place_material(screen, "mat_1")
+
+	# 貢献度17.5 / 報酬8.75 に相場倍率0.9
+	assert_str(_preview_label_text(screen, "ValueLabel")).is_equal("見込み貢献度: 15.8 / 見込み報酬: 7.9")
+
+
+## 🔴 PR #73レビュー指摘対応。通常ターンは調合物がターン終了まで納品待ちに溜まるため、
+## 同じレシピを既に納品待ちに持っている状態のプレビューは、実際の納品と同じく下落後の相場で表示する
+func test_同じレシピが納品待ちにあるとプレビューは納品時の下落後の相場で表示される() -> void:
+	var no_traits: Array[StringName] = []
+	GameState._inject_pending_product_for_test(
+		ProductInstance.new(RECIPE_ID, 3, no_traits, 1.0, 1.0)
+	)
+	_inject_material("mat_1", 4)
+	var screen := _make_screen()
+
+	_select_recipe(screen, RECIPE_ID)
+	_place_material(screen, "mat_1")
+
+	# 納品待ちの1つ目が先に納品され相場0.9へ下がるため、2つ目（プレビュー対象）は0.9倍
+	assert_str(_preview_label_text(screen, "ValueLabel")).is_equal("見込み貢献度: 15.8 / 見込み報酬: 7.9")
+
+
+## 🔵 Issue #65（FR-712-006）。レシピを選ぶ前に相場の上下が分かる
+func test_相場が動いたレシピは選択肢に相場が表示される() -> void:
+	var no_traits: Array[StringName] = []
+	GameState._inject_pending_product_for_test(
+		ProductInstance.new(RECIPE_ID, 3, no_traits, 1.0, 1.0)
+	)
+	GameState.deliver_pending_products()
+	var screen := _make_screen()
+
+	var option_button := screen.find_child("RecipeOptionButton", true, false) as OptionButton
+	assert_str(option_button.get_item_text(1)).contains(MarketRateText.DOWN_MARK)
+
+
 # 正常系（指定依頼ラベル）
 
 
@@ -392,9 +439,10 @@ func test_ターン終了ボタンで納品結果がギルド納品画面へ表�
 
 	assert_int(_pending_count()).is_equal(0)
 	assert_int(_delivery_screen(screen).get_item_count()).is_equal(2)
-	# 品質3 → 倍率1.5、品質4 → 倍率1.75。貢献度10*(1.5+1.75)=32.5 / 報酬5*(1.5+1.75)=16.25
-	assert_float(_delivery_screen(screen).get_total_contribution()).is_equal_approx(32.5, 0.01)
-	assert_float(_delivery_screen(screen).get_total_reward()).is_equal_approx(16.25, 0.01)
+	# 品質3 → 倍率1.5、品質4 → 倍率1.75。同じレシピの2つ目には相場倍率0.9が掛かる（Issue #65）
+	# 貢献度10*1.5 + 10*1.75*0.9 = 30.75 / 報酬5*1.5 + 5*1.75*0.9 = 15.375
+	assert_float(_delivery_screen(screen).get_total_contribution()).is_equal_approx(30.75, 0.01)
+	assert_float(_delivery_screen(screen).get_total_reward()).is_equal_approx(15.375, 0.01)
 	# 納品トーストのプレースホルダー実装は撤去済みのため、直前の調合トーストのまま変化しない
 	assert_str(screen.get_toast_text()).contains("調合しました")
 
@@ -936,3 +984,76 @@ func _setup_exam_success_rank() -> void:
 	next_rank.traits_unlocked = false
 	GameState._set_rank_masters_for_test({&"rank_g": current, &"rank_f": next_rank})
 	GameState._set_current_rank_id_for_test(&"rank_g")
+
+
+# Issue #66（FR-713）中間素材
+
+
+func _make_intermediate_recipe() -> RecipeMaster:
+	var recipe := RecipeMaster.new()
+	recipe.id = &"recipe_holy_water"
+	recipe.name = "聖水"
+	recipe.kind = RecipeMaster.KIND_INTERMEDIATE
+	recipe.output_material_id = &"material_holy_water"
+	return recipe
+
+
+func _setup_intermediate_recipe() -> void:
+	var recipes := {
+		RECIPE_ID: _make_recipe(RECIPE_ID, "テストレシピ"),
+		&"recipe_holy_water": _make_intermediate_recipe(),
+	}
+	GameState._set_recipe_masters_for_test(recipes)
+	GameState._set_unlocked_recipe_ids_for_test(
+		[RECIPE_ID, &"recipe_holy_water"] as Array[StringName]
+	)
+	var holy_water := MaterialMaster.new()
+	holy_water.id = &"material_holy_water"
+	holy_water.name = "聖水"
+	holy_water.is_intermediate = true
+	GameState._set_masters_for_test({}, {&"material_holy_water": holy_water})
+	_set_rank(true)
+
+
+func test_中間素材レシピは選択肢で中間素材と分かる表記になる() -> void:
+	_setup_intermediate_recipe()
+	var screen := _make_screen()
+
+	var option_button := screen.find_child("RecipeOptionButton", true, false) as OptionButton
+	var intermediate_text := ""
+	for index in range(option_button.item_count):
+		if option_button.get_item_metadata(index) == &"recipe_holy_water":
+			intermediate_text = option_button.get_item_text(index)
+	assert_str(intermediate_text).contains(AlchemyScreenSlots.INTERMEDIATE_RECIPE_MARK)
+
+
+func test_中間素材レシピを選ぶとプレビューに凝縮特性が表示される() -> void:
+	_setup_intermediate_recipe()
+	_inject_material("mat_1", 3, [&"holy"])
+	_inject_material("mat_2", 3, [&"holy"])
+	var screen := _make_screen()
+
+	_select_recipe(screen, &"recipe_holy_water")
+	_place_material(screen, "mat_1")
+	_place_material(screen, "mat_2")
+
+	assert_str(_preview_label_text(screen, "TraitsLabel")).contains("holy×2")
+	assert_str(_preview_label_text(screen, "ValueLabel")).is_equal(
+		AlchemyPreviewPanel.INTERMEDIATE_VALUE_TEXT
+	)
+
+
+func test_中間素材を調合すると在庫一覧に追加され納品待ちは増えない() -> void:
+	_setup_intermediate_recipe()
+	_inject_material("mat_1", 3, [&"holy"])
+	_inject_material("mat_2", 3, [&"holy"])
+	var screen := _make_screen()
+	_select_recipe(screen, &"recipe_holy_water")
+	_place_material(screen, "mat_1")
+	_place_material(screen, "mat_2")
+
+	_find_button(screen, "ExecuteButton").pressed.emit()
+
+	assert_int(_pending_count()).is_equal(0)
+	assert_int(_inventory_list(screen).get_entry_count()).is_equal(1)
+	assert_str(screen.get_toast_text()).contains("聖水")

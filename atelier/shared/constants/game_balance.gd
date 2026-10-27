@@ -55,6 +55,18 @@ const INITIAL_RECIPE_ID: StringName = &"recipe_healing_potion"  # 🔵 CON-008
 # 参照するため（CON-006）、本定数はマスターデータ（.tres）作成時・テストフィクスチャの既定値に留まる
 const DAILY_ORDER_MATCH_BONUS_MULTIPLIER := 1.3  # 🔵 FR-004/CON-006, requirements.md §5
 
+# --- 需要相場（Issue #65、requirements.md §10.2 FR-712、balance-design.md「v7.1追加パラメータ」） ---
+# 🟡 すべて仮値。Issue #70で調整する。天井回数（ひらめき）ぶん連続納品すると下限に届く水準にしている
+const MARKET_RATE_DEFAULT := 1.0  # 🔵 未納品のレシピは等倍
+const MARKET_DROP_STEP := 0.1  # 🟡 1回の納品で下がる量
+const MARKET_RECOVER_STEP := 0.05  # 🟡 1ターン休ませると上がる量
+const MARKET_RATE_MIN := 0.6  # 🟡 罰に感じさせない程度の下限
+const MARKET_RATE_MAX := 1.2  # 🟡 しばらく納めていない品の上限（1.0超）
+
+# --- 中間素材（Issue #66、requirements.md §10.3 FR-713） ---
+# 🔵 「1枠で同じ特性2個分」はコンセプト確定事項。発現閾値（TRAIT_ACTIVATION_THRESHOLD）と同じ値
+const INTERMEDIATE_CONCENTRATION := 2
+
 # --- ランク進行（rank）関連定数 ---
 
 # 降格がこの回数に達した時点でゲームオーバーとする（requirements.md §7「仮3」を採用した暫定値）

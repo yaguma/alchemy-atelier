@@ -136,7 +136,8 @@ func _add_entry_row(
 		product.activated_traits,
 		result.order_matched,
 		result.final_contribution,
-		result.final_reward
+		result.final_reward,
+		result.market_multiplier
 	)
 
 

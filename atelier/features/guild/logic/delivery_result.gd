@@ -12,12 +12,19 @@ extends RefCounted
 var final_contribution: float
 var final_reward: float
 var order_matched: bool
+var market_multiplier: float  # 🔵 Issue #65（FR-712-006）。納品結果画面の相場表示に使う
 
 
 ## 🔵 core-systems.mdのフィールド定義に従い各プロパティを設定する。
 ## 貢献度・報酬の算出および指定依頼の一致判定は呼び出し元（DeliveryResolver）の責務。
 ## 全フィールドがプリミティブ値型のため、clone()相当のディープコピーは不要
-func _init(p_final_contribution: float, p_final_reward: float, p_order_matched: bool) -> void:
+func _init(
+	p_final_contribution: float,
+	p_final_reward: float,
+	p_order_matched: bool,
+	p_market_multiplier: float = 1.0
+) -> void:
 	final_contribution = p_final_contribution
 	final_reward = p_final_reward
 	order_matched = p_order_matched
+	market_multiplier = p_market_multiplier

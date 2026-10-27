@@ -6,6 +6,7 @@ class_name AlchemyScreenSlots
 ## 状態を引数で受け取るstatic適用クラス」パターンに従う。
 
 const AlchemySlotViewScene = preload("res://features/alchemy/ui/alchemy_slot_view.tscn")
+const INTERMEDIATE_RECIPE_MARK := "[中間]"  # 🟡 Issue #66（FR-713）。ui-design未確定の暫定表記
 
 
 ## 解禁済みレシピからドロップダウンを再構築する。選択中のレシピが解禁一覧から消えた場合は選択を解除する。🔵
@@ -16,7 +17,8 @@ static func rebuild_recipe_options(
 	recipe_masters: Dictionary,
 	unlocked_recipe_ids: Array,
 	slot_state: SlotState,
-	placeholder_text: String
+	placeholder_text: String,
+	market_rates: Dictionary = {}
 ) -> void:
 	recipe_option_button.clear()
 	# 🔵 item 0は未選択プレースホルダー。metadataを持たせず、選択不可にする
@@ -28,7 +30,17 @@ static func rebuild_recipe_options(
 		var master: Variant = recipe_masters.get(recipe_id)
 		if not (master is RecipeMaster):
 			continue
-		recipe_option_button.add_item((master as RecipeMaster).name)
+		# 🔵 Issue #65（FR-712-006）。レシピを選ぶ前に相場の上下が分かるよう名称の後ろに添える
+		var market_text := MarketRateText.format(
+			MarketRateResolver.get_rate(market_rates, recipe_id)
+		)
+		var label := (master as RecipeMaster).name
+		# 🔵 Issue #66。中間素材レシピは納品されないことが選ぶ前に分かるよう印を付ける
+		if (master as RecipeMaster).is_intermediate():
+			label = "%s %s" % [INTERMEDIATE_RECIPE_MARK, label]
+		if not market_text.is_empty():
+			label = "%s %s" % [label, market_text]
+		recipe_option_button.add_item(label)
 		var index := recipe_option_button.item_count - 1
 		recipe_option_button.set_item_metadata(index, recipe_id)
 		if recipe_id == slot_state.selected_recipe_id:
@@ -120,3 +132,12 @@ static func turns_until_decay_by_id(
 			material, FreshnessResolver.decay_interval_of(material, material_masters)
 		)
 	return turns
+
+
+## 🔴 PR #73レビュー指摘対応。納品待ちの調合物のレシピIDを納品順（キューの並び順）で返す。
+## MarketRateResolver.project_after_deliveries()に渡し、プレビューの見込み相場を求めるために使う
+static func recipe_ids_of(products: Array[ProductInstance]) -> Array[StringName]:
+	var recipe_ids: Array[StringName] = []
+	for product in products:
+		recipe_ids.append(product.recipe_id)
+	return recipe_ids

@@ -66,13 +66,11 @@ func _apply_freshness(material: MaterialInstance, turns_until_decay: int) -> voi
 
 
 ## 特性タグ配列を表示文字列へ変換する。🔵 AC-004
+## 🔵 Issue #66。中間素材の凝縮された特性（同じタグの重複）は「holy×2」のように個数をまとめる
 static func format_traits(trait_tags: Array[StringName]) -> String:
 	if trait_tags.is_empty():
 		return NO_TRAIT_TEXT
-	var tags: PackedStringArray = []
-	for tag in trait_tags:
-		tags.append(String(tag))
-	return ", ".join(tags)
+	return TraitTagText.format(trait_tags)
 
 
 func _on_place_pressed() -> void:

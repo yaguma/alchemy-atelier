@@ -142,10 +142,10 @@ func test_昇格試験失敗確定ではcan_purchase_permanentがtrueになら�
 # 正常系: load_workshop_master_data
 
 
-func test_load_workshop_master_dataで実データの5件がupgrade_mastersに登録される() -> void:
+func test_load_workshop_master_dataで実データの6件がupgrade_mastersに登録される() -> void:
 	GameState.load_workshop_master_data()
 
-	assert_int(GameState._upgrade_masters.size()).is_equal(5)
+	assert_int(GameState._upgrade_masters.size()).is_equal(6)  # 🔵 Issue #66で聖水の解禁を追加
 	assert_bool(GameState._upgrade_masters.has(&"upgrade_alchemy_slot")).is_true()
 	assert_bool(GameState._upgrade_masters.has(&"upgrade_garden_slot")).is_true()
 	assert_bool(GameState._upgrade_masters.has(&"upgrade_recipe_unlock_mana_tonic")).is_true()

@@ -49,6 +49,23 @@ static func validate_references(materials: Array) -> bool:
 	return true
 
 
+## 🔵 Issue #66。中間素材レシピのoutput_material_idが同一Array内のMaterialMaster.idを指しているか検証する。
+## 実行時の検証（GameStateの_validate_alchemy_request）は空IDしか弾けないため、IDの打ち間違いは
+## 実データに対するテストでここを通して検出する
+static func validate_recipe_outputs(recipes: Array, materials: Array) -> bool:
+	var material_ids: Dictionary = {}
+	for m in materials:
+		if m is MaterialMaster:
+			material_ids[(m as MaterialMaster).id] = true
+
+	for r in recipes:
+		if r is RecipeMaster and (r as RecipeMaster).is_intermediate():
+			if not material_ids.has((r as RecipeMaster).output_material_id):
+				return false
+
+	return true
+
+
 static func _resolve_dir_path(category: StringName) -> String:
 	match category:
 		&"materials":

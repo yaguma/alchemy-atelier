@@ -55,9 +55,13 @@ func _set_rank_state(quota: float, elapsed_turn: int) -> void:
 	GameState._set_rank_state_for_test(state)
 
 
-func _inject_product(contribution: float, reward: float = 0.0) -> void:
+## 🔵 Issue #65以降、同じレシピの連続納品は相場で価値が下がる。ノルマ計算だけを検証するテストでは
+## recipe_idを変えて相場の影響を受けないようにする
+func _inject_product(
+	contribution: float, reward: float = 0.0, recipe_id: StringName = RECIPE_ID
+) -> void:
 	GameState._inject_pending_product_for_test(
-		ProductInstance.new(RECIPE_ID, 3, [] as Array[StringName], contribution, reward)
+		ProductInstance.new(recipe_id, 3, [] as Array[StringName], contribution, reward)
 	)
 
 
@@ -76,7 +80,7 @@ func test_納品した貢献度分だけランクノルマが減少する() -> v
 func test_複数件の納品で貢献度が合算されノルマから減算される() -> void:
 	_set_rank_state(100.0, 0)
 	_inject_product(30.0)
-	_inject_product(25.0)
+	_inject_product(25.0, 0.0, &"recipe_other")
 
 	GameState.deliver_pending_products()
 
@@ -88,7 +92,7 @@ func test_納品を複数回実行してもノルマ残量は累積して減少�
 	_inject_product(30.0)
 	GameState.deliver_pending_products()
 
-	_inject_product(25.0)
+	_inject_product(25.0, 0.0, &"recipe_other")
 	GameState.deliver_pending_products()
 
 	assert_float(GameState._rank_state.quota).is_equal_approx(45.0, FLOAT_TOLERANCE)

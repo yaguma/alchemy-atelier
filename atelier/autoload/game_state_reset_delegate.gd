@@ -28,6 +28,8 @@ static func apply_default_state(state: GameStateScript) -> void:
 	state._alchemy_slot_count = GameBalance.ALCHEMY_SLOT_COUNT_DEFAULT
 	state._current_daily_order = null
 	state._daily_order_masters = []
+	state._market_rates = {}
+	state._delivered_recipe_ids_this_turn = []
 	state._current_rank_id = GameBalance.INITIAL_RANK_ID
 	state._rank_masters = {}
 	state._rank_state = RankState.new()
