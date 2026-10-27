@@ -26,6 +26,7 @@ const ERROR_MESSAGES := {
 	&"material_not_owned": "投入した素材が在庫にありません",
 	&"duplicate_material_in_slot": "同じ素材を重複して投入しています",
 	&"slot_execution_invalid": "投入内容が調合の条件を満たしていません",
+	&"intermediate_output_missing": "このレシピの作成物が設定されていません",  # 🟡 Issue #66
 }  # 🟡 ui-design/screens/alchemy.mdが文言未確定（🟡TBD）のため、error_codeから妥当な推測で新規決定
 
 # 🟡 指定依頼の提示文言。design docが文言未確定のため書式は新規決定。
@@ -38,6 +39,7 @@ const DAILY_ORDER_TRAIT_FORMAT := "指定依頼: 特性「%s」（x%.1f）"
 # L84前半）に使う文言・表示保持秒数。文言・保持秒数ともにdesign doc未確定のためtdd-implementer裁量で新規決定
 const CRAFT_RESULT_POPUP_TEXT_FORMAT := "%s 完成！"  # 🟡
 const CRAFT_RESULT_POP_HOLD_DURATION := 0.5  # 🟡
+const INTERMEDIATE_CRAFTED_TOAST_FORMAT := "%sを作りました（品質%d、在庫に追加）"  # 🟡 Issue #66
 
 # 🔵 投入順=スロット表示順の唯一のソース・オブ・トゥルース。
 # 「投入済み」はドメイン層にもGameStateにも存在しないUIローカルな一時状態のため本画面が保持する
@@ -85,6 +87,7 @@ func _ready() -> void:
 
 	# 🔵 GameStateはAutoloadのため_exit_tree()での明示的disconnect()が必須（ui-components.md）
 	GameState.product_crafted.connect(_on_product_crafted)
+	GameState.intermediate_crafted.connect(_on_intermediate_crafted)
 	GameState.execute_alchemy_failed.connect(_on_execute_alchemy_failed)
 	GameState.exam_started.connect(_on_exam_started)
 	GameState.exam_outcome_confirmed.connect(_on_exam_outcome_confirmed)
@@ -95,6 +98,8 @@ func _ready() -> void:
 func _exit_tree() -> void:
 	if GameState.product_crafted.is_connected(_on_product_crafted):
 		GameState.product_crafted.disconnect(_on_product_crafted)
+	if GameState.intermediate_crafted.is_connected(_on_intermediate_crafted):
+		GameState.intermediate_crafted.disconnect(_on_intermediate_crafted)
 	if GameState.execute_alchemy_failed.is_connected(_on_execute_alchemy_failed):
 		GameState.execute_alchemy_failed.disconnect(_on_execute_alchemy_failed)
 	if GameState.exam_started.is_connected(_on_exam_started):
@@ -398,6 +403,17 @@ func _on_product_crafted(product: ProductInstance) -> void:
 	if state["in_exam"]:
 		var snapshot: Array[ProductInstance] = state["pending_products"]
 		_deliver_and_display(snapshot)
+
+
+## 🔵 Issue #66（FR-713-002）。中間素材は納品されず在庫に加わるため、再描画とトーストのみ行う
+## （自動納品・完成品の生成演出は納品用の調合に限る）
+func _on_intermediate_crafted(material: MaterialInstance) -> void:
+	# 🔴 _refresh()が返すstateを再利用し、GameState.get_state()を再度呼ばない（NFR-001）
+	var state := _refresh()
+	var material_masters: Dictionary = state.get("material_masters", {})
+	var master: MaterialMaster = material_masters.get(material.material_id)
+	var display_name := master.name if master != null else String(material.material_id)
+	_show_toast(INTERMEDIATE_CRAFTED_TOAST_FORMAT % [display_name, material.quality_score])
 
 
 func _on_execute_alchemy_failed(_recipe_id: StringName, error_code: StringName) -> void:

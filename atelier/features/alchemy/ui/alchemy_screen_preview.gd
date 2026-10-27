@@ -65,6 +65,11 @@ static func recompute_preview(
 		return []
 
 	var traits_unlocked := GameState.is_current_rank_traits_unlocked()
+	if (recipe as RecipeMaster).is_intermediate():
+		return _recompute_intermediate_preview(
+			preview_panel, recipe as RecipeMaster, materials, traits_unlocked
+		)
+
 	var provisional := ProductProvisionalResolver.resolve(
 		materials, recipe as RecipeMaster, traits_unlocked
 	)
@@ -80,3 +85,18 @@ static func recompute_preview(
 		result.order_matched
 	)
 	return provisional.activated_traits
+
+
+## 🔵 Issue #66（FR-713）。中間素材レシピは実行時と同じIntermediateCrafterで組み立てた結果を表示する。
+## 戻り値は特性ハイライト判定用の発現済みタグ（納品用と同じTraitActivationの結果）
+static func _recompute_intermediate_preview(
+	preview_panel: AlchemyPreviewPanel,
+	recipe: RecipeMaster,
+	materials: Array[MaterialInstance],
+	traits_unlocked: bool
+) -> Array[StringName]:
+	var preview_material := IntermediateCrafter.craft(materials, recipe, traits_unlocked, "")
+	preview_panel.show_intermediate_preview(
+		preview_material.quality_score, preview_material.trait_tags
+	)
+	return TraitActivation.resolve_traits(materials, traits_unlocked)

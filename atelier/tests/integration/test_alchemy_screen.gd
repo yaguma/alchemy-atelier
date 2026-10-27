@@ -984,3 +984,76 @@ func _setup_exam_success_rank() -> void:
 	next_rank.traits_unlocked = false
 	GameState._set_rank_masters_for_test({&"rank_g": current, &"rank_f": next_rank})
 	GameState._set_current_rank_id_for_test(&"rank_g")
+
+
+# Issue #66（FR-713）中間素材
+
+
+func _make_intermediate_recipe() -> RecipeMaster:
+	var recipe := RecipeMaster.new()
+	recipe.id = &"recipe_holy_water"
+	recipe.name = "聖水"
+	recipe.kind = RecipeMaster.KIND_INTERMEDIATE
+	recipe.output_material_id = &"material_holy_water"
+	return recipe
+
+
+func _setup_intermediate_recipe() -> void:
+	var recipes := {
+		RECIPE_ID: _make_recipe(RECIPE_ID, "テストレシピ"),
+		&"recipe_holy_water": _make_intermediate_recipe(),
+	}
+	GameState._set_recipe_masters_for_test(recipes)
+	GameState._set_unlocked_recipe_ids_for_test(
+		[RECIPE_ID, &"recipe_holy_water"] as Array[StringName]
+	)
+	var holy_water := MaterialMaster.new()
+	holy_water.id = &"material_holy_water"
+	holy_water.name = "聖水"
+	holy_water.is_intermediate = true
+	GameState._set_masters_for_test({}, {&"material_holy_water": holy_water})
+	_set_rank(true)
+
+
+func test_中間素材レシピは選択肢で中間素材と分かる表記になる() -> void:
+	_setup_intermediate_recipe()
+	var screen := _make_screen()
+
+	var option_button := screen.find_child("RecipeOptionButton", true, false) as OptionButton
+	var intermediate_text := ""
+	for index in range(option_button.item_count):
+		if option_button.get_item_metadata(index) == &"recipe_holy_water":
+			intermediate_text = option_button.get_item_text(index)
+	assert_str(intermediate_text).contains(AlchemyScreenSlots.INTERMEDIATE_RECIPE_MARK)
+
+
+func test_中間素材レシピを選ぶとプレビューに凝縮特性が表示される() -> void:
+	_setup_intermediate_recipe()
+	_inject_material("mat_1", 3, [&"holy"])
+	_inject_material("mat_2", 3, [&"holy"])
+	var screen := _make_screen()
+
+	_select_recipe(screen, &"recipe_holy_water")
+	_place_material(screen, "mat_1")
+	_place_material(screen, "mat_2")
+
+	assert_str(_preview_label_text(screen, "TraitsLabel")).contains("holy×2")
+	assert_str(_preview_label_text(screen, "ValueLabel")).is_equal(
+		AlchemyPreviewPanel.INTERMEDIATE_VALUE_TEXT
+	)
+
+
+func test_中間素材を調合すると在庫一覧に追加され納品待ちは増えない() -> void:
+	_setup_intermediate_recipe()
+	_inject_material("mat_1", 3, [&"holy"])
+	_inject_material("mat_2", 3, [&"holy"])
+	var screen := _make_screen()
+	_select_recipe(screen, &"recipe_holy_water")
+	_place_material(screen, "mat_1")
+	_place_material(screen, "mat_2")
+
+	_find_button(screen, "ExecuteButton").pressed.emit()
+
+	assert_int(_pending_count()).is_equal(0)
+	assert_int(_inventory_list(screen).get_entry_count()).is_equal(1)
+	assert_str(screen.get_toast_text()).contains("聖水")

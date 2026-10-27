@@ -6,6 +6,7 @@ class_name AlchemyScreenSlots
 ## 状態を引数で受け取るstatic適用クラス」パターンに従う。
 
 const AlchemySlotViewScene = preload("res://features/alchemy/ui/alchemy_slot_view.tscn")
+const INTERMEDIATE_RECIPE_MARK := "[中間]"  # 🟡 Issue #66（FR-713）。ui-design未確定の暫定表記
 
 
 ## 解禁済みレシピからドロップダウンを再構築する。選択中のレシピが解禁一覧から消えた場合は選択を解除する。🔵
@@ -34,6 +35,9 @@ static func rebuild_recipe_options(
 			MarketRateResolver.get_rate(market_rates, recipe_id)
 		)
 		var label := (master as RecipeMaster).name
+		# 🔵 Issue #66。中間素材レシピは納品されないことが選ぶ前に分かるよう印を付ける
+		if (master as RecipeMaster).is_intermediate():
+			label = "%s %s" % [INTERMEDIATE_RECIPE_MARK, label]
 		if not market_text.is_empty():
 			label = "%s %s" % [label, market_text]
 		recipe_option_button.add_item(label)

@@ -117,7 +117,8 @@ func test_恒久投資と消耗投資のアイテムが正しい件数で振り�
 
 	var screen := _make_screen()
 
-	assert_int(_find_permanent_list(screen).get_entry_count()).is_equal(3)
+	# 🔵 Issue #66で恒久投資「レシピ解禁：聖水」を追加
+	assert_int(_find_permanent_list(screen).get_entry_count()).is_equal(4)
 	assert_int(_find_consumable_list(screen).get_entry_count()).is_equal(2)
 
 

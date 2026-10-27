@@ -63,6 +63,10 @@ const MARKET_RECOVER_STEP := 0.05  # 🟡 1ターン休ませると上がる量
 const MARKET_RATE_MIN := 0.6  # 🟡 罰に感じさせない程度の下限
 const MARKET_RATE_MAX := 1.2  # 🟡 しばらく納めていない品の上限（1.0超）
 
+# --- 中間素材（Issue #66、requirements.md §10.3 FR-713） ---
+# 🔵 「1枠で同じ特性2個分」はコンセプト確定事項。発現閾値（TRAIT_ACTIVATION_THRESHOLD）と同じ値
+const INTERMEDIATE_CONCENTRATION := 2
+
 # --- ランク進行（rank）関連定数 ---
 
 # 降格がこの回数に達した時点でゲームオーバーとする（requirements.md §7「仮3」を採用した暫定値）

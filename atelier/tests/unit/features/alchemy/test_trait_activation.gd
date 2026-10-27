@@ -88,3 +88,37 @@ func test_貢献度系と報酬系が同時に発現条件を満たす場合両�
 
 	assert_array(result).contains([&"holy", &"gold"])
 	assert_int(result.size()).is_equal(2)
+
+
+# Issue #66（FR-713-005）凝縮された特性（同じタグの重複）は合計して数える
+
+
+func test_同じタグを2つ持つ素材1個で特性が発現する() -> void:
+	var materials: Array[MaterialInstance] = [_make_material([&"holy", &"holy"]), _make_material()]
+
+	assert_array(TraitActivation.resolve_traits(materials, true)).contains_exactly([&"holy"])
+
+
+func test_count_trait_occurrencesは素材内の重複タグも合計する() -> void:
+	var materials: Array[MaterialInstance] = [
+		_make_material([&"holy", &"holy"]),
+		_make_material([&"holy"]),
+	]
+
+	assert_int(TraitActivation.count_trait_occurrences(materials, &"holy")).is_equal(3)
+
+
+func test_2特性を凝縮した素材1個で両方の特性が発現する() -> void:
+	var materials: Array[MaterialInstance] = [
+		_make_material([&"holy", &"holy", &"gold", &"gold"]),
+	]
+
+	assert_array(TraitActivation.resolve_traits(materials, true)).contains_exactly_in_any_order(
+		[&"holy", &"gold"]
+	)
+
+
+func test_凝縮された素材でも特性封印中は発現しない() -> void:
+	var materials: Array[MaterialInstance] = [_make_material([&"holy", &"holy"])]
+
+	assert_array(TraitActivation.resolve_traits(materials, false)).is_empty()

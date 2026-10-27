@@ -278,6 +278,20 @@ func test_残り1ターンの素材は鮮度ラベルが警告色になる() -> 
 	)
 
 
+# 正常系
+# 🔵 Issue #66。凝縮された特性（同じタグの重複）は個数をまとめて表示する
+func test_凝縮された特性は個数をまとめて表示される() -> void:
+	var list := _make_list()
+	var tags: Array[StringName] = [&"holy", &"holy"]
+	var materials: Array[MaterialInstance] = [
+		_make_material("mat_1", &"material_holy_water", 3, tags)
+	]
+
+	list.setup(materials)
+
+	assert_str(_find_label(list, "mat_1", "TraitLabel").text).is_equal("holy×2")
+
+
 # 境界値
 # 🔵 PR #72レビュー指摘対応。品質1の素材は次の劣化タイミングで腐敗して消えるため「腐敗まで」と表記する
 func test_品質1の素材は鮮度ラベルが腐敗までの表記になる() -> void:
