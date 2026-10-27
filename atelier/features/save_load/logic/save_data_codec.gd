@@ -7,7 +7,8 @@ class_name SaveDataCodec
 ## 🔵 Issue #64で2へ更新（inventory要素にfreshness_elapsed_turnsを追加。旧データは復元側で0補完）。
 ## 🔵 Issue #65で3へ更新（market_rates・delivered_recipe_ids_this_turnを追加。旧データは空で補完）。
 ## 🔵 Issue #67で4へ更新（recipe_mastery・inspired_recipe_idsを追加。旧データは空で補完）。
-const SAVE_FORMAT_VERSION := 4
+## 🔵 Issue #68で5へ更新（試験ルールの予告・進捗・中間素材使用フラグを追加。旧データは予告なしで補完）。
+const SAVE_FORMAT_VERSION := 5
 
 
 ## 🔵 dataのSHA-256チェックサムを返す（security.md「セーブデータの破損検出」準拠）。

@@ -31,3 +31,11 @@ func test_cloneで複製したインスタンスを変更しても元のイン�
 	assert_float(rank_state.quota).is_equal(100.0)
 	assert_int(rank_state.elapsed_turn).is_equal(3)
 	assert_bool(cloned == rank_state).is_false()
+
+
+# Issue #68（FR-715-002）
+func test_cloneは予告された試験ルールIDを引き継ぐ() -> void:
+	var rank_state := RankState.new()
+	rank_state.announced_exam_rule_id = &"exam_a"
+
+	assert_that(rank_state.clone().announced_exam_rule_id).is_equal(&"exam_a")

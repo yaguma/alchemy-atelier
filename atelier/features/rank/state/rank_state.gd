@@ -9,6 +9,8 @@ var quota: float = 0.0
 # GameState._current_turnの更新と必ずセットでelapsed_turnも進めること。片方だけ更新すると
 # TurnLimitResolver.is_turn_limit_reached()が永久にfalseのままランク進行が静かに凍結する
 var elapsed_turn: int = 0
+## 🔵 Issue #68（FR-715-002）。ランク開始時に予告された昇格試験ルールのID（空なら従来の試験ノルマ方式）
+var announced_exam_rule_id: StringName = &""
 
 
 ## 🔵 GameState.get_state()の防御的コピー要件（FR-410）を満たす。
@@ -17,4 +19,5 @@ func clone() -> RankState:
 	var cloned := RankState.new()
 	cloned.quota = quota
 	cloned.elapsed_turn = elapsed_turn
+	cloned.announced_exam_rule_id = announced_exam_rule_id
 	return cloned

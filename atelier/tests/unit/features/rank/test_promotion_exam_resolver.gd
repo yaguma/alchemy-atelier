@@ -268,3 +268,72 @@ func test_結果判定は引数のExamStateを書き換えない() -> void:
 
 	assert_float(exam_state.exam_quota).is_equal_approx(10.0, 0.0001)
 	assert_int(exam_state.exam_elapsed_turn).is_equal(2)
+
+
+# --- Issue #68（FR-715）試験ルール ---
+
+
+func _make_rule(rule_type: StringName, turn_limit: int = 2) -> ExamRuleMaster:
+	var rule := ExamRuleMaster.new()
+	rule.id = &"exam_test"
+	rule.rule_type = rule_type
+	rule.turn_limit = turn_limit
+	rule.target_count = 1
+	return rule
+
+
+func test_ノルマ以外のルールで試験を開始すると制限ターンはルールの値になる() -> void:
+	var rule := _make_rule(ExamRuleMaster.RULE_DELIVER_ITEMS, 4)
+
+	var exam_state := PromotionExamResolver.start_exam(_make_rank_master(), rule)
+
+	assert_int(exam_state.exam_turn_limit).is_equal(4)
+	assert_that(exam_state.exam_rule_id).is_equal(&"exam_test")
+	assert_dict(exam_state.progress).is_empty()
+
+
+func test_quotaルールで試験を開始すると従来どおりランクの値で試験ノルマを算出する() -> void:
+	var rule := _make_rule(ExamRuleMaster.RULE_QUOTA, 9)
+
+	var exam_state := PromotionExamResolver.start_exam(_make_rank_master(100.0, 10, 3, 1.5), rule)
+
+	assert_float(exam_state.exam_quota_max).is_equal_approx(45.0, 0.0001)
+	assert_int(exam_state.exam_turn_limit).is_equal(3)
+
+
+func test_ノルマ以外のルールは試験ノルマが0でも進捗が満たされるまで合格しない() -> void:
+	var rule := _make_rule(ExamRuleMaster.RULE_DELIVER_ITEMS)
+	var exam_state := PromotionExamResolver.start_exam(_make_rank_master(), rule)
+
+	assert_int(PromotionExamResolver.resolve_outcome(exam_state, rule)).is_equal(
+		ExamOutcome.Value.CONTINUE
+	)
+
+
+func test_ノルマ以外のルールは進捗が満たされると合格する() -> void:
+	var rule := _make_rule(ExamRuleMaster.RULE_DELIVER_ITEMS)
+	var exam_state := PromotionExamResolver.start_exam(_make_rank_master(), rule)
+	exam_state.progress = {ExamRuleResolver.PROGRESS_DELIVERED_COUNT: 1}
+
+	assert_int(PromotionExamResolver.resolve_outcome(exam_state, rule)).is_equal(
+		ExamOutcome.Value.SUCCESS
+	)
+
+
+func test_ノルマ以外のルールで制限ターンに達し未達ならFAILUREを返す() -> void:
+	var rule := _make_rule(ExamRuleMaster.RULE_DELIVER_ITEMS, 1)
+	var exam_state := PromotionExamResolver.start_exam(_make_rank_master(), rule)
+	exam_state = PromotionExamResolver.advance_turn(exam_state)
+
+	assert_int(PromotionExamResolver.resolve_outcome(exam_state, rule)).is_equal(
+		ExamOutcome.Value.FAILURE
+	)
+
+
+func test_ノルマ以外のルールで制限ターンが0以下ならゼロ値のExamStateを返す() -> void:
+	var rule := _make_rule(ExamRuleMaster.RULE_DELIVER_ITEMS, 0)
+
+	var exam_state := PromotionExamResolver.start_exam(_make_rank_master(), rule)
+
+	assert_int(exam_state.exam_turn_limit).is_equal(0)
+	assert_that(exam_state.exam_rule_id).is_equal(&"")

@@ -1143,3 +1143,66 @@ func test_ひらめくとトーストで知らせ新しいレシピが選択肢�
 		if option_button.get_item_metadata(index) == &"recipe_high":
 			found = true
 	assert_bool(found).is_true()
+
+
+# Issue #68（FR-715-004/006）試験ルール
+
+
+func _start_rule_exam(rule_type: StringName, progress: Dictionary = {}) -> void:
+	var rule := ExamRuleMaster.new()
+	rule.id = &"exam_rule_test"
+	rule.rule_type = rule_type
+	rule.display_text = "テストの試験"
+	rule.turn_limit = 2
+	rule.target_count = 2
+	rule.slot_limit = 1
+	GameState._set_exam_rule_masters_for_test({rule.id: rule})
+	var exam_state := ExamState.new()
+	exam_state.exam_turn_limit = 2
+	exam_state.exam_rule_id = rule.id
+	exam_state.progress = progress
+	GameState._set_exam_state_for_test(exam_state, true)
+
+
+func test_試験ルールの説明と進捗が試験中に表示される() -> void:
+	_start_rule_exam(ExamRuleMaster.RULE_DELIVER_ITEMS, {"delivered_count": 1})
+
+	var screen := _make_screen()
+
+	var rule_label := screen.find_child("ExamRuleLabel", true, false) as Label
+	assert_bool(rule_label.visible).is_true()
+	assert_str(rule_label.text).contains("テストの試験")
+	assert_str(rule_label.text).contains("1/2")
+
+
+func test_試験外では試験ルールの表示は出ない() -> void:
+	var screen := _make_screen()
+
+	assert_bool((screen.find_child("ExamRuleLabel", true, false) as Label).visible).is_false()
+
+
+func test_投入枠制限ルールの試験中は投入枠の数が減る() -> void:
+	_start_rule_exam(ExamRuleMaster.RULE_QUALITY_WITH_SLOT_LIMIT)
+
+	var screen := _make_screen()
+
+	var container := screen.find_child("SlotsContainer", true, false) as Container
+	assert_int(container.get_child_count()).is_equal(1)
+
+
+## 🔵 PR #76レビュー指摘対応。投入済みのまま投入枠制限の試験が始まると、超過分が枠にも在庫一覧にも
+## 出ず、実行ボタンも押せないまま理由が分からなくなっていた
+func test_投入枠制限の試験が始まると枠を超えた投入済み素材は在庫一覧に戻る() -> void:
+	_inject_material("mat_1", 3)
+	_inject_material("mat_2", 3)
+	var screen := _make_screen()
+	_select_recipe(screen, RECIPE_ID)
+	_place_material(screen, "mat_1")
+	_place_material(screen, "mat_2")
+	_start_rule_exam(ExamRuleMaster.RULE_QUALITY_WITH_SLOT_LIMIT)
+
+	GameState.exam_started.emit()
+
+	assert_that(_find_slot_view(screen, 0).get_status()).is_equal(AlchemySlotView.Status.FILLED)
+	assert_int(_inventory_list(screen).get_entry_count()).is_equal(1)
+	assert_bool(_find_button(screen, "ExecuteButton").disabled).is_false()

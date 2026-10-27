@@ -141,3 +141,10 @@ static func set_inspiration(
 		return
 	state._inspiration_masters = masters
 	state._inspiration_state.mastery = mastery.duplicate()
+
+
+## 🔵 Issue #68。試験ルールを注入する
+static func set_exam_rule_masters(state: GameStateScript, masters: Dictionary) -> void:
+	if not guard("_set_exam_rule_masters_for_test"):
+		return
+	state._exam_rule_masters = masters

@@ -12,3 +12,4 @@ traits_unlocked = true
 exam_turn_limit = 3
 exam_difficulty_coefficient = 1.0
 inspiration_unlocked = true
+exam_rule_pool = Array[StringName]([&"exam_s_quota"])

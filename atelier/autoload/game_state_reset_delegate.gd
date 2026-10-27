@@ -42,6 +42,7 @@ static func apply_default_state(state: GameStateScript) -> void:
 	state._warned_missing_rank_master_ids = {}
 	state._in_exam = false
 	state._exam_state = ExamState.new()
+	state._exam_rule_masters = {}
 	state._last_exam_outcome = ExamOutcome.Value.CONTINUE
 	state._has_cleared_game = false
 	state._can_purchase_permanent = false

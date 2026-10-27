@@ -6,6 +6,7 @@ class_name AlchemyScreenExam
 ## （docs/dev/plans/ui-polish/reports/verify-2026-09-23.md参照）。
 
 const EXAM_TURN_LABEL_FORMAT := "残り%dターン"  # 🟡 FR-106、書式は新規決定
+const EXAM_RULE_LABEL_FORMAT := "試験: %s（達成 %d/%d）"  # 🟡 Issue #68（FR-715-006）。暫定表記
 
 # 🔴 文言はAI推論による新規決定（design doc上もTBD、CON-003に基づき本Planで確定）
 const EXAM_MESSAGES := {
@@ -63,3 +64,18 @@ static func _has_resolvable_recipe(recipe_masters: Dictionary, unlocked_recipe_i
 		if recipe_masters.get(recipe_id) is RecipeMaster:
 			return true
 	return false
+
+
+## 🔵 Issue #68（FR-715-006）。試験中は実施中の試験ルールの説明と達成状況を表示する。
+## 試験ノルマ方式（ルールなし・quota）は従来どおりHUDのノルマバーで進捗が分かるため表示しない
+static func refresh_exam_rule_label(state: Dictionary, exam_rule_label: Label) -> void:
+	var rule: ExamRuleMaster = state.get("exam_rule")
+	exam_rule_label.visible = (
+		state["in_exam"] and rule != null and rule.rule_type != ExamRuleMaster.RULE_QUOTA
+	)
+	if not exam_rule_label.visible:
+		return
+	var delivered := ExamRuleResolver.delivered_count(state["exam_progress"])
+	exam_rule_label.text = (
+		EXAM_RULE_LABEL_FORMAT % [rule.display_text, delivered, maxi(1, rule.target_count)]
+	)

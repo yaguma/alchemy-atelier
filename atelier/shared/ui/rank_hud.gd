@@ -31,11 +31,13 @@ const UNKNOWN_RANK_NAME := "ランク不明"
 const TURN_REMAINING_FORMAT := "残り%dターン"
 # 🔵 workshop_screen.gdのゴールド表示フォーマットを踏襲する
 const GOLD_FORMAT := "%d G"
+const EXAM_NOTICE_FORMAT := "次の試験: %s"  # 🟡 Issue #68（FR-715-003）。ui-design未確定の暫定表記
 
 @onready var _rank_name_label: Label = %RankNameLabel
 @onready var _quota_bar: ProgressBar = %QuotaBar
 @onready var _turn_remaining_label: Label = %TurnRemainingLabel
 @onready var _gold_label: Label = %GoldLabel
+@onready var _exam_notice_label: Label = %ExamNoticeLabel
 @onready var _menu_button: Button = %MenuButton
 
 
@@ -84,6 +86,7 @@ func refresh(animate: bool = false) -> void:
 	_refresh_quota(state, master, in_exam, animate)
 	_refresh_turn_remaining(state, master, in_exam)
 	_gold_label.text = GOLD_FORMAT % int(state["gold"])
+	_refresh_exam_notice(state, in_exam)
 
 
 ## 現在表示中のランク名テキストを返す（🔵 テスト用。実体はLabelノードを唯一の正とする）
@@ -99,6 +102,11 @@ func get_gold_text() -> String:
 ## 現在表示中の残ターンテキストを返す（🔵 テスト用）
 func get_turn_remaining_text() -> String:
 	return _turn_remaining_label.text
+
+
+## 現在表示中の試験予告テキストを返す。非表示なら空文字（🔵 テスト用、Issue #68）
+func get_exam_notice_text() -> String:
+	return _exam_notice_label.text if _exam_notice_label.visible else ""
 
 
 ## 現在表示中のノルマ達成比率（0.0〜1.0）を返す（🔵 テスト用）。
@@ -122,7 +130,7 @@ func get_menu_button() -> Button:
 # StyleBox・texture_filterを一括で他画面のボタンと揃える。TERTIARY選定は🔴仮決定）
 func _apply_theme() -> void:
 	UiTheme.apply_panel_style(self)
-	for label: Label in [_rank_name_label, _turn_remaining_label, _gold_label]:
+	for label: Label in [_rank_name_label, _turn_remaining_label, _exam_notice_label, _gold_label]:
 		UiTheme.apply_pixel_font(label)
 		label.add_theme_font_size_override("font_size", UiTheme.FONT_SIZE_DEFAULT)
 		label.add_theme_color_override("font_color", UiTheme.COLOR_HUD_TEXT)
@@ -205,3 +213,12 @@ func _on_exam_started() -> void:
 
 func _on_exam_outcome_confirmed(_outcome: ExamOutcome.Value) -> void:
 	refresh()
+
+
+# 🔵 Issue #68（FR-715-003）。ランク中は予告された試験ルールを常に見せる。試験中は調合画面側が
+# 実施中のルールと進捗を表示するため、HUDの予告は出さない
+func _refresh_exam_notice(state: Dictionary, in_exam: bool) -> void:
+	var announced: ExamRuleMaster = state.get("announced_exam_rule")
+	_exam_notice_label.visible = not in_exam and announced != null
+	if _exam_notice_label.visible:
+		_exam_notice_label.text = EXAM_NOTICE_FORMAT % announced.display_text

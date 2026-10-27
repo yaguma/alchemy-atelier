@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="ExamRuleMaster" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://features/rank/resources/exam_rule_master.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"exam_a_dual_traits"
+rule_type = &"dual_traits"
+display_text = "3ターンで聖と金を宿した品を2つ納めよ"
+turn_limit = 3
+target_count = 2
+target_traits = Array[StringName]([&"holy", &"gold"])
+reward_recipe_ids = Array[StringName]([])

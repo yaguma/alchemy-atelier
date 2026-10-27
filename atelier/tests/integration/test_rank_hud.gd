@@ -267,3 +267,41 @@ func test_経過ターンが制限ターンを超えても残ターンが負に�
 
 	assert_str(hud.get_turn_remaining_text()).contains("0")
 	assert_str(hud.get_turn_remaining_text()).not_contains("-")
+
+
+# Issue #68（FR-715-003）昇格試験の予告
+
+
+func _announce(display_text: String) -> void:
+	var rule := ExamRuleMaster.new()
+	rule.id = &"exam_announced"
+	rule.rule_type = ExamRuleMaster.RULE_DELIVER_ITEMS
+	rule.display_text = display_text
+	GameState._set_exam_rule_masters_for_test({rule.id: rule})
+	var rank_state := RankState.new()
+	rank_state.quota = QUOTA_REMAINING
+	rank_state.announced_exam_rule_id = rule.id
+	GameState._set_rank_state_for_test(rank_state)
+
+
+func test_予告された試験ルールの説明がHUDに表示される() -> void:
+	_announce("回復薬を2つ納めよ")
+
+	var hud := _make_hud()
+
+	assert_str(hud.get_exam_notice_text()).contains("回復薬を2つ納めよ")
+
+
+func test_予告がなければ試験の予告は表示されない() -> void:
+	var hud := _make_hud()
+
+	assert_str(hud.get_exam_notice_text()).is_empty()
+
+
+func test_昇格試験中は予告を表示しない() -> void:
+	_announce("回復薬を2つ納めよ")
+	GameState._set_exam_state_for_test(ExamState.new(), true)
+
+	var hud := _make_hud()
+
+	assert_str(hud.get_exam_notice_text()).is_empty()

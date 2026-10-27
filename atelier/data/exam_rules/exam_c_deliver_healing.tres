@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="ExamRuleMaster" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://features/rank/resources/exam_rule_master.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"exam_c_deliver_healing"
+rule_type = &"deliver_items"
+display_text = "2ターンで回復薬を2つ納めよ"
+turn_limit = 2
+target_recipe_ids = Array[StringName]([&"recipe_healing_potion"])
+target_count = 2
+reward_recipe_ids = Array[StringName]([])

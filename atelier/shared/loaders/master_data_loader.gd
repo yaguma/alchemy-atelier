@@ -6,6 +6,7 @@ const UPGRADES_DIR := "res://data/upgrades/"
 const RANKS_DIR := "res://data/ranks/"
 const DAILY_ORDERS_DIR := "res://data/daily_orders/"
 const INSPIRATIONS_DIR := "res://data/inspirations/"  # 🔵 Issue #67
+const EXAM_RULES_DIR := "res://data/exam_rules/"  # 🔵 Issue #68
 const TRES_EXTENSION := ".tres"
 
 
@@ -81,6 +82,8 @@ static func _resolve_dir_path(category: StringName) -> String:
 			return DAILY_ORDERS_DIR
 		&"inspirations":
 			return INSPIRATIONS_DIR
+		&"exam_rules":
+			return EXAM_RULES_DIR
 		_:
 			return ""
 
@@ -100,5 +103,7 @@ static func _is_allowed_type(category: StringName, resource: Resource) -> bool:
 			return resource is DailyOrderMaster
 		&"inspirations":
 			return resource is InspirationMaster
+		&"exam_rules":
+			return resource is ExamRuleMaster
 		_:
 			return false
