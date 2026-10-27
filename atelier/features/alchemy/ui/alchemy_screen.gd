@@ -181,7 +181,12 @@ func _refresh() -> Dictionary:
 	_turns_until_decay = AlchemyScreenSlots.turns_until_decay_by_id(
 		_inventory, state["material_masters"]
 	)
-	_market_rates = state["market_rates"]
+	# 🔴 PR #73レビュー指摘対応。通常ターンは調合物がターン終了まで納品待ちに溜まるため、
+	# 現在の相場をそのまま使うと、同じレシピの2つ目以降のプレビューが実際の納品（下落後の倍率）より高く出る。
+	# 納品待ちがすべて納品された後の見込み相場をプレビューとレシピ選択の表示に使う
+	_market_rates = MarketRateResolver.project_after_deliveries(
+		state["market_rates"], AlchemyScreenSlots.recipe_ids_of(state["pending_products"])
+	)
 	_recipe_mastery = state["recipe_mastery"]
 	_inspiration_unlocked = GameState.get_current_rank_master().inspiration_unlocked
 	_slot_state.max_slots = state["alchemy_slot_count"]
