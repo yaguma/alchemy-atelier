@@ -106,3 +106,17 @@ static func drop_missing_placed_ids(
 		if find_material(inventory, instance_id) != null:
 			kept.append(instance_id)
 	return kept
+
+
+## 🔵 Issue #64（FR-711-007）。在庫素材ごとの次の劣化までの残りターンをinstance_idで引ける辞書にする。
+## 劣化しない素材は-1が入り、MaterialEntryRow側で鮮度表示を出さない。
+## 劣化間隔の解決はターン終了時の劣化処理（GameState）と同じFreshnessResolverの規則を使う
+static func turns_until_decay_by_id(
+	inventory: Array[MaterialInstance], material_masters: Dictionary
+) -> Dictionary:
+	var turns: Dictionary = {}
+	for material in inventory:
+		turns[material.instance_id] = FreshnessResolver.turns_until_next_decay(
+			material, FreshnessResolver.decay_interval_of(material, material_masters)
+		)
+	return turns

@@ -133,13 +133,45 @@ static func advance_turn_growth(state: GameStateScript) -> void:
 		if not surviving_slot_indices.has(slot_index):
 			withered_slot_indices.append(slot_index)
 
+	var rotted_instance_ids := _age_inventory(state)
+
 	# 🔴 他の全GameStateミューテータと同様、状態更新はシグナル発行より前に完了させる
 	# （同期リスナーが更新前の値を読むのを防ぐ）
 	state._current_turn += 1
 
 	if not withered_slot_indices.is_empty():
 		state.plants_withered.emit(withered_slot_indices)
+	_emit_rotted(state, rotted_instance_ids)
 	state.turn_growth_advanced.emit(state._current_turn)
+
+
+## 🔵 Issue #64（FR-711-002）。昇格試験のターン進行用。庭は動かさず在庫の鮮度だけを進める
+static func age_inventory_for_exam_turn(state: GameStateScript) -> void:
+	_emit_rotted(state, _age_inventory(state))
+
+
+## 在庫の全素材にFreshnessResolver.age_materialを適用し、腐敗した素材を取り除く。
+## シグナル発行は呼び出し元が状態更新を終えてから行うため、取り除いたinstance_idを返すだけにする
+static func _age_inventory(state: GameStateScript) -> Array:
+	var surviving: Array[MaterialInstance] = []
+	var rotted_instance_ids: Array = []
+	for material in state._inventory:
+		var aged := FreshnessResolver.age_material(material, _decay_interval_of(state, material))
+		if aged.is_rotten:
+			rotted_instance_ids.append(aged.instance_id)
+		else:
+			surviving.append(aged)
+	state._inventory = surviving
+	return rotted_instance_ids
+
+
+static func _emit_rotted(state: GameStateScript, rotted_instance_ids: Array) -> void:
+	if not rotted_instance_ids.is_empty():
+		state.materials_rotted.emit(rotted_instance_ids)
+
+
+static func _decay_interval_of(state: GameStateScript, material: MaterialInstance) -> int:
+	return FreshnessResolver.decay_interval_of(material, state._material_masters)
 
 
 ## _garden_state.plants内でslot_indexが一致する要素のインデックスを返す。見つからない場合は-1

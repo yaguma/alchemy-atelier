@@ -231,3 +231,48 @@ func test_20件の素材を渡しても全件表示され末尾のシグナル�
 
 	assert_int(list.get_entry_count()).is_equal(20)
 	await assert_signal(list).is_emitted("material_place_requested", ["mat_19"])
+
+
+# 正常系
+# 🔵 Issue #64（FR-711-007）
+func test_劣化までの残りターンを渡すと鮮度ラベルに表示される() -> void:
+	var list := _make_list()
+	var no_tags: Array[StringName] = []
+	var materials: Array[MaterialInstance] = [_make_material("mat_1", &"herb_common", 3, no_tags)]
+
+	list.setup(materials, {"mat_1": 2})
+
+	var freshness_label := _find_label(list, "mat_1", "FreshnessLabel")
+	assert_bool(freshness_label.visible).is_true()
+	assert_str(freshness_label.text).contains("2")
+
+
+# 異常系
+# 🔵 Issue #64。劣化しない素材（-1）・残りターン未指定の素材は鮮度ラベルを出さない
+func test_劣化しない素材と残りターン未指定の素材は鮮度ラベルが非表示になる() -> void:
+	var list := _make_list()
+	var no_tags: Array[StringName] = []
+	var materials: Array[MaterialInstance] = [
+		_make_material("mat_1", &"ore_common", 3, no_tags),
+		_make_material("mat_2", &"herb_common", 3, no_tags),
+	]
+
+	list.setup(materials, {"mat_1": -1})
+
+	assert_bool(_find_label(list, "mat_1", "FreshnessLabel").visible).is_false()
+	assert_bool(_find_label(list, "mat_2", "FreshnessLabel").visible).is_false()
+
+
+# 境界値
+# 🔵 Issue #64。次のターン終了で劣化する素材は警告色で強調する
+func test_残り1ターンの素材は鮮度ラベルが警告色になる() -> void:
+	var list := _make_list()
+	var no_tags: Array[StringName] = []
+	var materials: Array[MaterialInstance] = [_make_material("mat_1", &"herb_common", 3, no_tags)]
+
+	list.setup(materials, {"mat_1": 1})
+
+	var freshness_label := _find_label(list, "mat_1", "FreshnessLabel")
+	assert_that(freshness_label.get_theme_color("font_color")).is_equal(
+		UiTheme.COLOR_FRESHNESS_DECAY_SOON
+	)

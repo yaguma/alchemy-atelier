@@ -9,3 +9,4 @@ name = "薬草"
 icon_path = "res://assets/icons/material_herb.png"
 shop_purchasable = false
 shop_base_quality = 0
+decay_interval_turns = 3

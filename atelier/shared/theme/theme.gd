@@ -159,6 +159,10 @@ const COLOR_TRAIT_HIGHLIGHT := Color("#FFD54F")
 # 🟡 指定合致キラキラ用の色。既存COLOR_ALCHEMY_PREVIEW_ORDER_MATCHED（コーラル系）と
 # 用途が重なるため、同じ値を再利用する
 const COLOR_ORDER_MATCHED_HIGHLIGHT := COLOR_ALCHEMY_PREVIEW_ORDER_MATCHED
+# 🟡 Issue #64。素材の鮮度表示の色。次のターン終了で劣化・腐敗する素材は、庭の枯死警告と
+# 同じ「まもなく失う」意味のため同じ赤系を再利用する
+const COLOR_FRESHNESS_NORMAL := COLOR_HUD_TEXT
+const COLOR_FRESHNESS_DECAY_SOON := COLOR_SLOT_WITHER_WARNING
 
 # 🔵 2026-09-16追加: make_button_stylebox()の(variant, state)組み合わせごとの生成結果キャッシュ。
 # StyleBoxTextureは内容が同じであれば複数のButtonで安全に共有できる読み取り専用リソースのため、

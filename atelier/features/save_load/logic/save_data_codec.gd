@@ -4,7 +4,8 @@ class_name SaveDataCodec
 
 ## 🔴 将来のセーブフォーマット変更時のマイグレーション判定用に予約。
 ## 現スコープでは書き込むのみで、読み込み側はこの値を検証しない。
-const SAVE_FORMAT_VERSION := 1
+## 🔵 Issue #64で2へ更新（inventory要素にfreshness_elapsed_turnsを追加。旧データは復元側で0補完）。
+const SAVE_FORMAT_VERSION := 2
 
 
 ## 🔵 dataのSHA-256チェックサムを返す（security.md「セーブデータの破損検出」準拠）。

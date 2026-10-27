@@ -53,3 +53,24 @@ func test_コンストラクタに渡した配列を後から変更してもイ�
 	trait_tags.append(&"catalyst")
 
 	assert_int(instance.trait_tags.size()).is_equal(1)
+
+
+func test_生成直後の鮮度経過ターンは0で腐敗していない() -> void:
+	var empty_tags: Array[StringName] = []
+
+	var instance := MaterialInstance.new("mat_0003", &"material_herb", 2, empty_tags)
+
+	assert_int(instance.freshness_elapsed_turns).is_equal(0)
+	assert_bool(instance.is_rotten).is_false()
+
+
+func test_cloneは鮮度経過ターンと腐敗フラグを引き継ぐ() -> void:
+	var empty_tags: Array[StringName] = []
+	var original := MaterialInstance.new("mat_0003", &"material_herb", 2, empty_tags)
+	original.freshness_elapsed_turns = 4
+	original.is_rotten = true
+
+	var cloned := original.clone()
+
+	assert_int(cloned.freshness_elapsed_turns).is_equal(4)
+	assert_bool(cloned.is_rotten).is_true()

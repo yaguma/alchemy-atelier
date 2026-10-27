@@ -8,6 +8,7 @@ signal harvest_failed(slot_index: int, error_code: StringName)  # 🔴 UI側フ�
 # 🔵 FR-111。Array[int]相当だが、GDScriptのsignal引数型注釈の制約に合わせてArrayとする
 signal plants_withered(slot_indices: Array)
 signal turn_growth_advanced(turn: int)  # 🔴 UI再描画トリガ用の新規補完
+signal materials_rotted(instance_ids: Array)  # 🔵 Issue #64（FR-711-006）。Array[String]相当
 signal product_crafted(product: ProductInstance)  # 🔵 FR-112
 # 🔴 garden の plant_seed_failed/harvest_failed パターン踏襲（FR-113）
 signal execute_alchemy_failed(recipe_id: StringName, error_code: StringName)
@@ -116,6 +117,9 @@ func get_state() -> Dictionary:
 		# GardenScreenが全スロット（空き含む）を描画するには庭の総スロット数が別途必要
 		"garden_slot_count": _garden_slot_count,
 		"inventory": cloned_inventory,
+		# 🔵 Issue #64（FR-711-007）。seed_masters公開と同型。AlchemyScreenが素材ごとの劣化間隔から
+		# 次の劣化までの残りターンを表示するために必要。Resourceは不変前提のため浅いduplicate()で十分
+		"material_masters": _material_masters.duplicate(),
 		# 🔵 CON-001。seed_masters公開と同型。AlchemyScreenがレシピ詳細（名称・必要素材等）を
 		# 描画するために必要。マスターデータ（Resourceは不変前提）のため浅いduplicate()で十分
 		"recipe_masters": _recipe_masters.duplicate(),

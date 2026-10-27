@@ -10,3 +10,5 @@ extends Resource
 @export var icon_path: String = ""  # 🔵 アイコンリソースパス
 @export var shop_purchasable: bool = false  # 🔵 ショップで購入できる素材か。庭でのみ入手できる素材はfalse
 @export var shop_base_quality: int = 1  # 🔵 shop_purchasable == trueの場合のみ使用
+## 🔵 Issue #64（FR-711-003/005）。品質が1段下がるまでのターン数。0以下なら劣化しない
+@export var decay_interval_turns: int = 0

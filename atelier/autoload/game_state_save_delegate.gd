@@ -83,6 +83,7 @@ static func _collect_inventory(inventory: Array[MaterialInstance]) -> Array:
 			"material_id": String(material.material_id),
 			"quality_score": material.quality_score,
 			"trait_tags": trait_tags,
+			"freshness_elapsed_turns": material.freshness_elapsed_turns,
 		}
 		collected.append(entry)
 	return collected
@@ -226,14 +227,15 @@ static func _restore_inventory(data: Array) -> Array[MaterialInstance]:
 	var inventory: Array[MaterialInstance] = []
 	for entry in data:
 		var trait_tags := _strings_to_string_names(entry["trait_tags"])
-		inventory.append(
-			MaterialInstance.new(
-				String(entry["instance_id"]),
-				StringName(entry["material_id"]),
-				int(entry["quality_score"]),
-				trait_tags
-			)
+		var material := MaterialInstance.new(
+			String(entry["instance_id"]),
+			StringName(entry["material_id"]),
+			int(entry["quality_score"]),
+			trait_tags
 		)
+		# 🔵 Issue #64（FR-717-002）。鮮度導入前（SAVE_FORMAT_VERSION 1）のデータはキーを持たないため0で補う
+		material.freshness_elapsed_turns = int(entry.get("freshness_elapsed_turns", 0))
+		inventory.append(material)
 	return inventory
 
 

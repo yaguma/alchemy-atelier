@@ -45,6 +45,7 @@ var _placed_material_ids: Array[String] = []
 var _slot_state: SlotState = SlotState.new()
 var _recipe_masters: Dictionary = {}  # 🔵 StringName -> RecipeMaster。get_state()から都度キャッシュ
 var _inventory: Array[MaterialInstance] = []  # 🔵 get_state()から都度キャッシュ
+var _turns_until_decay: Dictionary = {}  # 🔵 Issue #64。_inventoryと同じタイミングでキャッシュする
 # 🔴 コードレビュー指摘対応。_recompute_preview()のたびにGameState.get_state()を再度フル呼び出し
 # していた（_inventory/_recipe_masters同様に_refresh()時点でキャッシュすべきコスト）のを解消する。
 # GameState.resolve_daily_order_for_delivery()経由で取得するため、試験中(_in_exam)は
@@ -161,6 +162,9 @@ func _refresh() -> Dictionary:
 	var state := GameState.get_state()
 	_recipe_masters = state["recipe_masters"]
 	_inventory = state["inventory"]
+	_turns_until_decay = AlchemyScreenSlots.turns_until_decay_by_id(
+		_inventory, state["material_masters"]
+	)
 	_slot_state.max_slots = state["alchemy_slot_count"]
 	# 🔴 コードレビュー指摘対応。_recompute_preview()側でGameState.get_state()を再度呼ばずに済むよう
 	# ここでキャッシュする。GameState側のロジックと同一の式（試験中はnull）を経由する
@@ -172,7 +176,7 @@ func _refresh() -> Dictionary:
 
 	_rebuild_recipe_options(state["unlocked_recipe_ids"])
 	_rebuild_slots()
-	_material_inventory_list.setup(_available_materials())
+	_material_inventory_list.setup(_available_materials(), _turns_until_decay)
 	_on_preview_inputs_changed()
 	_refresh_exam_ui(state)
 	return state
@@ -299,7 +303,7 @@ func _on_material_place_requested(material_instance_id: String) -> void:
 
 	_placed_material_ids.append(material_instance_id)
 	_rebuild_slots()
-	_material_inventory_list.setup(_available_materials())
+	_material_inventory_list.setup(_available_materials(), _turns_until_decay)
 	_on_preview_inputs_changed()
 
 	AlchemyScreenEffects.play_material_slide_in(
@@ -312,7 +316,7 @@ func _on_slot_clear_requested(slot_index: int) -> void:
 		return
 	_placed_material_ids.remove_at(slot_index)  # 🔵 AC-005。投入順を詰めてスロット表示順と一致させる
 	_rebuild_slots()
-	_material_inventory_list.setup(_available_materials())
+	_material_inventory_list.setup(_available_materials(), _turns_until_decay)
 	_on_preview_inputs_changed()
 
 

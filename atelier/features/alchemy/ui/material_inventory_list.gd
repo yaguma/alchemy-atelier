@@ -12,14 +12,18 @@ const MaterialEntryRowScene = preload("res://features/alchemy/ui/material_entry_
 const ENTRY_SEPARATION := 8
 
 var _materials: Array[MaterialInstance] = []
+var _turns_until_decay: Dictionary = {}  # instance_id(String) -> int
 
 @onready var _entry_container: VBoxContainer = %EntryContainer
 @onready var _empty_state_label: Label = %EmptyStateLabel
 
 
 ## 表示対象のMaterialInstance配列を受け取り一覧を再構築する。🔵 US-001
-func setup(materials: Array[MaterialInstance]) -> void:
+## turns_until_decayはinstance_idごとの次の劣化までの残りターン（🔵 Issue #64）。
+## GameStateに依存しない方針を保つため、呼び出し元が算出して渡す。未指定の素材は鮮度表示なし
+func setup(materials: Array[MaterialInstance], turns_until_decay: Dictionary = {}) -> void:
 	_materials = materials
+	_turns_until_decay = turns_until_decay
 	_rebuild()
 
 
@@ -70,7 +74,9 @@ func _add_entry_row(material: MaterialInstance) -> void:
 	var row: MaterialEntryRow = MaterialEntryRowScene.instantiate()
 	row.name = "MaterialEntry_%s" % material.instance_id
 	_entry_container.add_child(row)
-	row.setup(material)
+	row.setup(
+		material, int(_turns_until_decay.get(material.instance_id, MaterialEntryRow.NO_DECAY))
+	)
 	row.place_pressed.connect(_on_place_pressed)
 
 

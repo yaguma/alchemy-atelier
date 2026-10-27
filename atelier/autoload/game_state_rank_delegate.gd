@@ -139,6 +139,8 @@ static func advance_exam_turn(state: GameStateScript) -> Result:
 		return Result.fail(&"not_in_exam")
 
 	state._exam_state = PromotionExamResolver.advance_turn(state._exam_state)
+	# 🔵 Issue #64（FR-711-002）。試験中も時間は流れるため素材の鮮度を進める
+	GameStateGardenDelegate.age_inventory_for_exam_turn(state)
 	return Result.ok()
 
 
