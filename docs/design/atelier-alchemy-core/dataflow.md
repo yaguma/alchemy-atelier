@@ -243,3 +243,85 @@ stateDiagram-v2
 🔵 要件定義書§2「勝敗条件」の「降格」定義（ランク文字は下がらず同一ランクに留まる）に忠実に、`Demotion`から`TurnLoop`へ戻る遷移（ランクは変わらない）として表現した。
 
 🔵 **2026-08-05修正（PRレビューWarning対応）**: 旧版は「試験成功→常にWorkshop経由→RankNext→（Sランクだった場合のみ）GameClear」という経路になっており、全体フロー図（本文書冒頭）の「Sランクは工房強化を経由せず直接ゲームクリア」という経路と矛盾していた。次ランクが存在しないSランクで恒久投資画面を経由する意味がないため、`PromotionExam2`からの分岐時点でSランクなら`GameClear`へ直接遷移するよう修正した。あわせて降格時のランクノルマ/残りターンのリセット、昇格成功時の降格回数カウンタのリセットも明示した（[`core-systems.md`](./core-systems.md) RankSystem節参照）。
+
+---
+
+## v7.1追加のデータフロー（🔵2026-10-27新設、Issue #63）
+
+要件定義書§10・[`core-systems.md`](./core-systems.md)「v7.1追加システム」に対応する。
+
+### ターン終了処理（鮮度・相場の追加）
+
+```mermaid
+sequenceDiagram
+    participant UI as 庭/調合画面
+    participant GS as GameState
+    participant H as Harvest
+    participant F as FreshnessResolver
+    participant M as MarketRateResolver
+
+    UI->>GS: ターン終了
+    GS->>H: advance_growth / resolve_withering（既存）
+    loop 在庫の各素材
+        GS->>F: age_material(material, decay_interval_turns)
+        F-->>GS: 新しいMaterialInstance
+    end
+    GS->>GS: is_rottenの素材を在庫から除去
+    GS-->>UI: materials_rotted(instance_ids)
+    GS->>M: recover_at_turn_end(market_rates, このターンに納品したレシピID)
+    M-->>GS: 新しいmarket_rates
+    GS->>GS: 日替わり指定を再抽選（既存）
+```
+
+### 調合実行（中間素材・ひらめきの追加）
+
+```mermaid
+sequenceDiagram
+    participant UI as 調合画面
+    participant GS as GameState
+    participant A as Quality/TraitActivation
+    participant I as IntermediateCrafter
+    participant R as RngService
+    participant IR as InspirationResolver
+
+    UI->>GS: execute_alchemy(recipe_id, material_ids)
+    GS->>A: 品質計算・特性発現（凝縮タグを合計して数える）
+    alt recipe.kind == intermediate
+        GS->>I: select_concentrated_traits / build_trait_tags
+        GS->>GS: 中間素材のMaterialInstanceを在庫に追加（納品しない）
+    else recipe.kind == product
+        GS->>GS: ProductInstanceを納品待ちキューへ（既存）
+    end
+    opt RankMaster.inspiration_unlocked
+        GS->>GS: 熟練度 += 1
+        GS->>R: 乱数を2つ払い出す
+        GS->>IR: should_inspire(熟練度, rng1)
+        GS->>IR: find_candidates → pick(候補, rng2)
+        alt ひらめいた
+            GS->>GS: 結果レシピを解禁・熟練度を0へ
+            GS-->>UI: recipe_inspired(result, source, input_traits)
+        end
+    end
+```
+
+### 納品（相場の追加）
+
+`deliver_pending_products()`は納品待ちの調合物を1つずつ処理する。各調合物について `MarketRateResolver.get_rate` → `DeliveryResolver.resolve(product, daily_order, market_multiplier)` → `MarketRateResolver.after_delivery` の順に呼ぶ。同じターンに同じレシピを2つ納めた場合、2つ目には下落後の倍率が適用される。
+
+### 昇格試験（試験ルールの追加）
+
+```mermaid
+stateDiagram-v2
+    [*] --> RankStart
+    RankStart --> TurnLoop: ExamRuleResolver.announceで試験ルールを予告<br/>（rank_state.announced_exam_rule_id）
+    TurnLoop --> Exam: 制限ターン到達・ノルマ0
+    Exam --> Exam: 納品ごとにExamRuleResolver.record_deliveryで進捗を更新
+    Exam --> Success: is_clearedが真
+    Exam --> Failure: 制限ターン到達
+    Success --> RankStart: 合格報酬のレシピを解禁 → 工房強化 → 次ランク
+    Failure --> RankStart: 降格（同ランク再挑戦。予告を再決定）
+```
+
+### 図鑑
+
+`GameState.recipe_inspired` → `CodexService`（Autoload）が購読 → `CodexCodec.register`で重複なく登録 → チェックサム付きで`user://codex.json`に保存。図鑑はセーブスロットの読み込み・新規ゲーム開始の影響を受けない。

@@ -354,6 +354,160 @@ classDiagram
 
 ---
 
+## v7.1追加システム（🔵2026-10-27新設、Issue #63）
+
+要件定義書§10（FR-711〜FR-717）を実装するための設計。既存の5システムに純粋関数を追加する形で拡張し、新しいDomain層システム同士の直接参照は行わない（`GameState`が仲介する原則を維持する）。
+
+| 追加要素 | 所属Feature | 追加する純粋関数（`logic/`） | `GameState`側の追加状態 |
+|---|---|---|---|
+| 素材の鮮度 | garden | `FreshnessResolver` | `MaterialInstance.freshness_elapsed_turns` |
+| 需要相場 | guild | `MarketRateResolver` | `_market_rates: Dictionary[StringName, float]` |
+| 中間素材 | alchemy | `IntermediateCrafter`、`TraitActivation`の数え方変更 | なし（在庫に素材として加わる） |
+| 熟練ひらめき | alchemy | `InspirationResolver` | `_recipe_mastery: Dictionary[StringName, int]`、`_inspired_recipe_ids: Array[StringName]` |
+| 昇格試験のボス戦化 | rank | `ExamRuleResolver`、`PromotionExamResolver`の拡張 | `rank_state.announced_exam_rule_id`、`ExamState.progress` |
+| 図鑑 | codex（新Feature） | `CodexCodec` | なし（`CodexService` Autoloadが`user://codex.json`を管理） |
+
+### 素材の鮮度 — FreshnessResolver（FR-711）
+
+```mermaid
+classDiagram
+    class FreshnessResolver {
+        <<static>>
+        +age_material(material: MaterialInstance, decay_interval_turns: int) MaterialInstance
+        +is_rotten(material: MaterialInstance) bool
+        +turns_until_next_decay(material: MaterialInstance, decay_interval_turns: int) int
+    }
+```
+
+| メソッド名 | 引数 | 戻り値 | 説明 |
+|---|---|---|---|
+| `age_material` | `material, decay_interval_turns: int` | `MaterialInstance`（新オブジェクト） | `freshness_elapsed_turns`を+1した複製を返す。`decay_interval_turns >= 1`かつ経過ターンが間隔の倍数に達した場合、品質を1段下げる。品質1で劣化タイミングを迎えた場合は腐敗フラグ（`is_rotten`が真になる状態）を立てる。`decay_interval_turns <= 0`なら経過ターンのみ進め品質は変えない |
+| `is_rotten` | `material` | `bool` | 腐敗したかを返す |
+| `turns_until_next_decay` | `material, decay_interval_turns` | `int` | 次の劣化までの残りターン数。劣化しない素材は`-1` |
+
+- 🟡 腐敗状態の表現は`MaterialInstance.is_rotten: bool`を追加する案とする（品質0を腐敗とみなす案は、品質1〜5の不変条件を崩すため採らない）
+- ターン終了処理（現実装の`GameState.advance_turn_growth()`）は、庭の生育処理（`Harvest.advance_growth`→`resolve_withering`）の直後に、在庫の全素材へ`age_material`を適用し、`is_rotten`が真の素材を取り除いて`materials_rotted(instance_ids)`を発行する
+- 昇格試験中のターン進行（`advance_exam_turn`）でも同じ処理を行う（試験中も時間は流れる）
+- 劣化間隔は`MaterialMaster.decay_interval_turns`から取得する。Domain層はマスターデータを参照せず、`GameState`が値を引数で渡す
+
+### 需要相場 — MarketRateResolver（FR-712）
+
+```mermaid
+classDiagram
+    class MarketRateResolver {
+        <<static>>
+        +get_rate(market_rates: Dictionary, recipe_id: StringName) float
+        +after_delivery(market_rates: Dictionary, recipe_id: StringName) Dictionary
+        +recover_at_turn_end(market_rates: Dictionary, delivered_recipe_ids: Array[StringName]) Dictionary
+    }
+```
+
+| メソッド名 | 説明 |
+|---|---|
+| `get_rate` | 登録がなければ`1.0`を返す |
+| `after_delivery` | 対象レシピの倍率を`GameBalance.MARKET_DROP_STEP`だけ下げた新しい辞書を返す（下限`MARKET_RATE_MIN`でクランプ）。引数の辞書は書き換えない |
+| `recover_at_turn_end` | このターンに納品されなかった登録済みレシピの倍率を`MARKET_RECOVER_STEP`だけ上げた新しい辞書を返す（上限`MARKET_RATE_MAX`でクランプ。上限は1.0を超える） |
+
+- **相場倍率の適用は`DeliveryResolver.resolve`に一本化する**。`resolve(product, daily_order, market_multiplier: float)`のように引数を追加し、`final_contribution = product.contribution × 合致ボーナス × market_multiplier`とする。`ProductValueCalculator`では掛けない（指定合致ボーナスの二重乗算防止〔PRレビューCritical#4〕と同じ方針）
+- `DeliveryResult`に`market_multiplier: float`を追加し、納品結果画面の表示に使う
+- `GameState.deliver_pending_products()`は納品待ちの調合物を1つずつ処理し、処理のたびに`after_delivery`で倍率を更新する（同じターンに同じ品を2つ納めても2つ目は下がる）
+- ターン終了処理（`GameState.advance_turn_growth()`）で、そのターンに納品したレシピIDの一覧を渡して`recover_at_turn_end`を呼ぶ
+
+### 中間素材 — IntermediateCrafter（FR-713）
+
+```mermaid
+classDiagram
+    class IntermediateCrafter {
+        <<static>>
+        +select_concentrated_traits(materials: Array[MaterialInstance], activated_traits: Array[StringName], max_traits: int) Array[StringName]
+        +build_trait_tags(concentrated_traits: Array[StringName]) Array[StringName]
+    }
+    class RecipeMaster {
+        +kind: StringName
+        +output_material_id: StringName
+        +max_concentrated_traits: int
+    }
+```
+
+- `RecipeMaster.kind`が`&"intermediate"`の場合、`GameState.execute_alchemy`は品質計算・特性発現までは納品用と同じ経路を通り、`ProductInstance`の代わりに`MaterialInstance`（`material_id = output_material_id`、品質＝調合品質、`trait_tags = build_trait_tags(...)`、鮮度0）を在庫に追加する。納品待ちキューには入れない
+- `select_concentrated_traits`: 発現特性のうち、投入素材中の出現数が多い順（同数なら最初に出現した順）に最大`max_traits`個を返す
+- `build_trait_tags`: 各特性を`GameBalance.INTERMEDIATE_CONCENTRATION`個（🔵2固定）ずつ並べる（例: `[holy] → [holy, holy]`）
+- **`TraitActivation.count_trait_occurrences`の変更**: 素材1個につき最大1回ではなく、`trait_tags`内の同じタグの数をすべて合計する。庭産・ショップ品は特性を最大1個しか持たないため、既存の挙動は変わらない
+- 中間素材の`MaterialMaster.decay_interval_turns`は0とする（劣化しない）
+
+### 熟練ひらめき — InspirationResolver（FR-714）
+
+```mermaid
+classDiagram
+    class InspirationResolver {
+        <<static>>
+        +chance_for(mastery_count: int) float
+        +should_inspire(mastery_count: int, rng_value: float) bool
+        +find_candidates(masters: Array[InspirationMaster], source_recipe_id, input_traits, current_rank_id, unlocked_recipe_ids) Array[InspirationMaster]
+        +pick(candidates: Array[InspirationMaster], rng_value: float) InspirationMaster
+    }
+    class InspirationMaster {
+        +id: StringName
+        +source_recipe_id: StringName
+        +required_traits: Array[StringName]
+        +result_recipe_id: StringName
+        +min_rank_id: StringName
+    }
+```
+
+| メソッド名 | 説明 |
+|---|---|
+| `chance_for` | `mastery_count >= INSPIRATION_CEILING_COUNT`なら1.0、それ以外は`min(1.0, INSPIRATION_BASE_CHANCE + INSPIRATION_CHANCE_STEP × (mastery_count - 1))`。`mastery_count <= 0`は0.0 |
+| `should_inspire` | `rng_value < chance_for(mastery_count)` |
+| `find_candidates` | 元レシピ一致・現在ランクが`min_rank_id`以上（`GameBalance.RANK_ORDER`の並び順で比較）・結果レシピが未解禁・`required_traits`がすべて`input_traits`に含まれる候補を返す |
+| `pick` | `required_traits`の数が最大の候補群から、`rng_value`で1つ選ぶ。候補がなければ`null` |
+
+- `GameState.execute_alchemy`の成功後、`RankMaster.inspiration_unlocked`が真なら: 熟練度を+1 → `RngService`から2つ乱数を払い出す → `should_inspire`が真で`pick`が候補を返したら、結果レシピを`unlocked_recipe_ids`と`_inspired_recipe_ids`に加え、熟練度を0に戻し、`recipe_inspired(result_recipe_id, source_recipe_id, input_traits)`を発行する
+- `input_traits`は投入素材の`trait_tags`の和集合（触媒を除く）。発現した特性ではなく「投入した特性」で方向を決める（コンセプト「投入した特性の方向」に準拠）
+- ランクの上下は既存の`GameBalance.RANK_ORDER`（昇格順のランクID配列）のインデックスで比較する。`RankMaster`に順序フィールドは追加しない
+- `reset_for_new_game()`で熟練度・ひらめいたレシピをクリアする。ひらめいたレシピは`unlocked_recipe_ids`からも取り除く（初期解禁と工房強化で得たレシピのみ残る）
+
+### 昇格試験のボス戦化 — ExamRuleResolver（FR-715）
+
+```mermaid
+classDiagram
+    class ExamRuleMaster {
+        +id: StringName
+        +rule_type: StringName
+        +turn_limit: int
+        +target_recipe_ids: Array[StringName]
+        +target_count: int
+        +slot_limit: int
+        +min_quality: int
+        +target_traits: Array[StringName]
+        +reward_recipe_ids: Array[StringName]
+    }
+    class ExamRuleResolver {
+        <<static>>
+        +announce(rule_pool: Array[StringName], rng_value: float) StringName
+        +record_delivery(progress: Dictionary, rule: ExamRuleMaster, product: ProductInstance, used_intermediate: bool) Dictionary
+        +is_cleared(progress: Dictionary, rule: ExamRuleMaster, exam_quota: float) bool
+        +effective_slot_limit(rule: ExamRuleMaster, base_slot_count: int) int
+    }
+```
+
+- `RankMaster`に`exam_rule_pool: Array[StringName]`を追加する。ランク開始時（昇格直後・降格による再挑戦開始時）に`announce`で1つ決め、`rank_state.announced_exam_rule_id`に保存する
+- `PromotionExamResolver.start_exam`は試験ルールを受け取り、`exam_turn_limit = rule.turn_limit`で初期化する。`quota`ルールの場合のみ既存の試験ノルマ算出式を使う
+- `ExamState`に`progress: Dictionary`（ルールごとの達成状況。例: `deliver_items`なら納品数）を追加する。納品のたびに`record_delivery`で更新する
+- `PromotionExamResolver.resolve_outcome`は「`ExamRuleResolver.is_cleared`が真なら`SUCCESS`、制限ターン到達なら`FAILURE`、それ以外は`CONTINUE`」に拡張する
+- `quality_with_slot_limit`ルールの試験中は、`SlotState.max_slots`に`effective_slot_limit`の値を使う。`GameState.execute_alchemy`の再検証も同じ値を使う
+- `use_intermediate`の判定のため、`ProductInstance`に`used_intermediate: bool`（投入素材に中間素材が含まれていたか）を追加する。中間素材かどうかは`MaterialMaster.is_intermediate`から`GameState`が判定して渡す
+- 合格時は`commit_exam_outcome()`が`reward_recipe_ids`を`unlocked_recipe_ids`に加える
+
+### 図鑑 — CodexService / CodexCodec（FR-716）
+
+- 新Feature `features/codex/`を作る。`logic/codex_codec.gd`（図鑑データのencode/decode・型検証・登録の純粋関数）、`ui/codex_screen.*`
+- 永続化はセーブスロットと寿命が異なるため、新しいAutoload `CodexService`が担う。`GameState.recipe_inspired`を購読して`user://codex.json`へ即時保存する（チェックサム付き。`SaveDataCodec`のチェックサム方式を流用する）
+- 図鑑エントリ: `{recipe_id, source_recipe_id, trigger_traits: Array, first_discovered_at: String}`。同じ`recipe_id`は1件のみ
+- 表示対象の全件は`InspirationMaster`の`result_recipe_id`一覧から求め、記録のないものを「？？？」として表示する
+
+---
+
 ## システム間相互作用まとめ
 
 ```mermaid

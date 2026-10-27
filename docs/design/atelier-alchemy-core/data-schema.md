@@ -239,6 +239,141 @@
 | effect_value | Variant | 効果の量またはID。`alchemy_slot_increase`/`garden_slot_increase`は増加量（int）、`recipe_unlock`は対象`RecipeMaster.id`（String）、`catalyst_stock`は対象`MaterialMaster.id`（String、通常`material_catalyst`固定）、`seed_name_purchase`は対象`SeedMaster.id`（String）を表す（🔵2026-08-10追加、実装レディネス監査#1・#3対応。具体的な適用ロジックは[`core-systems.md`](./core-systems.md) WorkshopSystem節「購入適用ロジック」参照） | ○ |
 | max_purchase_count | int | このアップグレードを購入できる最大回数（🔵2026-08-05追加、PRレビューWarning対応。旧版は購入回数の上限がなく、「投入枠+1」を無制限に購入できてしまう不備があった。恒久投資は基本1回、消耗投資〔触媒・種の指名買い〕は実質無制限として大きな値を設定する） | ○ |
 
+## v7.1追加スキーマ（🔵2026-10-27新設、Issue #63）
+
+要件定義書§10・[`core-systems.md`](./core-systems.md)「v7.1追加システム」に対応するフィールド追加。既存フィールドの意味は変えない。
+
+### ランタイム状態への追加
+
+| フィールド | 型 | 説明 | デフォルト値 | リセット契機 |
+|---|---|---|---|---|
+| inventory[].freshness_elapsed_turns | int | 在庫に加わってからの経過ターン（鮮度） | 0 | 素材ごと。降格時も維持 |
+| inventory[].is_rotten | bool | 腐敗したか。真になった素材はターン終了処理で在庫から取り除かれるため、通常は永続化されない | false | - |
+| market_rates | Dictionary[String, float] | レシピIDごとの相場倍率。未登録は1.0扱い | 空 | 新規ゲーム開始時のみ。降格時も維持 |
+| recipe_mastery | Dictionary[String, int] | レシピIDごとの熟練度（調合回数） | 空 | ひらめいたレシピのみ0へ。新規ゲーム開始時に全消去 |
+| inspired_recipe_ids | Array[String] | このランでひらめいたレシピID（`unlocked_recipe_ids`にも含まれる） | 空 | 新規ゲーム開始時のみ |
+| rank_state.announced_exam_rule_id | String | 予告された昇格試験ルールのID | ランク開始時に決定 | 昇格・降格によるランク開始時に再決定 |
+| exam_state.exam_rule_id | String | 実施中の試験ルールID | 空 | 試験開始のたびに設定 |
+| exam_state.progress | Dictionary | 試験ルールの達成状況（例: `{"delivered_count": 2}`） | 空 | 試験開始のたびに初期化 |
+
+### MaterialMasterへの追加
+
+| フィールド | 型 | 説明 | 必須 |
+|---|---|---|---|
+| decay_interval_turns | int | 品質が1段下がるまでのターン数。0なら劣化しない（🟡素材ごとの値はTBD） | ○（既定0） |
+| is_intermediate | bool | 中間素材か。`use_intermediate`試験ルールの判定に使う | ○（既定false） |
+
+### RecipeMasterへの追加
+
+```json
+{
+  "id": "recipe_holy_water",
+  "name": "聖水",
+  "kind": "intermediate",
+  "base_contribution": 0.0,
+  "base_reward": 0.0,
+  "output_material_id": "material_holy_water",
+  "max_concentrated_traits": 1
+}
+```
+
+| フィールド | 型 | 説明 | 必須 |
+|---|---|---|---|
+| kind | String | `"product"`（納品用、既定）or `"intermediate"`（中間素材） | ○（既定`product`） |
+| output_material_id | String | `kind == "intermediate"`のとき、作られる`MaterialMaster`のID | kind依存 |
+| max_concentrated_traits | int | 中間素材が凝縮して持てる特性の数（通常1、ひらめき由来2） | kind依存 |
+
+中間素材レシピの`base_contribution`/`base_reward`は使われない（0とする）。
+
+### InspirationMaster（`res://data/inspirations/*.tres`、新規）
+
+```json
+{
+  "id": "insp_healing_holy",
+  "source_recipe_id": "recipe_healing_potion",
+  "required_traits": ["holy"],
+  "result_recipe_id": "recipe_holy_water",
+  "min_rank_id": "rank_e"
+}
+```
+
+| フィールド | 型 | 説明 | 必須 |
+|---|---|---|---|
+| id | String | 一意識別子 | ○ |
+| source_recipe_id | String | 元レシピのID | ○ |
+| required_traits | Array[String] | ひらめきに必要な投入特性（すべて含まれている必要がある） | ○ |
+| result_recipe_id | String | ひらめく結果のレシピID | ○ |
+| min_rank_id | String | 候補になる最低ランクのID。ランクの上下は`GameBalance.RANK_ORDER`の並び順で比較する | ○ |
+
+### ExamRuleMaster（`res://data/exam_rules/*.tres`、新規）
+
+```json
+{
+  "id": "exam_e_dual_traits",
+  "rule_type": "dual_traits",
+  "display_text": "聖と癒を同時に宿した品を納めよ",
+  "turn_limit": 2,
+  "target_recipe_ids": [],
+  "target_count": 1,
+  "slot_limit": 0,
+  "min_quality": 0,
+  "target_traits": ["holy", "heal"],
+  "reward_recipe_ids": ["recipe_holy_water"]
+}
+```
+
+| フィールド | 型 | 説明 | 必須 |
+|---|---|---|---|
+| id | String | 一意識別子 | ○ |
+| rule_type | String | `quota`/`deliver_items`/`quality_with_slot_limit`/`dual_traits`/`use_intermediate` | ○ |
+| display_text | String | 予告・試験画面に出す説明文 | ○ |
+| turn_limit | int | 試験の制限ターン数 | ○ |
+| target_recipe_ids | Array[String] | `deliver_items`の対象レシピ（空なら任意のレシピ） | rule_type依存 |
+| target_count | int | 達成に必要な納品数 | rule_type依存 |
+| slot_limit | int | `quality_with_slot_limit`の投入枠上限 | rule_type依存 |
+| min_quality | int | `quality_with_slot_limit`の最低品質 | rule_type依存 |
+| target_traits | Array[String] | `dual_traits`で同時に宿す必要がある特性 | rule_type依存 |
+| reward_recipe_ids | Array[String] | 合格時に解禁されるレシピ | ○（空可） |
+
+### RankMasterへの追加
+
+| フィールド | 型 | 説明 | 必須 |
+|---|---|---|---|
+| inspiration_unlocked | bool | 熟練ひらめきが解禁されているか（E以降で真） | ○ |
+| exam_rule_pool | Array[String] | 試験ルール候補のID。ランク開始時に1つ選ばれる。空の場合は従来の試験ノルマ方式（`quota`）として扱う | ○（空可） |
+
+### ProductInstance・DeliveryResultへの追加
+
+| クラス | フィールド | 型 | 説明 |
+|---|---|---|---|
+| ProductInstance | used_intermediate | bool | 投入素材に中間素材が含まれていたか |
+| DeliveryResult | market_multiplier | float | 納品時に適用した相場倍率 |
+
+### 図鑑データ（`user://codex.json`、セーブスロットとは別）
+
+```json
+{
+  "data": {
+    "version": 1,
+    "entries": [
+      {
+        "recipe_id": "recipe_holy_water",
+        "source_recipe_id": "recipe_healing_potion",
+        "trigger_traits": ["holy"],
+        "first_discovered_at": "2026-10-27T12:00:00"
+      }
+    ]
+  },
+  "checksum": "..."
+}
+```
+
+### セーブデータのスキーマバージョン
+
+上記のランタイム状態追加に合わせて`SaveDataCodec`のスキーマバージョンを1つ上げる。旧バージョンのデータを読み込んだ場合、追加フィールドは初期値で補う（要件定義書FR-717-002）。
+
+---
+
 ## データフロー
 
 ### ロードタイミング

@@ -22,7 +22,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 特性は「貢献度向き／報酬向き」に二分され、庭で何を仕込むかの時点から先行投資として分岐する（真のトレードオフ）
 - 依頼受注システム・庭の空間配置パズルはv6.0までに廃止済み（経緯はコンセプト文書末尾の変更履歴を参照）
 
-> `docs/concept/experience-core.md`（体験コア言語化）は **v4.0時点のまま更新されておらず**、v7.0（調合主軸）のコンセプトとは内容が食い違っている。参照する場合は `atelier-concept.md` を優先すること。
+> 🔵 2026-10-27: コンセプトをv7.1に更新した（素材の鮮度・需要相場・昇格試験のボス戦化・中間素材・熟練ひらめき・図鑑の追加）。要件は`requirements.md`§10、設計は`core-systems.md`「v7.1追加システム」等に反映済み（Issue #63）。実装は Issue #64〜#70 で進める。`docs/concept/experience-core.md`も同日v7.1に合わせて全面更新した（それまではv4.0のまま放置されていた）。
 
 ## 技術スタック（決定済み・Phase 1基盤構築完了、Phase 2機能実装が進行中）
 
@@ -70,8 +70,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 | ファイル | 内容 | 状態 |
 |---|---|---|
-| `docs/concept/atelier-concept.md` | コンセプト設計（v7.0） | 最新 |
-| `docs/concept/experience-core.md` | 体験コア言語化 | 古い（v4.0のまま。参照時は`atelier-concept.md`を優先） |
+| `docs/concept/atelier-concept.md` | コンセプト設計（v7.1） | 最新（2026-10-27にv7.1へ更新） |
+| `docs/concept/experience-core.md` | 体験コア言語化 | 最新（2026-10-27にv7.1へ全面更新） |
 | `docs/spec/atelier-alchemy-core/requirements.md` | 要件定義書 | 最新（2026-08-03作成、PRレビュー指摘反映済み。2026-09-05付でセーブ/ロード機能実装を反映済み） |
 | `docs/design/atelier-alchemy-core/architecture.md` | 技術アーキテクチャ設計 | 最新（2026-08-04新規作成） |
 | `docs/design/atelier-alchemy-core/core-systems.md` | コアシステム設計（庭/調合/ギルド納品/工房強化/ランク進行） | 最新（2026-08-04新規作成） |
