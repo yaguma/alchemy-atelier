@@ -50,6 +50,11 @@ static func build_state(state: GameStateScript) -> Dictionary:
 		"pending_products": cloned_pending_products,
 		"recipe_mastery": state._inspiration_state.mastery.duplicate(),  # 🔵 Issue #67
 		"inspired_recipe_ids": state._inspiration_state.inspired_recipe_ids.duplicate(),
+		# 🔵 PR #75レビュー指摘対応。調合画面が熟練度を出すレシピを絞るために使う（新規配列のため複製不要）
+		"inspirable_recipe_ids":
+		InspirationResolver.inspirable_source_recipe_ids(
+			state._inspiration_masters, state._current_rank_id, state._unlocked_recipe_ids
+		),
 		# 🔴 DailyOrderMasterは@export var（プリミティブ）のみで構成されるが、Resource自体は
 		# 参照型のため他フィールドと同様clone()してから返す（state-management.md防御的コピー要件）
 		"current_daily_order": current_daily_order.clone() if current_daily_order else null,

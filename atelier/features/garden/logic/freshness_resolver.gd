@@ -31,6 +31,12 @@ static func turns_until_next_decay(material: MaterialInstance, decay_interval_tu
 	return decay_interval_turns - material.freshness_elapsed_turns % decay_interval_turns
 
 
+## 🔵 次の劣化タイミングで品質低下ではなく腐敗（在庫から消滅）になるかを返す。
+## age_materialの「品質Dで劣化タイミングを迎えたら腐敗」と同じ判定をUI表示（MaterialEntryRow）でも使うために置く
+static func rots_at_next_decay(material: MaterialInstance) -> bool:
+	return material.quality_score <= MIN_QUALITY
+
+
 ## 🟡 material_masters（material_id -> MaterialMaster）から素材の劣化間隔を引く。
 ## マスター欠落時は劣化させない（Harvest.resolve_witheringの「欠落時は安全側に倒す」方針と揃える）。
 ## GameState（ターン終了時の劣化適用）とAlchemyScreen（残りターン表示）で同じ解決規則を使うために置く
