@@ -282,3 +282,18 @@ func _unique_count(values: Array) -> int:
 		if not seen.has(value):
 			seen.append(value)
 	return seen.size()
+
+
+# 正常系
+
+
+## 🔴 コードレビュー指摘対応の回帰テスト。PlantSlotViewはextends Controlのため、
+## _get_minimum_size()をSlotPanelへ転送する対応をしないと親のGridContainer（garden_screen.tscnの
+## SlotsContainer）へ常に(0,0)を報告し、行が0高さに潰れて他の行と重なって描画される不具合があった。
+func test_get_minimum_sizeがSlotPanelの内容に応じて0より大きくなる() -> void:
+	var view := _make_view()
+	view.setup_empty(0)
+
+	var min_size := view.get_combined_minimum_size()
+
+	assert_float(min_size.y).is_greater(0.0)
