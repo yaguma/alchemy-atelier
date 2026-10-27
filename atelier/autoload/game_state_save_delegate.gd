@@ -32,6 +32,9 @@ static func collect_save_data(state: GameStateScript) -> Dictionary:
 	var daily_order := state._current_daily_order
 	var current_daily_order_id: String = daily_order.id if daily_order else ""
 	var delivered_recipe_ids := _string_names_to_strings(state._delivered_recipe_ids_this_turn)
+	var inspired_recipe_ids := _string_names_to_strings(
+		state._inspiration_state.inspired_recipe_ids
+	)
 
 	return {
 		"current_phase": String(state._current_phase),
@@ -61,6 +64,8 @@ static func collect_save_data(state: GameStateScript) -> Dictionary:
 		"purchased_upgrade_counts": purchased_upgrade_counts,
 		"market_rates": _string_name_keys_to_strings(state._market_rates),
 		"delivered_recipe_ids_this_turn": delivered_recipe_ids,
+		"recipe_mastery": _string_name_keys_to_strings(state._inspiration_state.mastery),
+		"inspired_recipe_ids": inspired_recipe_ids,
 	}
 
 
@@ -108,13 +113,18 @@ static func _collect_pending_products(pending_products: Array[ProductInstance]) 
 			"reward": product.reward,
 			"has_daily_order_snapshot": product.has_daily_order_snapshot,
 			"daily_order_snapshot_id": snapshot.id if snapshot else "",
+			"used_intermediate": product.used_intermediate,
 		}
 		collected.append(entry)
 	return collected
 
 
 static func _collect_rank_state(rank_state: RankState) -> Dictionary:
-	return {"quota": rank_state.quota, "elapsed_turn": rank_state.elapsed_turn}
+	return {
+		"quota": rank_state.quota,
+		"elapsed_turn": rank_state.elapsed_turn,
+		"announced_exam_rule_id": String(rank_state.announced_exam_rule_id),
+	}
 
 
 static func _collect_exam_state(exam_state: ExamState) -> Dictionary:
@@ -123,6 +133,8 @@ static func _collect_exam_state(exam_state: ExamState) -> Dictionary:
 		"exam_quota_max": exam_state.exam_quota_max,
 		"exam_elapsed_turn": exam_state.exam_elapsed_turn,
 		"exam_turn_limit": exam_state.exam_turn_limit,
+		"exam_rule_id": String(exam_state.exam_rule_id),
+		"progress": exam_state.progress.duplicate(),
 	}
 
 
@@ -186,6 +198,15 @@ static func restore_save_data(state: GameStateScript, data: Dictionary) -> void:
 	state._delivered_recipe_ids_this_turn = _strings_to_string_names(
 		data.get("delivered_recipe_ids_this_turn", [])
 	)
+	# 🔵 Issue #67（FR-717-002）。熟練ひらめき導入前のデータはキーを持たないため空で補う
+	var inspiration_state := InspirationState.new()
+	var saved_mastery: Dictionary = data.get("recipe_mastery", {})
+	for recipe_id in saved_mastery:
+		inspiration_state.mastery[StringName(recipe_id)] = int(saved_mastery[recipe_id])
+	inspiration_state.inspired_recipe_ids = _strings_to_string_names(
+		data.get("inspired_recipe_ids", [])
+	)
+	state._inspiration_state = inspiration_state
 
 
 ## 🔴 コードレビュー指摘対応。collect_save_data()/restore_save_data()で7箇所に重複していた
@@ -279,6 +300,7 @@ static func _restore_pending_products(
 		product.daily_order_snapshot = _find_daily_order_master_by_id(
 			daily_order_masters, String(entry["daily_order_snapshot_id"])
 		)
+		product.used_intermediate = bool(entry.get("used_intermediate", false))  # 🔵 Issue #68
 		pending_products.append(product)
 	return pending_products
 
@@ -287,6 +309,8 @@ static func _restore_rank_state(data: Dictionary) -> RankState:
 	var rank_state := RankState.new()
 	rank_state.quota = float(data["quota"])
 	rank_state.elapsed_turn = int(data["elapsed_turn"])
+	# 🔵 Issue #68（FR-717-002）。試験ルール導入前のデータは予告なし（従来の試験ノルマ方式）として扱う
+	rank_state.announced_exam_rule_id = StringName(data.get("announced_exam_rule_id", ""))
 	return rank_state
 
 
@@ -296,4 +320,11 @@ static func _restore_exam_state(data: Dictionary) -> ExamState:
 	exam_state.exam_quota_max = float(data["exam_quota_max"])
 	exam_state.exam_elapsed_turn = int(data["exam_elapsed_turn"])
 	exam_state.exam_turn_limit = int(data["exam_turn_limit"])
+	exam_state.exam_rule_id = StringName(data.get("exam_rule_id", ""))
+	# 🔵 進捗の値は納品数（int）のみ。JSON往復でfloatになるためintへ戻す
+	var progress: Dictionary = {}
+	var saved_progress: Dictionary = data.get("progress", {})
+	for key in saved_progress:
+		progress[String(key)] = int(saved_progress[key])
+	exam_state.progress = progress
 	return exam_state

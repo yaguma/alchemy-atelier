@@ -109,7 +109,7 @@ func test_materialsカテゴリのロードが既存どおり動作する() -> v
 			material_count += 1
 
 	assert_int(seed_count).is_equal(2)
-	assert_int(material_count).is_equal(4)
+	assert_int(material_count).is_equal(6)
 	assert_int(materials.size()).is_equal(seed_count + material_count)
 	assert_bool(MasterDataLoader.validate_references(materials)).is_true()
 
@@ -117,7 +117,7 @@ func test_materialsカテゴリのロードが既存どおり動作する() -> v
 func test_recipesカテゴリのロードが既存どおり動作する() -> void:
 	var recipes := MasterDataLoader.load_all(&"recipes")
 
-	assert_int(recipes.size()).is_equal(3)
+	assert_int(recipes.size()).is_equal(6)
 	for r in recipes:
 		assert_bool(r is RecipeMaster).is_true()
 

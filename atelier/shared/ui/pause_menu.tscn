@@ -32,6 +32,11 @@ unique_name_in_owner = true
 layout_mode = 2
 text = "閉じる"
 
+[node name="CodexButton" type="Button" parent="CenterContainer/DialogPanel/RootContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "ずかん"
+
 [node name="SettingsButton" type="Button" parent="CenterContainer/DialogPanel/RootContainer"]
 unique_name_in_owner = true
 layout_mode = 2

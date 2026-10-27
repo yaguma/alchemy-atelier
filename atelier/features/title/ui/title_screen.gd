@@ -2,7 +2,7 @@ class_name TitleScreen
 extends Control
 
 ## 🟡 title-settings-screens-extension Planでの改訂。「はじめから」「つづきから」
-## 「せってい」「終了」の4項目を持つ起動時のトップ画面。新規／つづきの実際の判定は
+## 「ずかん」（🔵 Issue #69で追加）「せってい」「終了」の5項目を持つ起動時のトップ画面。新規／つづきの実際の判定は
 ## SlotSelectScreenの責務のため、両ボタンとも同じ遷移先へ渡すのみで本画面は分岐を持たない
 ## （旧FR-405の方針を維持）。旧FR-406（終了ボタンなし）はtoday's要件により撤回した。
 
@@ -26,10 +26,12 @@ var _requested_next_scene_path: String = ""
 var _has_requested_quit: bool = false
 ## 🔵 FR-407。多重起動防止のガードに使う。closedを受けてnullへ戻す
 var _settings_panel: SettingsPanel = null
+var _codex_panel: CodexPanel = null  # 🔵 Issue #69。多重起動防止用
 
 @onready var _root_container: VBoxContainer = %RootContainer
 @onready var _new_game_button: Button = %NewGameButton
 @onready var _continue_button: Button = %ContinueButton
+@onready var _codex_button: Button = %CodexButton
 @onready var _settings_button: Button = %SettingsButton
 @onready var _quit_button: Button = %QuitButton
 @onready var _overlay_layer: Control = %OverlayLayer
@@ -41,6 +43,7 @@ func _ready() -> void:
 	_apply_theme()
 	_new_game_button.pressed.connect(_on_new_game_pressed)
 	_continue_button.pressed.connect(_on_continue_pressed)
+	_codex_button.pressed.connect(_on_codex_pressed)
 	_settings_button.pressed.connect(_on_settings_pressed)
 	_quit_button.pressed.connect(_on_quit_pressed)
 
@@ -69,7 +72,9 @@ func _apply_theme() -> void:
 	_logo_label.add_theme_font_override("font", UiTheme.FONT_PIXEL_JP)
 	_logo_label.add_theme_font_size_override("font_size", LOGO_FONT_SIZE)
 	_emblem_rect.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	for button in [_new_game_button, _continue_button, _settings_button, _quit_button]:
+	for button in [
+		_new_game_button, _continue_button, _codex_button, _settings_button, _quit_button
+	]:
 		button.add_theme_font_override("font", UiTheme.FONT_PIXEL_JP)
 		ButtonStyleApplier.apply_button_style(button, UiTheme.ButtonVariant.SECONDARY)
 
@@ -111,3 +116,12 @@ func _on_settings_pressed() -> void:
 ## 🔵 参照を手放し、次回の「せってい」押下で再度開けるようにする
 func _on_settings_panel_closed() -> void:
 	_settings_panel = null
+
+
+## 🔵 Issue #69（FR-716-006）。図鑑はラン間で残る記録のため、ゲームを始める前でも開ける
+func _on_codex_pressed() -> void:
+	_codex_panel = CodexPanel.open_singleton(_codex_panel, _overlay_layer, _on_codex_panel_closed)
+
+
+func _on_codex_panel_closed() -> void:
+	_codex_panel = null

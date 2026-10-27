@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="InspirationMaster" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://features/alchemy/resources/inspiration_master.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"insp_mana_holy_gold"
+source_recipe_id = &"recipe_mana_tonic"
+required_traits = Array[StringName]([&"holy", &"gold"])
+result_recipe_id = &"recipe_blessed_gold_dust"
+min_rank_id = &"rank_c"

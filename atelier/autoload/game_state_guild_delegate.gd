@@ -82,6 +82,10 @@ static func deliver_pending_products(state: GameStateScript) -> Result:
 			state._exam_state.exam_quota = RankQuotaResolver.apply_contribution(
 				state._exam_state.exam_quota, delivery_result.final_contribution
 			)
+			# 🔵 Issue #68（FR-715-001）。試験ルールの条件を満たす納品を進捗として数える
+			state._exam_state.progress = ExamRuleResolver.record_delivery(
+				state._exam_state.progress, GameStateRankDelegate.current_exam_rule(state), product
+			)
 		else:
 			state._rank_state.quota = RankQuotaResolver.apply_contribution(
 				state._rank_state.quota, delivery_result.final_contribution

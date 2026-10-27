@@ -90,3 +90,14 @@ func test_daily_order_snapshotがnullのままcloneしてもnullを維持する(
 
 	assert_bool(cloned.has_daily_order_snapshot).is_true()
 	assert_object(cloned.daily_order_snapshot).is_null()
+
+
+# Issue #68（FR-715-001 use_intermediate）
+func test_中間素材使用フラグは既定でfalseでcloneに引き継がれる() -> void:
+	var traits: Array[StringName] = []
+	var product := ProductInstance.new(&"recipe_a", 3, traits, 1.0, 1.0)
+	assert_bool(product.used_intermediate).is_false()
+
+	product.used_intermediate = true
+
+	assert_bool(product.clone().used_intermediate).is_true()

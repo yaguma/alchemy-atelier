@@ -20,6 +20,13 @@ static func load_alchemy_master_data(state: GameStateScript) -> void:
 		recipe_masters[recipe.id] = recipe
 	state._recipe_masters = recipe_masters
 
+	# 🔵 Issue #67。ひらめき対応表はレシピと寿命が同じ調合マスターデータのため、ここで一緒に読み込む
+	# （GameStateの公開メソッド数がgdlintの上限に達しているため、専用のload_*を増やさない）
+	var inspirations: Array[InspirationMaster] = []
+	for master in MasterDataLoader.load_all(&"inspirations"):
+		inspirations.append(master as InspirationMaster)
+	state._inspiration_masters = inspirations
+
 
 ## 🔵 FR-102の順序で検証: (1)recipe_id実在 (2)unlocked (3)material実在 (4)投入枠内重複なし。
 ## 通過後にFR-103でSlotState.can_execute()を実行直前に再評価する。
@@ -41,7 +48,7 @@ static func execute_alchemy(
 	# 🔵 FR-103。UI側の先出し判定を信頼せず、状態変更の直前にDomain層の実行可否を再評価する
 	var slot_state := SlotState.new()
 	slot_state.selected_recipe_id = recipe_id
-	slot_state.max_slots = state._alchemy_slot_count
+	slot_state.max_slots = effective_slot_count(state)
 	slot_state.materials = materials
 	if not slot_state.can_execute():
 		state.execute_alchemy_failed.emit(recipe_id, &"slot_execution_invalid")
@@ -56,6 +63,7 @@ static func execute_alchemy(
 		return _craft_intermediate(state, recipe, materials, indices, traits_unlocked)
 
 	var product := ProductProvisionalResolver.resolve(materials, recipe, traits_unlocked)
+	product.used_intermediate = _uses_intermediate(state, materials)  # 🔵 Issue #68
 
 	# 🔴 コードレビュー指摘対応。指定依頼の合致判定自体はDeliveryResolverの責務（FR-403,
 	# 二重乗算バグ防止）のためここでは倍率を適用しないが、「どの指定依頼を基準に納品時ボーナスを
@@ -70,8 +78,10 @@ static func execute_alchemy(
 	# 🔴 harvest()の_inventory.append(material.clone())と同方針。正本は独立コピーとして保持し、
 	# シグナル購読側・戻り値の受け取り側による事後変更から守る
 	state._pending_products.append(product.clone())
+	var inspiration := _apply_inspiration(state, recipe_id, materials)
 
 	state.product_crafted.emit(product)
+	_emit_inspired(state, inspiration, recipe_id, materials)
 	return Result.ok(product)
 
 
@@ -89,9 +99,61 @@ static func _craft_intermediate(
 	)
 	_consume_materials_and_exam_turn(state, indices)
 	state._inventory.append(crafted.clone())
+	# 🔵 FR-713-007。中間素材の調合も熟練度の加算対象とする
+	var inspiration := _apply_inspiration(state, recipe.id, materials)
 
 	state.intermediate_crafted.emit(crafted)
+	_emit_inspired(state, inspiration, recipe.id, materials)
 	return Result.ok(crafted)
+
+
+## 🔵 Issue #67（FR-714-002〜007）。熟練度を加算してひらめき判定を行い、ひらめいたら結果のレシピを
+## 解禁して熟練度を0に戻す。状態更新のみ行い、ひらめいたInspirationMaster（なければnull）を返す
+## （シグナル発行は呼び出し元が調合結果のシグナルの後に行う）
+static func _apply_inspiration(
+	state: GameStateScript, recipe_id: StringName, materials: Array[MaterialInstance]
+) -> InspirationMaster:
+	if not state._get_current_rank_master_or_fallback().inspiration_unlocked:
+		return null
+
+	var mastery: Dictionary = state._inspiration_state.mastery
+	var count := int(mastery.get(recipe_id, 0)) + 1
+	mastery[recipe_id] = count
+	# 🔵 FR-714-004。判定用・候補選択用の乱数は個別に払い出す（Harvest.harvestと同じ方針）
+	var roll_inspire := RngService.randf()
+	var roll_pick := RngService.randf()
+	if not InspirationResolver.should_inspire(count, roll_inspire):
+		return null
+
+	var candidates := InspirationResolver.find_candidates(
+		state._inspiration_masters,
+		recipe_id,
+		InspirationResolver.input_traits(materials),
+		state._current_rank_id,
+		state._unlocked_recipe_ids
+	)
+	var picked := InspirationResolver.pick(candidates, roll_pick)
+	# 🔵 FR-714-007。候補がなければひらめかず、熟練度もリセットしない
+	if picked == null:
+		return null
+
+	state._unlocked_recipe_ids.append(picked.result_recipe_id)
+	state._inspiration_state.inspired_recipe_ids.append(picked.result_recipe_id)
+	mastery[recipe_id] = 0
+	return picked
+
+
+static func _emit_inspired(
+	state: GameStateScript,
+	inspiration: InspirationMaster,
+	recipe_id: StringName,
+	materials: Array[MaterialInstance]
+) -> void:
+	if inspiration == null:
+		return
+	state.recipe_inspired.emit(
+		inspiration.result_recipe_id, recipe_id, InspirationResolver.input_traits(materials)
+	)
 
 
 ## 投入素材を在庫から取り除き、試験中なら試験ターンを1消費する。
@@ -160,4 +222,22 @@ static func _has_duplicate_ids(ids: Array[String]) -> bool:
 		if seen.has(instance_id):
 			return true
 		seen[instance_id] = true
+	return false
+
+
+## 🔵 Issue #68（FR-715-004）。試験中は試験ルールによって投入枠の上限が下がる場合がある
+static func effective_slot_count(state: GameStateScript) -> int:
+	if not state._in_exam:
+		return state._alchemy_slot_count
+	return ExamRuleResolver.effective_slot_limit(
+		GameStateRankDelegate.current_exam_rule(state), state._alchemy_slot_count
+	)
+
+
+## 🔵 Issue #68。投入素材に中間素材（MaterialMaster.is_intermediate）が含まれているか
+static func _uses_intermediate(state: GameStateScript, materials: Array[MaterialInstance]) -> bool:
+	for material in materials:
+		var master: MaterialMaster = state._material_masters.get(material.material_id)
+		if master != null and master.is_intermediate:
+			return true
 	return false

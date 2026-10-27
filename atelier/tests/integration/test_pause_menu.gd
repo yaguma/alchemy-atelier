@@ -36,12 +36,22 @@ func test_初期状態では遷移が要求されていない() -> void:
 	assert_str(menu.get_requested_next_scene_path()).is_empty()
 
 
-func test_ボタンは閉じる設定タイトルに戻るの3つ存在する() -> void:
+## 🔵 Issue #69（FR-716-006）で「ずかん」を追加し4項目になった
+func test_ボタンは閉じるずかん設定タイトルに戻るの4つ存在する() -> void:
 	var menu := _make_pause_menu()
 
 	var texts := _collect_button_texts(menu)
 
-	assert_array(texts).contains_exactly_in_any_order(["閉じる", "せってい", "タイトルに戻る"])
+	assert_array(texts).contains_exactly_in_any_order(["閉じる", "ずかん", "せってい", "タイトルに戻る"])
+
+
+func test_ずかん押下で図鑑画面が開きシーン遷移は要求されない() -> void:
+	var menu := _make_pause_menu()
+
+	_find_button(menu, "ずかん").pressed.emit()
+
+	assert_object(menu.find_child("CodexPanel", true, false)).is_not_null()
+	assert_str(menu.get_requested_next_scene_path()).is_empty()
 
 
 # 正常系: 閉じる

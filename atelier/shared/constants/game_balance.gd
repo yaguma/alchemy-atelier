@@ -56,16 +56,28 @@ const INITIAL_RECIPE_ID: StringName = &"recipe_healing_potion"  # 🔵 CON-008
 const DAILY_ORDER_MATCH_BONUS_MULTIPLIER := 1.3  # 🔵 FR-004/CON-006, requirements.md §5
 
 # --- 需要相場（Issue #65、requirements.md §10.2 FR-712、balance-design.md「v7.1追加パラメータ」） ---
-# 🟡 すべて仮値。Issue #70で調整する。天井回数（ひらめき）ぶん連続納品すると下限に届く水準にしている
+# 🟡 Issue #70で試算して調整した値（プレイテスト前の暫定確定）。天井回数（ひらめき）ぶん連続納品すると
+# 下限に届き、2品の交互納品なら相場の罰をほぼ受けず、3品以上を回すと休ませた品の価値が上がる水準にしている
+# （tests/unit/shared/test_game_balance_v71.gdが不変条件を検証する）
 const MARKET_RATE_DEFAULT := 1.0  # 🔵 未納品のレシピは等倍
 const MARKET_DROP_STEP := 0.1  # 🟡 1回の納品で下がる量
-const MARKET_RECOVER_STEP := 0.05  # 🟡 1ターン休ませると上がる量
+# 🟡 1ターン休ませると上がる量。Issue #70で0.05から変更: 0.05では序盤（納品用レシピが2種程度）に
+# 2品を交互に納めても平均0.77まで下がり続け、「罰に感じさせない程度」を外れていたため
+const MARKET_RECOVER_STEP := 0.1
 const MARKET_RATE_MIN := 0.6  # 🟡 罰に感じさせない程度の下限
 const MARKET_RATE_MAX := 1.2  # 🟡 しばらく納めていない品の上限（1.0超）
 
 # --- 中間素材（Issue #66、requirements.md §10.3 FR-713） ---
 # 🔵 「1枠で同じ特性2個分」はコンセプト確定事項。発現閾値（TRAIT_ACTIVATION_THRESHOLD）と同じ値
 const INTERMEDIATE_CONCENTRATION := 2
+
+# --- 熟練ひらめき（Issue #67、requirements.md §10.4 FR-714） ---
+# 🟡 concept §5「熟練ひらめき」の仮置き値をIssue #70で試算し、据え置きとした（プレイテスト前の暫定確定）。
+# ひらめくまでの期待調合回数は約3.2回で、1ランクに同じレシピを6〜12回調合する想定なら1〜2回ひらめく。
+# 天井を設けること自体は確定（何回やってもひらめかない体験を防ぐ）
+const INSPIRATION_BASE_CHANCE := 0.10  # 🟡 初回の確率
+const INSPIRATION_CHANCE_STEP := 0.15  # 🟡 1回ごとの上昇幅
+const INSPIRATION_CEILING_COUNT := 5  # 🟡 この回数目の調合で必ずひらめく
 
 # --- ランク進行（rank）関連定数 ---
 

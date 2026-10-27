@@ -40,6 +40,8 @@ const DAILY_ORDER_TRAIT_FORMAT := "指定依頼: 特性「%s」（x%.1f）"
 const CRAFT_RESULT_POPUP_TEXT_FORMAT := "%s 完成！"  # 🟡
 const CRAFT_RESULT_POP_HOLD_DURATION := 0.5  # 🟡
 const INTERMEDIATE_CRAFTED_TOAST_FORMAT := "%sを作りました（品質%d、在庫に追加）"  # 🟡 Issue #66
+const MASTERY_TEXT_FORMAT := "熟練度 %d/%d（次のひらめき %d%%）"  # 🟡 Issue #67
+const INSPIRED_TOAST_FORMAT := "ひらめいた！ 新しいレシピ「%s」"  # 🟡 Issue #67
 
 # 🔵 投入順=スロット表示順の唯一のソース・オブ・トゥルース。
 # 「投入済み」はドメイン層にもGameStateにも存在しないUIローカルな一時状態のため本画面が保持する
@@ -49,6 +51,9 @@ var _recipe_masters: Dictionary = {}  # 🔵 StringName -> RecipeMaster。get_st
 var _inventory: Array[MaterialInstance] = []  # 🔵 get_state()から都度キャッシュ
 var _turns_until_decay: Dictionary = {}  # 🔵 Issue #64。_inventoryと同じタイミングでキャッシュする
 var _market_rates: Dictionary = {}  # 🔵 Issue #65。プレビューとレシピ選択の相場表示に使う
+var _recipe_mastery: Dictionary = {}  # 🔵 Issue #67。熟練度表示に使う
+var _inspiration_unlocked: bool = false  # 🔵 Issue #67
+var _inspirable_recipe_ids: Array = []  # 🔵 PR #75レビュー指摘対応。まだひらめく先がある元レシピ
 # 🔴 コードレビュー指摘対応。_recompute_preview()のたびにGameState.get_state()を再度フル呼び出し
 # していた（_inventory/_recipe_masters同様に_refresh()時点でキャッシュすべきコスト）のを解消する。
 # GameState.resolve_daily_order_for_delivery()経由で取得するため、試験中(_in_exam)は
@@ -61,6 +66,7 @@ var _previous_activated_traits: Array[StringName] = []
 
 @onready var _recipe_option_button: OptionButton = %RecipeOptionButton
 @onready var _daily_order_label: Label = %DailyOrderLabel
+@onready var _mastery_label: Label = %MasteryLabel
 @onready var _slots_container: Container = %SlotsContainer
 @onready var _material_inventory_list: MaterialInventoryList = %MaterialInventoryList
 @onready var _preview_panel: AlchemyPreviewPanel = %AlchemyPreviewPanel
@@ -70,6 +76,7 @@ var _previous_activated_traits: Array[StringName] = []
 @onready var _shop_button: Button = %ShopButton
 @onready var _toast_label: Label = %ToastLabel
 @onready var _exam_turn_label: Label = %ExamTurnLabel
+@onready var _exam_rule_label: Label = %ExamRuleLabel
 @onready var _exam_guidance_label: Label = %ExamGuidanceLabel
 @onready var _advance_exam_turn_button: Button = %AdvanceExamTurnButton
 @onready var _overlay_layer: Control = %OverlayLayer  # 🔵 ui-polish Plan タスク006: 素材投入演出の追加先
@@ -88,6 +95,7 @@ func _ready() -> void:
 	# 🔵 GameStateはAutoloadのため_exit_tree()での明示的disconnect()が必須（ui-components.md）
 	GameState.product_crafted.connect(_on_product_crafted)
 	GameState.intermediate_crafted.connect(_on_intermediate_crafted)
+	GameState.recipe_inspired.connect(_on_recipe_inspired)
 	GameState.execute_alchemy_failed.connect(_on_execute_alchemy_failed)
 	GameState.exam_started.connect(_on_exam_started)
 	GameState.exam_outcome_confirmed.connect(_on_exam_outcome_confirmed)
@@ -100,6 +108,8 @@ func _exit_tree() -> void:
 		GameState.product_crafted.disconnect(_on_product_crafted)
 	if GameState.intermediate_crafted.is_connected(_on_intermediate_crafted):
 		GameState.intermediate_crafted.disconnect(_on_intermediate_crafted)
+	if GameState.recipe_inspired.is_connected(_on_recipe_inspired):
+		GameState.recipe_inspired.disconnect(_on_recipe_inspired)
 	if GameState.execute_alchemy_failed.is_connected(_on_execute_alchemy_failed):
 		GameState.execute_alchemy_failed.disconnect(_on_execute_alchemy_failed)
 	if GameState.exam_started.is_connected(_on_exam_started):
@@ -120,7 +130,14 @@ func _exit_tree() -> void:
 ## 同じ意味論を持つため、同じDANGERに揃える。
 ## 🟡 ShopButtonは他画面への導線（確定・危険操作のいずれでもない）のためSECONDARYとする
 func _apply_theme() -> void:
-	for label: Label in [_daily_order_label, _toast_label, _exam_turn_label, _exam_guidance_label]:
+	for label: Label in [
+		_daily_order_label,
+		_mastery_label,
+		_toast_label,
+		_exam_turn_label,
+		_exam_rule_label,
+		_exam_guidance_label,
+	]:
 		UiTheme.apply_pixel_font(label)
 	UiTheme.apply_pixel_font(_recipe_option_button)
 
@@ -177,13 +194,18 @@ func _refresh() -> Dictionary:
 	_market_rates = MarketRateResolver.project_after_deliveries(
 		state["market_rates"], AlchemyScreenSlots.recipe_ids_of(state["pending_products"])
 	)
-	_slot_state.max_slots = state["alchemy_slot_count"]
+	_recipe_mastery = state["recipe_mastery"]
+	_inspirable_recipe_ids = state["inspirable_recipe_ids"]
+	_inspiration_unlocked = GameState.get_current_rank_master().inspiration_unlocked
+	# 🔵 Issue #68（FR-715-004）。試験ルールで投入枠が減る場合も実行時の再検証と同じ値を使う
+	_slot_state.max_slots = state["effective_alchemy_slot_count"]
 	# 🔴 コードレビュー指摘対応。_recompute_preview()側でGameState.get_state()を再度呼ばずに済むよう
 	# ここでキャッシュする。GameState側のロジックと同一の式（試験中はnull）を経由する
 	_daily_order_for_preview = GameState.resolve_daily_order_for_delivery()
 	_update_daily_order_label()
 
-	# 🔵 在庫から消えた素材（調合実行で消費された等）が投入枠に残らないよう先に整合を取る
+	# 🔵 在庫から消えた素材（調合実行で消費された等）が投入枠に残らないよう先に整合を取る。
+	# 上のmax_slots更新の後に呼ぶ（試験ルールで枠が減った場合の超過分もここで在庫一覧へ戻す）
 	_drop_missing_placed_ids()
 
 	_rebuild_recipe_options(state["unlocked_recipe_ids"])
@@ -206,6 +228,7 @@ func _refresh_exam_ui(state: Dictionary) -> void:
 		_end_turn_button,
 		_exam_guidance_label
 	)
+	AlchemyScreenExam.refresh_exam_rule_label(state, _exam_rule_label)
 
 
 ## 指定依頼ラベルの更新。ロジック本体はAlchemyScreenPreviewへ委譲する。🔵
@@ -225,10 +248,23 @@ func _resolve_recipe_display_name(recipe_id: String) -> String:
 	return AlchemyScreenPreview.resolve_recipe_display_name(_recipe_masters, recipe_id)
 
 
+## 熟練度表示の更新。ロジック本体はAlchemyScreenPreviewへ委譲する。🔵 Issue #67
+func _update_mastery_label() -> void:
+	AlchemyScreenPreview.update_mastery_label(
+		_mastery_label,
+		_slot_state.selected_recipe_id,
+		_recipe_mastery,
+		_inspiration_unlocked,
+		_inspirable_recipe_ids,
+		MASTERY_TEXT_FORMAT
+	)
+
+
 ## ローカルキャッシュのみでプレビュー再計算とボタン活性状態を更新する。
 ## 🟡 投入操作のたびにGameState.get_state()（inventory/pending_productsのディープコピーを伴う）を
 ## 呼ぶとコストが嵩むため、素材の解決はキャッシュ済みの_inventoryから行う
 func _on_preview_inputs_changed() -> void:
+	_update_mastery_label()
 	var materials := _placed_materials()
 	_slot_state.materials = materials
 	var activated_traits := _recompute_preview(materials)
@@ -285,10 +321,10 @@ func _find_material(instance_id: String) -> MaterialInstance:
 	return AlchemyScreenSlots.find_material(_inventory, instance_id)
 
 
-# 🔵 在庫に存在しなくなった投入済みIDを取り除く。調合成功時のリセットもこの経路で成立する
+# 🔵 在庫に存在しなくなった投入済みIDと、投入枠の上限を超えた分を取り除く。調合成功時のリセットもこの経路で成立する
 func _drop_missing_placed_ids() -> void:
 	_placed_material_ids = AlchemyScreenSlots.drop_missing_placed_ids(
-		_placed_material_ids, _inventory
+		_placed_material_ids, _inventory, _slot_state.max_slots
 	)
 
 
@@ -414,6 +450,12 @@ func _on_intermediate_crafted(material: MaterialInstance) -> void:
 	var master: MaterialMaster = material_masters.get(material.material_id)
 	var display_name := master.name if master != null else String(material.material_id)
 	_show_toast(INTERMEDIATE_CRAFTED_TOAST_FORMAT % [display_name, material.quality_score])
+
+
+## 🔵 Issue #67（FR-714-006）。ひらめいたことをトーストで知らせる。新しいレシピは調合結果の
+## シグナル（product_crafted/intermediate_crafted）より前に解禁済みのため、選択肢は既に再構築されている
+func _on_recipe_inspired(result_recipe_id: StringName, _source: StringName, _traits: Array) -> void:
+	_show_toast(INSPIRED_TOAST_FORMAT % _resolve_recipe_display_name(String(result_recipe_id)))
 
 
 func _on_execute_alchemy_failed(_recipe_id: StringName, error_code: StringName) -> void:

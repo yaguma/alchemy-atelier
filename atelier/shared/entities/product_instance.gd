@@ -18,6 +18,8 @@ var reward: float
 # 従来通り納品時点の_current_daily_orderへフォールバックし、guild Planの既存契約を変えない
 var daily_order_snapshot: DailyOrderMaster = null  # 🔴 上記。nullは「調合時点で指定依頼なし」を表す
 var has_daily_order_snapshot: bool = false  # 🔴 上記。trueならdaily_order_snapshotを優先する
+## 🔵 Issue #68（FR-715-001）。投入素材に中間素材が含まれていたか（use_intermediate試験ルールの判定用）
+var used_intermediate: bool = false
 
 
 ## 🔵 core-systems.mdのフィールド定義に従い各プロパティを設定する。
@@ -45,4 +47,5 @@ func clone() -> ProductInstance:
 	)
 	copy.has_daily_order_snapshot = has_daily_order_snapshot
 	copy.daily_order_snapshot = daily_order_snapshot.clone() if daily_order_snapshot else null
+	copy.used_intermediate = used_intermediate
 	return copy

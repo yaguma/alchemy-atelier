@@ -19,10 +19,12 @@ var scene_transition_enabled: bool = true
 
 var _requested_next_scene_path: String = ""
 var _settings_panel: SettingsPanel = null
+var _codex_panel: CodexPanel = null  # 🔵 Issue #69
 
 @onready var _dialog_panel: PanelContainer = %DialogPanel
 @onready var _root_container: VBoxContainer = %RootContainer
 @onready var _close_button: Button = %CloseButton
+@onready var _codex_button: Button = %CodexButton
 @onready var _settings_button: Button = %SettingsButton
 @onready var _title_button: Button = %TitleButton
 @onready var _overlay_layer: Control = %OverlayLayer
@@ -31,6 +33,7 @@ var _settings_panel: SettingsPanel = null
 func _ready() -> void:
 	_apply_theme()
 	_close_button.pressed.connect(_on_close_pressed)
+	_codex_button.pressed.connect(_on_codex_pressed)
 	_settings_button.pressed.connect(_on_settings_pressed)
 	_title_button.pressed.connect(_on_title_pressed)
 
@@ -49,9 +52,12 @@ func _apply_theme() -> void:
 	_root_container.add_theme_constant_override("separation", UiTheme.SPACING_LIST_ENTRY)
 	UiTheme.apply_panel_style(_dialog_panel)
 	ButtonStyleApplier.apply_button_style(_close_button, UiTheme.ButtonVariant.SECONDARY)
+	# 🔵 Issue #69。図鑑は閲覧のみの控えめな導線のため、せっていと同じTERTIARYにする
+	ButtonStyleApplier.apply_button_style(_codex_button, UiTheme.ButtonVariant.TERTIARY)
 	ButtonStyleApplier.apply_button_style(_settings_button, UiTheme.ButtonVariant.TERTIARY)
 	ButtonStyleApplier.apply_button_style(_title_button, UiTheme.ButtonVariant.DANGER)
 	UiTheme.apply_pixel_font(_close_button)
+	UiTheme.apply_pixel_font(_codex_button)
 	UiTheme.apply_pixel_font(_settings_button)
 	UiTheme.apply_pixel_font(_title_button)
 
@@ -70,6 +76,15 @@ func _on_settings_pressed() -> void:
 
 func _on_settings_panel_closed() -> void:
 	_settings_panel = null
+
+
+## 🔵 Issue #69（FR-716-006）。多重起動防止はCodexPanel.open_singleton()へ委譲する
+func _on_codex_pressed() -> void:
+	_codex_panel = CodexPanel.open_singleton(_codex_panel, _overlay_layer, _on_codex_panel_closed)
+
+
+func _on_codex_panel_closed() -> void:
+	_codex_panel = null
 
 
 ## 🔵 確認ダイアログなしで即座に遷移する（既存のオートセーブが進行を保護するため確認不要、

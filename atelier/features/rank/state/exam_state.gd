@@ -8,14 +8,18 @@ var exam_quota: float = 0.0
 var exam_quota_max: float = 0.0
 var exam_elapsed_turn: int = 0
 var exam_turn_limit: int = 0
+var exam_rule_id: StringName = &""  # 🔵 Issue #68。実施中の試験ルール（空なら従来の試験ノルマ方式）
+var progress: Dictionary = {}  # 🔵 Issue #68。試験ルールの達成状況（ExamRuleResolver参照）
 
 
 ## 🔵 GameState.get_state()の防御的コピー要件（FR-410）を満たす。
-## フィールドはプリミティブ型のみのため、新規インスタンスへの代入で独立コピーになる。
+## progressの値はint等のプリミティブのため浅い複製で独立コピーになる。
 func clone() -> ExamState:
 	var cloned := ExamState.new()
 	cloned.exam_quota = exam_quota
 	cloned.exam_quota_max = exam_quota_max
 	cloned.exam_elapsed_turn = exam_elapsed_turn
 	cloned.exam_turn_limit = exam_turn_limit
+	cloned.exam_rule_id = exam_rule_id
+	cloned.progress = progress.duplicate()
 	return cloned
