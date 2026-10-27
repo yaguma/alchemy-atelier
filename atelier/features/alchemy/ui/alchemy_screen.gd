@@ -204,7 +204,8 @@ func _refresh() -> Dictionary:
 	_daily_order_for_preview = GameState.resolve_daily_order_for_delivery()
 	_update_daily_order_label()
 
-	# 🔵 在庫から消えた素材（調合実行で消費された等）が投入枠に残らないよう先に整合を取る
+	# 🔵 在庫から消えた素材（調合実行で消費された等）が投入枠に残らないよう先に整合を取る。
+	# 上のmax_slots更新の後に呼ぶ（試験ルールで枠が減った場合の超過分もここで在庫一覧へ戻す）
 	_drop_missing_placed_ids()
 
 	_rebuild_recipe_options(state["unlocked_recipe_ids"])
@@ -320,10 +321,10 @@ func _find_material(instance_id: String) -> MaterialInstance:
 	return AlchemyScreenSlots.find_material(_inventory, instance_id)
 
 
-# 🔵 在庫に存在しなくなった投入済みIDを取り除く。調合成功時のリセットもこの経路で成立する
+# 🔵 在庫に存在しなくなった投入済みIDと、投入枠の上限を超えた分を取り除く。調合成功時のリセットもこの経路で成立する
 func _drop_missing_placed_ids() -> void:
 	_placed_material_ids = AlchemyScreenSlots.drop_missing_placed_ids(
-		_placed_material_ids, _inventory
+		_placed_material_ids, _inventory, _slot_state.max_slots
 	)
 
 

@@ -1188,3 +1188,21 @@ func test_投入枠制限ルールの試験中は投入枠の数が減る() -> v
 
 	var container := screen.find_child("SlotsContainer", true, false) as Container
 	assert_int(container.get_child_count()).is_equal(1)
+
+
+## 🔵 PR #76レビュー指摘対応。投入済みのまま投入枠制限の試験が始まると、超過分が枠にも在庫一覧にも
+## 出ず、実行ボタンも押せないまま理由が分からなくなっていた
+func test_投入枠制限の試験が始まると枠を超えた投入済み素材は在庫一覧に戻る() -> void:
+	_inject_material("mat_1", 3)
+	_inject_material("mat_2", 3)
+	var screen := _make_screen()
+	_select_recipe(screen, RECIPE_ID)
+	_place_material(screen, "mat_1")
+	_place_material(screen, "mat_2")
+	_start_rule_exam(ExamRuleMaster.RULE_QUALITY_WITH_SLOT_LIMIT)
+
+	GameState.exam_started.emit()
+
+	assert_that(_find_slot_view(screen, 0).get_status()).is_equal(AlchemySlotView.Status.FILLED)
+	assert_int(_inventory_list(screen).get_entry_count()).is_equal(1)
+	assert_bool(_find_button(screen, "ExecuteButton").disabled).is_false()
