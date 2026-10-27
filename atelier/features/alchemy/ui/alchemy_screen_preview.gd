@@ -100,3 +100,24 @@ static func _recompute_intermediate_preview(
 		preview_material.quality_score, preview_material.trait_tags
 	)
 	return TraitActivation.resolve_traits(materials, traits_unlocked)
+
+
+## 🔵 Issue #67（FR-714-009）。選択中のレシピの熟練度と、次の調合でひらめく確率を表示する。
+## ひらめき未解禁のランク・レシピ未選択のときは非表示にする
+static func update_mastery_label(
+	mastery_label: Label,
+	selected_recipe_id: StringName,
+	recipe_mastery: Dictionary,
+	inspiration_unlocked: bool,
+	text_format: String
+) -> void:
+	if mastery_label == null:
+		return
+	mastery_label.visible = inspiration_unlocked and selected_recipe_id != &""
+	if not mastery_label.visible:
+		return
+	var mastery := int(recipe_mastery.get(selected_recipe_id, 0))
+	var next_chance := InspirationResolver.chance_for(mastery + 1)
+	mastery_label.text = (
+		text_format % [mastery, GameBalance.INSPIRATION_CEILING_COUNT, roundi(next_chance * 100.0)]
+	)

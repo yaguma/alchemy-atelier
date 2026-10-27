@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="MaterialMaster" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://features/garden/resources/material_master.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"material_blessed_gold_dust"
+name = "祝福の金粉"
+icon_path = "res://assets/icons/material_blessed_gold_dust.png"
+shop_purchasable = false
+shop_base_quality = 0
+decay_interval_turns = 0
+is_intermediate = true

@@ -9,6 +9,7 @@ extends Resource
 @export var quota_max: float = 0.0  # 🔵 当該ランクのノルマ上限
 @export var limit_turn: int = 0  # 🔵 当該ランクの制限ターン数
 @export var traits_unlocked: bool = false  # 🔵 特性システムが解禁済みか（Gランクはfalse固定）
+@export var inspiration_unlocked: bool = false  # 🔵 Issue #67（FR-714-002）。熟練ひらめきの解禁（E以降）
 
 # 🔵 CON-012: 昇格試験用フィールド。本plan内のロジックからは参照しないが、
 # data-schema.mdのスキーマ完全性を保つため定義のみ行う。

@@ -67,6 +67,13 @@ const MARKET_RATE_MAX := 1.2  # 🟡 しばらく納めていない品の上限�
 # 🔵 「1枠で同じ特性2個分」はコンセプト確定事項。発現閾値（TRAIT_ACTIVATION_THRESHOLD）と同じ値
 const INTERMEDIATE_CONCENTRATION := 2
 
+# --- 熟練ひらめき（Issue #67、requirements.md §10.4 FR-714） ---
+# 🟡 確率は仮値（concept §5「熟練ひらめき」の仮置き値）。Issue #70で調整する。
+# 天井を設けること自体は確定（何回やってもひらめかない体験を防ぐ）
+const INSPIRATION_BASE_CHANCE := 0.10  # 🟡 初回の確率
+const INSPIRATION_CHANCE_STEP := 0.15  # 🟡 1回ごとの上昇幅
+const INSPIRATION_CEILING_COUNT := 5  # 🟡 この回数目の調合で必ずひらめく
+
 # --- ランク進行（rank）関連定数 ---
 
 # 降格がこの回数に達した時点でゲームオーバーとする（requirements.md §7「仮3」を採用した暫定値）

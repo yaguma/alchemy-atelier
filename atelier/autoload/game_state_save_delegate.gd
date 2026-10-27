@@ -32,6 +32,9 @@ static func collect_save_data(state: GameStateScript) -> Dictionary:
 	var daily_order := state._current_daily_order
 	var current_daily_order_id: String = daily_order.id if daily_order else ""
 	var delivered_recipe_ids := _string_names_to_strings(state._delivered_recipe_ids_this_turn)
+	var inspired_recipe_ids := _string_names_to_strings(
+		state._inspiration_state.inspired_recipe_ids
+	)
 
 	return {
 		"current_phase": String(state._current_phase),
@@ -61,6 +64,8 @@ static func collect_save_data(state: GameStateScript) -> Dictionary:
 		"purchased_upgrade_counts": purchased_upgrade_counts,
 		"market_rates": _string_name_keys_to_strings(state._market_rates),
 		"delivered_recipe_ids_this_turn": delivered_recipe_ids,
+		"recipe_mastery": _string_name_keys_to_strings(state._inspiration_state.mastery),
+		"inspired_recipe_ids": inspired_recipe_ids,
 	}
 
 
@@ -186,6 +191,15 @@ static func restore_save_data(state: GameStateScript, data: Dictionary) -> void:
 	state._delivered_recipe_ids_this_turn = _strings_to_string_names(
 		data.get("delivered_recipe_ids_this_turn", [])
 	)
+	# 🔵 Issue #67（FR-717-002）。熟練ひらめき導入前のデータはキーを持たないため空で補う
+	var inspiration_state := InspirationState.new()
+	var saved_mastery: Dictionary = data.get("recipe_mastery", {})
+	for recipe_id in saved_mastery:
+		inspiration_state.mastery[StringName(recipe_id)] = int(saved_mastery[recipe_id])
+	inspiration_state.inspired_recipe_ids = _strings_to_string_names(
+		data.get("inspired_recipe_ids", [])
+	)
+	state._inspiration_state = inspiration_state
 
 
 ## 🔴 コードレビュー指摘対応。collect_save_data()/restore_save_data()で7箇所に重複していた

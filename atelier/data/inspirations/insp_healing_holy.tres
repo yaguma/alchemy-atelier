@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="InspirationMaster" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://features/alchemy/resources/inspiration_master.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"insp_healing_holy"
+source_recipe_id = &"recipe_healing_potion"
+required_traits = Array[StringName]([&"holy"])
+result_recipe_id = &"recipe_holy_water"
+min_rank_id = &"rank_e"

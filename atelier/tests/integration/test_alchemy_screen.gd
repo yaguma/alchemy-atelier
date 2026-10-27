@@ -1040,3 +1040,65 @@ func test_中間素材を調合すると在庫一覧に追加され納品待ち�
 	assert_int(_pending_count()).is_equal(0)
 	assert_int(_inventory_list(screen).get_entry_count()).is_equal(1)
 	assert_str(screen.get_toast_text()).contains("聖水")
+
+
+# Issue #67（FR-714）熟練ひらめき
+
+
+func _setup_inspiration(mastery: int) -> void:
+	var high := _make_recipe(&"recipe_high", "上級回復薬")
+	var recipes := {RECIPE_ID: _make_recipe(RECIPE_ID, "テストレシピ"), &"recipe_high": high}
+	GameState._set_recipe_masters_for_test(recipes)
+	var inspiration := InspirationMaster.new()
+	inspiration.id = &"insp_test"
+	inspiration.source_recipe_id = RECIPE_ID
+	inspiration.required_traits = [&"heal"] as Array[StringName]
+	inspiration.result_recipe_id = &"recipe_high"
+	inspiration.min_rank_id = &"rank_e"
+	GameState._set_inspiration_for_test(
+		[inspiration] as Array[InspirationMaster], {RECIPE_ID: mastery}
+	)
+	var rank := RankMaster.new()
+	rank.id = "rank_e"
+	rank.traits_unlocked = true
+	rank.inspiration_unlocked = true
+	GameState._set_rank_masters_for_test({&"rank_e": rank})
+	GameState._set_current_rank_id_for_test(&"rank_e")
+
+
+func test_ひらめき解禁ランクではレシピ選択時に熟練度とひらめき確率が表示される() -> void:
+	_setup_inspiration(2)
+	var screen := _make_screen()
+
+	_select_recipe(screen, RECIPE_ID)
+
+	var mastery_label := screen.find_child("MasteryLabel", true, false) as Label
+	assert_bool(mastery_label.visible).is_true()
+	assert_str(mastery_label.text).contains("2/%d" % GameBalance.INSPIRATION_CEILING_COUNT)
+	assert_str(mastery_label.text).contains("40%")  # 次の3回目の確率 10% + 15% * 2
+
+
+func test_ひらめき未解禁のランクでは熟練度が表示されない() -> void:
+	var screen := _make_screen()
+
+	_select_recipe(screen, RECIPE_ID)
+
+	assert_bool((screen.find_child("MasteryLabel", true, false) as Label).visible).is_false()
+
+
+func test_ひらめくとトーストで知らせ新しいレシピが選択肢に加わる() -> void:
+	_setup_inspiration(GameBalance.INSPIRATION_CEILING_COUNT - 1)
+	_inject_material("mat_1", 3, [&"heal"])
+	var screen := _make_screen()
+	_select_recipe(screen, RECIPE_ID)
+	_place_material(screen, "mat_1")
+
+	_find_button(screen, "ExecuteButton").pressed.emit()
+
+	assert_str(screen.get_toast_text()).contains("上級回復薬")
+	var option_button := screen.find_child("RecipeOptionButton", true, false) as OptionButton
+	var found := false
+	for index in range(option_button.item_count):
+		if option_button.get_item_metadata(index) == &"recipe_high":
+			found = true
+	assert_bool(found).is_true()

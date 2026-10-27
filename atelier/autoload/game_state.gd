@@ -11,6 +11,7 @@ signal turn_growth_advanced(turn: int)  # 🔴 UI再描画トリガ用の新規�
 signal materials_rotted(instance_ids: Array)  # 🔵 Issue #64（FR-711-006）。Array[String]相当
 signal product_crafted(product: ProductInstance)  # 🔵 FR-112
 signal intermediate_crafted(material: MaterialInstance)  # 🔵 Issue #66（FR-713-002）
+signal recipe_inspired(result_recipe_id: StringName, source_recipe_id: StringName, traits: Array)
 # 🔴 garden の plant_seed_failed/harvest_failed パターン踏襲（FR-113）
 signal execute_alchemy_failed(recipe_id: StringName, error_code: StringName)
 signal delivered(results: Array[DeliveryResult])  # 🔴 FR-108
@@ -46,6 +47,8 @@ var _unlocked_recipe_ids: Array[StringName] = [GameBalance.INITIAL_RECIPE_ID]  #
 var _pending_products: Array[ProductInstance] = []  # 🔴 FR-008 ギルド納品待ちキュー
 # 🔵 FR-006「実行時権威」の暫定置き場（_garden_slot_countと同様、本plan内ではGameStateが仮に保持する）
 var _alchemy_slot_count: int = GameBalance.ALCHEMY_SLOT_COUNT_DEFAULT
+var _inspiration_masters: Array[InspirationMaster] = []  # 🔵 Issue #67。ひらめき対応表
+var _inspiration_state: InspirationState = InspirationState.new()  # 🔵 Issue #67。熟練度等
 
 # --- ギルド納品（guild）関連フィールド ---
 # 🔴 CON-010。マスター未ロード時・達成可能な依頼が無い時は既定値nullのままでも納品が成立する
@@ -133,6 +136,8 @@ func get_state() -> Dictionary:
 		# 🔴 要素がStringName（値型相当）のため浅い複製で十分（FR-403）
 		"unlocked_recipe_ids": _unlocked_recipe_ids.duplicate(),
 		"pending_products": cloned_pending_products,
+		"recipe_mastery": _inspiration_state.mastery.duplicate(),  # 🔵 Issue #67
+		"inspired_recipe_ids": _inspiration_state.inspired_recipe_ids.duplicate(),
 		# 🔴 DailyOrderMasterは@export var（プリミティブ）のみで構成されるが、Resource自体は
 		# 参照型のため他フィールドと同様clone()してから返す（state-management.md防御的コピー要件）
 		"current_daily_order": _current_daily_order.clone() if _current_daily_order else null,
@@ -470,6 +475,10 @@ func _set_purchased_upgrade_counts_for_test(counts: Dictionary) -> void:
 ## （apply_upgrade()の所持ゴールド境界値テスト用の新規補完）
 func _set_gold_for_test(gold: int) -> void:
 	GameStateTestSupport.set_gold(self, gold)
+
+
+func _set_inspiration_for_test(masters: Array[InspirationMaster], mastery: Dictionary = {}) -> void:
+	GameStateTestSupport.set_inspiration(self, masters, mastery)
 
 
 # テスト分離専用。デバッグビルドガードは他のテスト専用API群と同じくGameStateTestSupport.guard()
