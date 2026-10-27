@@ -46,6 +46,7 @@ var _slot_state: SlotState = SlotState.new()
 var _recipe_masters: Dictionary = {}  # 🔵 StringName -> RecipeMaster。get_state()から都度キャッシュ
 var _inventory: Array[MaterialInstance] = []  # 🔵 get_state()から都度キャッシュ
 var _turns_until_decay: Dictionary = {}  # 🔵 Issue #64。_inventoryと同じタイミングでキャッシュする
+var _market_rates: Dictionary = {}  # 🔵 Issue #65。プレビューとレシピ選択の相場表示に使う
 # 🔴 コードレビュー指摘対応。_recompute_preview()のたびにGameState.get_state()を再度フル呼び出し
 # していた（_inventory/_recipe_masters同様に_refresh()時点でキャッシュすべきコスト）のを解消する。
 # GameState.resolve_daily_order_for_delivery()経由で取得するため、試験中(_in_exam)は
@@ -165,6 +166,7 @@ func _refresh() -> Dictionary:
 	_turns_until_decay = AlchemyScreenSlots.turns_until_decay_by_id(
 		_inventory, state["material_masters"]
 	)
+	_market_rates = state["market_rates"]
 	_slot_state.max_slots = state["alchemy_slot_count"]
 	# 🔴 コードレビュー指摘対応。_recompute_preview()側でGameState.get_state()を再度呼ばずに済むよう
 	# ここでキャッシュする。GameState側のロジックと同一の式（試験中はnull）を経由する
@@ -235,7 +237,8 @@ func _recompute_preview(materials: Array[MaterialInstance]) -> Array[StringName]
 		_recipe_masters,
 		_slot_state.selected_recipe_id,
 		_daily_order_for_preview,
-		materials
+		materials,
+		_market_rates
 	)
 
 
@@ -246,7 +249,8 @@ func _rebuild_recipe_options(unlocked_recipe_ids: Array) -> void:
 		_recipe_masters,
 		unlocked_recipe_ids,
 		_slot_state,
-		RECIPE_PLACEHOLDER_TEXT
+		RECIPE_PLACEHOLDER_TEXT,
+		_market_rates
 	)
 
 

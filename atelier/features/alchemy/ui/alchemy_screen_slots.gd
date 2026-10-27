@@ -16,7 +16,8 @@ static func rebuild_recipe_options(
 	recipe_masters: Dictionary,
 	unlocked_recipe_ids: Array,
 	slot_state: SlotState,
-	placeholder_text: String
+	placeholder_text: String,
+	market_rates: Dictionary = {}
 ) -> void:
 	recipe_option_button.clear()
 	# 🔵 item 0は未選択プレースホルダー。metadataを持たせず、選択不可にする
@@ -28,7 +29,14 @@ static func rebuild_recipe_options(
 		var master: Variant = recipe_masters.get(recipe_id)
 		if not (master is RecipeMaster):
 			continue
-		recipe_option_button.add_item((master as RecipeMaster).name)
+		# 🔵 Issue #65（FR-712-006）。レシピを選ぶ前に相場の上下が分かるよう名称の後ろに添える
+		var market_text := MarketRateText.format(
+			MarketRateResolver.get_rate(market_rates, recipe_id)
+		)
+		var label := (master as RecipeMaster).name
+		if not market_text.is_empty():
+			label = "%s %s" % [label, market_text]
+		recipe_option_button.add_item(label)
 		var index := recipe_option_button.item_count - 1
 		recipe_option_button.set_item_metadata(index, recipe_id)
 		if recipe_id == slot_state.selected_recipe_id:

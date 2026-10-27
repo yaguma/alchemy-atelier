@@ -54,7 +54,8 @@ static func recompute_preview(
 	recipe_masters: Dictionary,
 	selected_recipe_id: StringName,
 	daily_order_for_preview: DailyOrderMaster,
-	materials: Array[MaterialInstance]
+	materials: Array[MaterialInstance],
+	market_rates: Dictionary = {}
 ) -> Array[StringName]:
 	if preview_panel == null:
 		return []
@@ -67,7 +68,9 @@ static func recompute_preview(
 	var provisional := ProductProvisionalResolver.resolve(
 		materials, recipe as RecipeMaster, traits_unlocked
 	)
-	var result := DeliveryResolver.resolve(provisional, daily_order_for_preview)
+	# 🔵 Issue #65。実際の納品と同じ相場倍率を掛け、プレビューと納品結果が食い違わないようにする
+	var market_multiplier := MarketRateResolver.get_rate(market_rates, selected_recipe_id)
+	var result := DeliveryResolver.resolve(provisional, daily_order_for_preview, market_multiplier)
 
 	preview_panel.show_preview(
 		provisional.quality_score,

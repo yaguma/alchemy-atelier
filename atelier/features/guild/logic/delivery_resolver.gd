@@ -28,12 +28,19 @@ static func matches_order(product: ProductInstance, daily_order: DailyOrderMaste
 			return false
 
 
-## 🔵 指定合致ボーナスを適用した最終貢献度・報酬を算出する（FR-103, FR-104, FR-201）。
-## 🔴 この倍率を掛けるのは本関数のみ。ProductValueCalculator側では適用しない（FR-403, AC-014 二重乗算バグ防止）
-static func resolve(product: ProductInstance, daily_order: DailyOrderMaster) -> DeliveryResult:
+## 🔵 指定合致ボーナスと相場倍率を適用した最終貢献度・報酬を算出する（FR-103, FR-104, FR-201, FR-712-002）。
+## 🔴 これらの倍率を掛けるのは本関数のみ。ProductValueCalculator側では適用しない（FR-403, AC-014 二重乗算バグ防止）。
+## market_multiplierの既定値1.0は、相場導入前の呼び出し（テスト等）を等倍として扱うため
+static func resolve(
+	product: ProductInstance, daily_order: DailyOrderMaster, market_multiplier: float = 1.0
+) -> DeliveryResult:
 	var order_matched := matches_order(product, daily_order)
-	var multiplier := daily_order.match_bonus_multiplier if order_matched else 1.0
+	var order_multiplier := daily_order.match_bonus_multiplier if order_matched else 1.0
+	var multiplier := order_multiplier * market_multiplier
 
 	return DeliveryResult.new(
-		product.contribution * multiplier, product.reward * multiplier, order_matched
+		product.contribution * multiplier,
+		product.reward * multiplier,
+		order_matched,
+		market_multiplier
 	)

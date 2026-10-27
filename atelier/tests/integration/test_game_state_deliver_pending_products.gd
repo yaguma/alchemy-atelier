@@ -76,9 +76,10 @@ func test_投入した3件がすべて納品されキューが空になる() -> 
 
 
 func test_戻り値の順序がキューへの投入順と一致する() -> void:
-	_inject_product(_make_product(RECIPE_ID, 10.0, 1.0))
-	_inject_product(_make_product(RECIPE_ID, 20.0, 2.0))
-	_inject_product(_make_product(RECIPE_ID, 30.0, 3.0))
+	# 🔵 Issue #65以降、同じレシピの連続納品は相場で価値が下がるため、順序だけを見るよう別レシピにする
+	_inject_product(_make_product(&"recipe_order_1", 10.0, 1.0))
+	_inject_product(_make_product(&"recipe_order_2", 20.0, 2.0))
+	_inject_product(_make_product(&"recipe_order_3", 30.0, 3.0))
 
 	var results: Array[DeliveryResult] = GameState.deliver_pending_products().value
 
@@ -123,7 +124,8 @@ func test_納品を複数回実行すると貢献度がリセットされず累�
 	_inject_product(_make_product(RECIPE_ID, 10.0, 0.0))
 	GameState.deliver_pending_products()
 
-	_inject_product(_make_product(RECIPE_ID, 25.0, 0.0))
+	# 🔵 Issue #65以降、同じレシピを続けて納めると相場で下がるため、累積だけを見るよう別レシピにする
+	_inject_product(_make_product(&"recipe_other", 25.0, 0.0))
 	GameState.deliver_pending_products()
 
 	assert_float(_rank_quota()).is_equal_approx(65.0, FLOAT_TOLERANCE)

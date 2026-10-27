@@ -24,12 +24,13 @@ var _order_matched: bool = false
 @onready var _traits_label: Label = %DeliveryTraitsLabel
 @onready var _order_match_label: Label = %DeliveryOrderMatchLabel
 @onready var _value_label: Label = %DeliveryValueLabel
+@onready var _market_label: Label = %DeliveryMarketLabel
 
 
 func _ready() -> void:
 	UiTheme.apply_panel_style(self)
 	for label: Label in [
-		_name_label, _quality_label, _traits_label, _order_match_label, _value_label
+		_name_label, _quality_label, _traits_label, _order_match_label, _value_label, _market_label
 	]:
 		UiTheme.apply_pixel_font(label)
 
@@ -42,12 +43,16 @@ func setup(
 	activated_traits: Array[StringName],
 	order_matched: bool,
 	final_contribution: float,
-	final_reward: float
+	final_reward: float,
+	market_multiplier: float = 1.0
 ) -> void:
 	_name_label.text = recipe_name
 	_quality_label.text = format_quality(quality_score)
 	_traits_label.text = format_traits(activated_traits)
 	_value_label.text = format_value(final_contribution, final_reward)
+	# 🔵 Issue #65（FR-712-006）。等倍のときは表示しない
+	_market_label.text = MarketRateText.format(market_multiplier)
+	_market_label.visible = not _market_label.text.is_empty()
 	# 🔵 NFR-201: 指定合致は色だけでなく専用テキストの表示/非表示でも判別できるようにする
 	_order_match_label.text = ORDER_MATCHED_TEXT
 	_order_match_label.visible = order_matched

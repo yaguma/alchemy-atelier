@@ -180,6 +180,36 @@ func test_試験中は指定依頼に合致していてもプレビューにボ�
 	assert_str(_preview_label_text(screen, "ValueLabel")).is_equal("見込み貢献度: 17.5 / 見込み報酬: 8.8")
 
 
+## 🔵 Issue #65（FR-712）。相場が下がったレシピは、プレビューにも実際の納品と同じ相場倍率が掛かる
+func test_相場が下がったレシピはプレビューにも相場倍率が適用される() -> void:
+	var no_traits: Array[StringName] = []
+	GameState._inject_pending_product_for_test(
+		ProductInstance.new(RECIPE_ID, 3, no_traits, 1.0, 1.0)
+	)
+	GameState.deliver_pending_products()  # 1回納品して相場を下げる
+	_inject_material("mat_1", 4)
+	var screen := _make_screen()
+
+	_select_recipe(screen, RECIPE_ID)
+	_place_material(screen, "mat_1")
+
+	# 貢献度17.5 / 報酬8.75 に相場倍率0.9
+	assert_str(_preview_label_text(screen, "ValueLabel")).is_equal("見込み貢献度: 15.8 / 見込み報酬: 7.9")
+
+
+## 🔵 Issue #65（FR-712-006）。レシピを選ぶ前に相場の上下が分かる
+func test_相場が動いたレシピは選択肢に相場が表示される() -> void:
+	var no_traits: Array[StringName] = []
+	GameState._inject_pending_product_for_test(
+		ProductInstance.new(RECIPE_ID, 3, no_traits, 1.0, 1.0)
+	)
+	GameState.deliver_pending_products()
+	var screen := _make_screen()
+
+	var option_button := screen.find_child("RecipeOptionButton", true, false) as OptionButton
+	assert_str(option_button.get_item_text(1)).contains(MarketRateText.DOWN_MARK)
+
+
 # 正常系（指定依頼ラベル）
 
 
@@ -392,9 +422,10 @@ func test_ターン終了ボタンで納品結果がギルド納品画面へ表�
 
 	assert_int(_pending_count()).is_equal(0)
 	assert_int(_delivery_screen(screen).get_item_count()).is_equal(2)
-	# 品質3 → 倍率1.5、品質4 → 倍率1.75。貢献度10*(1.5+1.75)=32.5 / 報酬5*(1.5+1.75)=16.25
-	assert_float(_delivery_screen(screen).get_total_contribution()).is_equal_approx(32.5, 0.01)
-	assert_float(_delivery_screen(screen).get_total_reward()).is_equal_approx(16.25, 0.01)
+	# 品質3 → 倍率1.5、品質4 → 倍率1.75。同じレシピの2つ目には相場倍率0.9が掛かる（Issue #65）
+	# 貢献度10*1.5 + 10*1.75*0.9 = 30.75 / 報酬5*1.5 + 5*1.75*0.9 = 15.375
+	assert_float(_delivery_screen(screen).get_total_contribution()).is_equal_approx(30.75, 0.01)
+	assert_float(_delivery_screen(screen).get_total_reward()).is_equal_approx(15.375, 0.01)
 	# 納品トーストのプレースホルダー実装は撤去済みのため、直前の調合トーストのまま変化しない
 	assert_str(screen.get_toast_text()).contains("調合しました")
 

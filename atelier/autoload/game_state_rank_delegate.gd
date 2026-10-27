@@ -141,6 +141,8 @@ static func advance_exam_turn(state: GameStateScript) -> Result:
 	state._exam_state = PromotionExamResolver.advance_turn(state._exam_state)
 	# 🔵 Issue #64（FR-711-002）。試験中も時間は流れるため素材の鮮度を進める
 	GameStateGardenDelegate.age_inventory_for_exam_turn(state)
+	# 🔵 Issue #65（FR-712-004）。試験のターン進行もターン終了として相場を回復させる
+	GameStateGuildDelegate.recover_market_rates(state)
 	return Result.ok()
 
 

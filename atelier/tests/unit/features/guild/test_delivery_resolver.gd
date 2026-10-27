@@ -181,3 +181,35 @@ func test_解決処理は引数の調合物インスタンスを書き換えな�
 
 	assert_float(product.contribution).is_equal_approx(10.0, 0.0001)
 	assert_float(product.reward).is_equal_approx(5.0, 0.0001)
+
+
+# 正常系: Issue #65（FR-712-002）相場倍率が貢献度と報酬の双方に掛かる
+func test_相場倍率が貢献度と報酬に適用される() -> void:
+	var product := _make_product(&"healing_potion", [] as Array[StringName], 10.0, 5.0)
+
+	var result := DeliveryResolver.resolve(product, null, 0.8)
+
+	assert_float(result.final_contribution).is_equal_approx(8.0, 0.0001)
+	assert_float(result.final_reward).is_equal_approx(4.0, 0.0001)
+	assert_float(result.market_multiplier).is_equal_approx(0.8, 0.0001)
+
+
+# 正常系: Issue #65 指定合致ボーナスと相場倍率は両方とも乗算される
+func test_指定合致ボーナスと相場倍率が両方乗算される() -> void:
+	var product := _make_product(&"healing_potion", [] as Array[StringName], 10.0, 5.0)
+	var order := _make_order("item", "healing_potion", "", 1.5)
+
+	var result := DeliveryResolver.resolve(product, order, 0.8)
+
+	assert_float(result.final_contribution).is_equal_approx(12.0, 0.0001)
+	assert_float(result.final_reward).is_equal_approx(6.0, 0.0001)
+
+
+# 境界値: Issue #65 相場倍率を省略した呼び出しは等倍として扱う（既存呼び出しとの互換）
+func test_相場倍率を省略すると等倍になる() -> void:
+	var product := _make_product(&"healing_potion", [] as Array[StringName], 10.0, 5.0)
+
+	var result := DeliveryResolver.resolve(product, null)
+
+	assert_float(result.market_multiplier).is_equal(1.0)
+	assert_float(result.final_contribution).is_equal_approx(10.0, 0.0001)

@@ -199,3 +199,26 @@ func test_貢献度と報酬が0でも表示される() -> void:
 	row.setup("回復薬", 1, no_traits, false, 0.0, 0.0)
 
 	assert_str(_find_label(row, "DeliveryValueLabel").text).contains("0.0")
+
+
+# Issue #65（FR-712-006）需要相場の表示
+
+
+func test_相場倍率が等倍でなければ相場ラベルが表示される() -> void:
+	var row := _make_row()
+	var no_traits: Array[StringName] = []
+
+	row.setup("回復薬", 3, no_traits, false, 9.0, 4.5, 0.9)
+
+	var market_label := _find_label(row, "DeliveryMarketLabel")
+	assert_bool(market_label.visible).is_true()
+	assert_str(market_label.text).contains("0.90")
+
+
+func test_相場倍率を省略すると相場ラベルは非表示になる() -> void:
+	var row := _make_row()
+	var no_traits: Array[StringName] = []
+
+	row.setup("回復薬", 3, no_traits, false, 10.0, 5.0)
+
+	assert_bool(_find_label(row, "DeliveryMarketLabel").visible).is_false()
