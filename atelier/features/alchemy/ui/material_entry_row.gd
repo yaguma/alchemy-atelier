@@ -11,6 +11,9 @@ signal place_pressed(material_instance_id: String)
 
 const NO_TRAIT_TEXT := "-"  # 🟡 特性なしを空欄と区別するための暫定表記（ui-design未確定）
 const FRESHNESS_TEXT_FORMAT := "劣化まで%dT"  # 🟡 Issue #64。ui-design未確定の暫定表記
+# 🟡 PR #72レビュー指摘対応。品質1の素材は次の劣化タイミングで品質が下がるのではなく腐敗して
+# 在庫から消えるため、「劣化まで」では失う重さが伝わらない。表記を分ける（ui-design未確定の暫定表記）
+const ROT_TEXT_FORMAT := "腐敗まで%dT"
 const FRESHNESS_WARNING_TURNS := 1  # 🟡 この残りターン以下なら次のターン終了で劣化するため警告色にする
 const NO_DECAY := -1
 
@@ -43,14 +46,17 @@ func setup(material: MaterialInstance, turns_until_decay: int = NO_DECAY) -> voi
 	_name_label.text = String(material.material_id)
 	_quality_label.text = "Q%d" % material.quality_score
 	_trait_label.text = format_traits(material.trait_tags)
-	_apply_freshness(turns_until_decay)
+	_apply_freshness(material, turns_until_decay)
 
 
-func _apply_freshness(turns_until_decay: int) -> void:
+func _apply_freshness(material: MaterialInstance, turns_until_decay: int) -> void:
 	_freshness_label.visible = turns_until_decay >= 0
 	if not _freshness_label.visible:
 		return
-	_freshness_label.text = FRESHNESS_TEXT_FORMAT % turns_until_decay
+	var text_format := (
+		ROT_TEXT_FORMAT if FreshnessResolver.rots_at_next_decay(material) else FRESHNESS_TEXT_FORMAT
+	)
+	_freshness_label.text = text_format % turns_until_decay
 	var color := (
 		UiTheme.COLOR_FRESHNESS_DECAY_SOON
 		if turns_until_decay <= FRESHNESS_WARNING_TURNS
