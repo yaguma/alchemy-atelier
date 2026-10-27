@@ -8,7 +8,9 @@ signal harvest_failed(slot_index: int, error_code: StringName)  # 🔴 UI側フ�
 # 🔵 FR-111。Array[int]相当だが、GDScriptのsignal引数型注釈の制約に合わせてArrayとする
 signal plants_withered(slot_indices: Array)
 signal turn_growth_advanced(turn: int)  # 🔴 UI再描画トリガ用の新規補完
+signal materials_rotted(instance_ids: Array)  # 🔵 Issue #64（FR-711-006）。Array[String]相当
 signal product_crafted(product: ProductInstance)  # 🔵 FR-112
+signal intermediate_crafted(material: MaterialInstance)  # 🔵 Issue #66（FR-713-002）
 # 🔴 garden の plant_seed_failed/harvest_failed パターン踏襲（FR-113）
 signal execute_alchemy_failed(recipe_id: StringName, error_code: StringName)
 signal delivered(results: Array[DeliveryResult])  # 🔴 FR-108
@@ -49,6 +51,9 @@ var _alchemy_slot_count: int = GameBalance.ALCHEMY_SLOT_COUNT_DEFAULT
 # 🔴 CON-010。マスター未ロード時・達成可能な依頼が無い時は既定値nullのままでも納品が成立する
 var _current_daily_order: DailyOrderMaster = null
 var _daily_order_masters: Array[DailyOrderMaster] = []  # 🔵 抽選プールの母集団
+var _market_rates: Dictionary = {}  # 🔵 Issue #65（FR-712）。StringName(recipe_id) -> float
+# 🔵 Issue #65（FR-712-004）。このターンに納品したレシピ。ターン終了時の相場回復の対象から外す
+var _delivered_recipe_ids_this_turn: Array[StringName] = []
 
 # --- ランク進行（rank）関連フィールド ---
 var _current_rank_id: StringName = GameBalance.INITIAL_RANK_ID  # 🔵 FR-006
@@ -116,6 +121,9 @@ func get_state() -> Dictionary:
 		# GardenScreenが全スロット（空き含む）を描画するには庭の総スロット数が別途必要
 		"garden_slot_count": _garden_slot_count,
 		"inventory": cloned_inventory,
+		# 🔵 Issue #64（FR-711-007）。seed_masters公開と同型。AlchemyScreenが素材ごとの劣化間隔から
+		# 次の劣化までの残りターンを表示するために必要。Resourceは不変前提のため浅いduplicate()で十分
+		"material_masters": _material_masters.duplicate(),
 		# 🔵 CON-001。seed_masters公開と同型。AlchemyScreenがレシピ詳細（名称・必要素材等）を
 		# 描画するために必要。マスターデータ（Resourceは不変前提）のため浅いduplicate()で十分
 		"recipe_masters": _recipe_masters.duplicate(),
@@ -128,6 +136,8 @@ func get_state() -> Dictionary:
 		# 🔴 DailyOrderMasterは@export var（プリミティブ）のみで構成されるが、Resource自体は
 		# 参照型のため他フィールドと同様clone()してから返す（state-management.md防御的コピー要件）
 		"current_daily_order": _current_daily_order.clone() if _current_daily_order else null,
+		# 🔵 Issue #65。値がfloat（値型）のDictionaryのため浅いduplicate()で十分
+		"market_rates": _market_rates.duplicate(),
 		# 🔵 FR-006。StringName/intは値型のため複製不要。RankStateは参照型のためclone()する（FR-410）
 		"current_rank_id": _current_rank_id,
 		"demotion_count": _demotion_count,
@@ -213,6 +223,7 @@ func harvest(slot_index: int) -> Result:
 ## 指定依頼を引き直す（試験中のターン進行であるadvance_exam_turn()では再抽選しない）
 func advance_turn_growth() -> void:
 	GameStateGardenDelegate.advance_turn_growth(self)
+	GameStateGuildDelegate.recover_market_rates(self)
 	GameStateGuildDelegate.reroll_daily_order(self)
 
 

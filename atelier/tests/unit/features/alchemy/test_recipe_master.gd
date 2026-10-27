@@ -68,3 +68,24 @@ func test_負値や大きな値も保持できる() -> void:
 func after_test() -> void:
 	if FileAccess.file_exists(TRES_PATH):
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(TRES_PATH))
+
+
+# Issue #66（FR-713-001）中間素材レシピ
+
+
+func test_種別の既定値は納品用で中間素材ではない() -> void:
+	var recipe := RecipeMaster.new()
+
+	assert_that(recipe.kind).is_equal(RecipeMaster.KIND_PRODUCT)
+	assert_bool(recipe.is_intermediate()).is_false()
+	assert_int(recipe.max_concentrated_traits).is_equal(1)
+
+
+func test_種別が中間素材ならis_intermediateがtrueを返す() -> void:
+	var recipe := RecipeMaster.new()
+
+	recipe.kind = RecipeMaster.KIND_INTERMEDIATE
+	recipe.output_material_id = &"material_holy_water"
+
+	assert_bool(recipe.is_intermediate()).is_true()
+	assert_that(recipe.output_material_id).is_equal(&"material_holy_water")

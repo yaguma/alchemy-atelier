@@ -77,6 +77,10 @@ func _filled_color() -> Color:
 	return AlchemySlotView.status_color(AlchemySlotView.Status.FILLED)
 
 
+func _is_slot_highlighted(screen: AlchemyScreen, slot_index: int) -> bool:
+	return _slot_panel(screen, slot_index).self_modulate != _filled_color()
+
+
 # 正常系
 
 
@@ -90,9 +94,11 @@ func test_2個目の素材投入で特性タグが新規発現した場合該当
 	assert_bool(_slot_panel(screen, 0).self_modulate == _filled_color()).is_true()
 
 	_place_material(screen, "mat_2")  # 出現数2 >= 閾値2で新規発現
-	await get_tree().create_timer(0.15).timeout
 
-	assert_bool(_slot_panel(screen, 1).self_modulate == _filled_color()).is_false()
+	# 🔴 Issue #64対応時に修正。固定0.15秒のタイマー待ちは、テスト実行中のtime_scaleにより
+	# 実時間数十msで解決し、Tweenが1フレームも進まないうちに判定してしまう競合があった
+	# （全テスト実行時のみ再現）。ハイライト色へ変化するまでポーリングで待つ
+	await assert_func(self, "_is_slot_highlighted", [screen, 1]).wait_until(1000).is_true()
 
 
 # 異常系（既発現タグ・取り消し）
@@ -142,8 +148,8 @@ func test_複数タグが同時に新規発現した場合対象スロットす�
 	_place_material(screen, "mat_2")  # TAG_B出現数1、まだ未発現
 
 	_place_material(screen, "mat_3")  # TAG_A, TAG_Bともに出現数2で同時新規発現
-	await get_tree().create_timer(0.15).timeout
 
-	assert_bool(_slot_panel(screen, 0).self_modulate == _filled_color()).is_false()  # mat_1 (TAG_A)
-	assert_bool(_slot_panel(screen, 1).self_modulate == _filled_color()).is_false()  # mat_2 (TAG_B)
-	assert_bool(_slot_panel(screen, 2).self_modulate == _filled_color()).is_false()  # mat_3 (両方)
+	# 🔴 固定タイマー待ちの競合対策（正常系テストのコメント参照）
+	await assert_func(self, "_is_slot_highlighted", [screen, 0]).wait_until(1000).is_true()  # mat_1 (TAG_A)
+	await assert_func(self, "_is_slot_highlighted", [screen, 1]).wait_until(1000).is_true()  # mat_2 (TAG_B)
+	await assert_func(self, "_is_slot_highlighted", [screen, 2]).wait_until(1000).is_true()  # mat_3 (両方)

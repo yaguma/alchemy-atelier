@@ -158,6 +158,34 @@ func test_指定合致の強調表示はshow_previewの呼び直しで切り替�
 	assert_bool(_find_label(panel, "OrderMatchLabel").visible).is_false()
 
 
+# Issue #66（FR-713）中間素材レシピのプレビュー
+
+
+func test_中間素材のプレビューは凝縮特性と納品しない旨を表示する() -> void:
+	var panel := _make_panel()
+	var tags: Array[StringName] = [&"holy", &"holy"]
+
+	panel.show_intermediate_preview(3, tags)
+
+	assert_str(_find_label(panel, "QualityLabel").text).contains("3")
+	assert_str(_find_label(panel, "TraitsLabel").text).contains("holy×2")
+	assert_str(_find_label(panel, "ValueLabel").text).is_equal(
+		AlchemyPreviewPanel.INTERMEDIATE_VALUE_TEXT
+	)
+	assert_bool(panel.is_order_matched()).is_false()
+
+
+func test_特性を凝縮しない中間素材のプレビューは特性なしと表示する() -> void:
+	var panel := _make_panel()
+	var tags: Array[StringName] = []
+
+	panel.show_intermediate_preview(2, tags)
+
+	assert_str(_find_label(panel, "TraitsLabel").text).contains(
+		AlchemyPreviewPanel.TRAITS_NONE_TEXT
+	)
+
+
 ## 🔴 コードレビュー指摘対応の回帰テスト。AlchemyPreviewPanelはextends Controlのため、
 ## _get_minimum_size()をPreviewPanelへ転送する対応をしないと親のVBoxContainer
 ## （alchemy_screen.tscn）へ常に(0,0)を報告し、行が0高さに潰れて他の行と重なって描画される

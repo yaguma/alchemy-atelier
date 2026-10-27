@@ -10,6 +10,9 @@ const EMPTY_PLACEHOLDER := "-"
 const TRAITS_NONE_TEXT := "なし"
 const ORDER_MATCHED_TEXT := "指定合致"
 const TRAIT_SEPARATOR := ", "
+# 🟡 Issue #66（FR-713）。中間素材は納品しないため見込み値の代わりに出す暫定表記（ui-design未確定）
+const INTERMEDIATE_VALUE_TEXT := "中間素材として在庫に追加（納品しない）"
+const INTERMEDIATE_TRAITS_FORMAT := "凝縮特性: %s"
 
 var _order_matched: bool = false
 var _quality_text: String = ""
@@ -51,6 +54,19 @@ func show_preview(
 	_traits_text = format_traits(activated_traits)
 	_value_text = format_value(final_contribution, final_reward)
 	_order_matched = order_matched
+	_apply_display()
+
+
+## 中間素材レシピのプレビュー。納品しないため見込み貢献度・報酬の代わりに在庫へ加わる旨を出す
+## （🔵 Issue #66、FR-713-002）。trait_tagsは凝縮後のタグ（同じタグの重複を含む）を受け取る
+func show_intermediate_preview(quality_score: int, trait_tags: Array[StringName]) -> void:
+	_quality_text = format_quality(quality_score)
+	var traits_text := TraitTagText.format(trait_tags)
+	_traits_text = (
+		INTERMEDIATE_TRAITS_FORMAT % (TRAITS_NONE_TEXT if traits_text.is_empty() else traits_text)
+	)
+	_value_text = INTERMEDIATE_VALUE_TEXT
+	_order_matched = false
 	_apply_display()
 
 

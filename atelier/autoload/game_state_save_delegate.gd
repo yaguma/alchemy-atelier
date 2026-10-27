@@ -31,6 +31,7 @@ static func collect_save_data(state: GameStateScript) -> Dictionary:
 	# ロード時に「本日の指定なし」として復元できるようにする
 	var daily_order := state._current_daily_order
 	var current_daily_order_id: String = daily_order.id if daily_order else ""
+	var delivered_recipe_ids := _string_names_to_strings(state._delivered_recipe_ids_this_turn)
 
 	return {
 		"current_phase": String(state._current_phase),
@@ -58,6 +59,8 @@ static func collect_save_data(state: GameStateScript) -> Dictionary:
 		"has_cleared_game": state._has_cleared_game,
 		"can_purchase_permanent": state._can_purchase_permanent,
 		"purchased_upgrade_counts": purchased_upgrade_counts,
+		"market_rates": _string_name_keys_to_strings(state._market_rates),
+		"delivered_recipe_ids_this_turn": delivered_recipe_ids,
 	}
 
 
@@ -83,6 +86,7 @@ static func _collect_inventory(inventory: Array[MaterialInstance]) -> Array:
 			"material_id": String(material.material_id),
 			"quality_score": material.quality_score,
 			"trait_tags": trait_tags,
+			"freshness_elapsed_turns": material.freshness_elapsed_turns,
 		}
 		collected.append(entry)
 	return collected
@@ -173,6 +177,15 @@ static func restore_save_data(state: GameStateScript, data: Dictionary) -> void:
 	state._has_cleared_game = bool(data["has_cleared_game"])
 	state._can_purchase_permanent = bool(data["can_purchase_permanent"])
 	state._purchased_upgrade_counts = purchased_upgrade_counts
+	# 🔵 Issue #65（FR-717-002）。相場導入前のデータはキーを持たないため空（全レシピ等倍）で補う
+	var market_rates: Dictionary = {}
+	var saved_rates: Dictionary = data.get("market_rates", {})
+	for recipe_id in saved_rates:
+		market_rates[StringName(recipe_id)] = float(saved_rates[recipe_id])
+	state._market_rates = market_rates
+	state._delivered_recipe_ids_this_turn = _strings_to_string_names(
+		data.get("delivered_recipe_ids_this_turn", [])
+	)
 
 
 ## 🔴 コードレビュー指摘対応。collect_save_data()/restore_save_data()で7箇所に重複していた
@@ -181,6 +194,13 @@ static func _string_names_to_strings(values: Array) -> Array[String]:
 	var result: Array[String] = []
 	for value in values:
 		result.append(String(value))
+	return result
+
+
+static func _string_name_keys_to_strings(values: Dictionary) -> Dictionary:
+	var result: Dictionary = {}
+	for key in values:
+		result[String(key)] = values[key]
 	return result
 
 
@@ -226,14 +246,15 @@ static func _restore_inventory(data: Array) -> Array[MaterialInstance]:
 	var inventory: Array[MaterialInstance] = []
 	for entry in data:
 		var trait_tags := _strings_to_string_names(entry["trait_tags"])
-		inventory.append(
-			MaterialInstance.new(
-				String(entry["instance_id"]),
-				StringName(entry["material_id"]),
-				int(entry["quality_score"]),
-				trait_tags
-			)
+		var material := MaterialInstance.new(
+			String(entry["instance_id"]),
+			StringName(entry["material_id"]),
+			int(entry["quality_score"]),
+			trait_tags
 		)
+		# 🔵 Issue #64（FR-717-002）。鮮度導入前（SAVE_FORMAT_VERSION 1）のデータはキーを持たないため0で補う
+		material.freshness_elapsed_turns = int(entry.get("freshness_elapsed_turns", 0))
+		inventory.append(material)
 	return inventory
 
 

@@ -234,6 +234,78 @@ func test_20件の素材を渡しても全件表示され末尾のシグナル�
 
 
 # 正常系
+# 🔵 Issue #64（FR-711-007）
+func test_劣化までの残りターンを渡すと鮮度ラベルに表示される() -> void:
+	var list := _make_list()
+	var no_tags: Array[StringName] = []
+	var materials: Array[MaterialInstance] = [_make_material("mat_1", &"herb_common", 3, no_tags)]
+
+	list.setup(materials, {"mat_1": 2})
+
+	var freshness_label := _find_label(list, "mat_1", "FreshnessLabel")
+	assert_bool(freshness_label.visible).is_true()
+	assert_str(freshness_label.text).contains("2")
+
+
+# 異常系
+# 🔵 Issue #64。劣化しない素材（-1）・残りターン未指定の素材は鮮度ラベルを出さない
+func test_劣化しない素材と残りターン未指定の素材は鮮度ラベルが非表示になる() -> void:
+	var list := _make_list()
+	var no_tags: Array[StringName] = []
+	var materials: Array[MaterialInstance] = [
+		_make_material("mat_1", &"ore_common", 3, no_tags),
+		_make_material("mat_2", &"herb_common", 3, no_tags),
+	]
+
+	list.setup(materials, {"mat_1": -1})
+
+	assert_bool(_find_label(list, "mat_1", "FreshnessLabel").visible).is_false()
+	assert_bool(_find_label(list, "mat_2", "FreshnessLabel").visible).is_false()
+
+
+# 境界値
+# 🔵 Issue #64。次のターン終了で劣化する素材は警告色で強調する
+func test_残り1ターンの素材は鮮度ラベルが警告色になる() -> void:
+	var list := _make_list()
+	var no_tags: Array[StringName] = []
+	var materials: Array[MaterialInstance] = [_make_material("mat_1", &"herb_common", 3, no_tags)]
+
+	list.setup(materials, {"mat_1": 1})
+
+	var freshness_label := _find_label(list, "mat_1", "FreshnessLabel")
+	assert_that(freshness_label.get_theme_color("font_color")).is_equal(
+		UiTheme.COLOR_FRESHNESS_DECAY_SOON
+	)
+
+
+# 正常系
+# 🔵 Issue #66。凝縮された特性（同じタグの重複）は個数をまとめて表示する
+func test_凝縮された特性は個数をまとめて表示される() -> void:
+	var list := _make_list()
+	var tags: Array[StringName] = [&"holy", &"holy"]
+	var materials: Array[MaterialInstance] = [
+		_make_material("mat_1", &"material_holy_water", 3, tags)
+	]
+
+	list.setup(materials)
+
+	assert_str(_find_label(list, "mat_1", "TraitLabel").text).is_equal("holy×2")
+
+
+# 境界値
+# 🔵 PR #72レビュー指摘対応。品質1の素材は次の劣化タイミングで腐敗して消えるため「腐敗まで」と表記する
+func test_品質1の素材は鮮度ラベルが腐敗までの表記になる() -> void:
+	var list := _make_list()
+	var no_tags: Array[StringName] = []
+	var materials: Array[MaterialInstance] = [
+		_make_material("mat_1", &"herb_common", 1, no_tags),
+		_make_material("mat_2", &"herb_common", 2, no_tags),
+	]
+
+	list.setup(materials, {"mat_1": 2, "mat_2": 2})
+
+	assert_str(_find_label(list, "mat_1", "FreshnessLabel").text).is_equal("腐敗まで2T")
+	assert_str(_find_label(list, "mat_2", "FreshnessLabel").text).is_equal("劣化まで2T")
 
 
 ## 🔴 コードレビュー指摘対応の回帰テスト。MaterialInventoryListはextends Controlのため、

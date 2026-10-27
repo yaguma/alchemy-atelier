@@ -64,7 +64,17 @@ static func deliver_pending_products(state: GameStateScript) -> Result:
 		var order_for_product := (
 			product.daily_order_snapshot if product.has_daily_order_snapshot else order_for_delivery
 		)
-		var delivery_result := DeliveryResolver.resolve(product, order_for_product)
+		# 🔵 Issue #65（FR-712-002/003）。納品の都度、その時点の相場倍率を掛けてから相場を下げる。
+		# 同じターンに同じレシピを複数納めた場合、2つ目以降には下落後の倍率が掛かる
+		var market_multiplier := MarketRateResolver.get_rate(state._market_rates, product.recipe_id)
+		var delivery_result := DeliveryResolver.resolve(
+			product, order_for_product, market_multiplier
+		)
+		state._market_rates = MarketRateResolver.after_delivery(
+			state._market_rates, product.recipe_id
+		)
+		if not state._delivered_recipe_ids_this_turn.has(product.recipe_id):
+			state._delivered_recipe_ids_this_turn.append(product.recipe_id)
 		state._gold += roundi(delivery_result.final_reward)
 		# 🔵 貢献度の適用先を試験中/非試験中で切り替える。RankQuotaResolver.apply_contribution自体は
 		# ノルマの入れ物がRankState.quotaかExamState.exam_quotaかを問わない汎用のfloatクランプ関数のため無変更で流用する
@@ -90,3 +100,12 @@ static func deliver_pending_products(state: GameStateScript) -> Result:
 	# （要素のDeliveryResultインスタンス自体はプリミティブ値型フィールドのみのため共有で問題ない）
 	state.delivered.emit(results.duplicate())
 	return Result.ok(results)
+
+
+## 🔵 Issue #65（FR-712-004）。ターン終了時に、このターン納品しなかったレシピの相場を回復させ、
+## 「このターンに納品したレシピ」の記録を次のターンに向けて空にする
+static func recover_market_rates(state: GameStateScript) -> void:
+	state._market_rates = MarketRateResolver.recover_at_turn_end(
+		state._market_rates, state._delivered_recipe_ids_this_turn
+	)
+	state._delivered_recipe_ids_this_turn = []
