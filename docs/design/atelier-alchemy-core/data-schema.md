@@ -250,7 +250,7 @@
 | inventory[].freshness_elapsed_turns | int | 在庫に加わってからの経過ターン（鮮度） | 0 | 素材ごと。降格時も維持 |
 | inventory[].is_rotten | bool | 腐敗したか。真になった素材はターン終了処理で在庫から取り除かれるため、通常は永続化されない | false | - |
 | market_rates | Dictionary[String, float] | レシピIDごとの相場倍率。未登録は1.0扱い | 空 | 新規ゲーム開始時のみ。降格時も維持 |
-| recipe_mastery | Dictionary[String, int] | レシピIDごとの熟練度（調合回数） | 空 | ひらめいたレシピのみ0へ。新規ゲーム開始時に全消去 |
+| recipe_mastery | Dictionary[String, int] | レシピIDごとの熟練度（調合回数） | 空 | ひらめきが起きた元レシピのみ0へ。新規ゲーム開始時に全消去 |
 | inspired_recipe_ids | Array[String] | このランでひらめいたレシピID（`unlocked_recipe_ids`にも含まれる） | 空 | 新規ゲーム開始時のみ |
 | rank_state.announced_exam_rule_id | String | 予告された昇格試験ルールのID | ランク開始時に決定 | 昇格・降格によるランク開始時に再決定 |
 | exam_state.exam_rule_id | String | 実施中の試験ルールID | 空 | 試験開始のたびに設定 |
