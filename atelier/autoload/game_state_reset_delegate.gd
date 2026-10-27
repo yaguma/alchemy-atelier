@@ -26,6 +26,9 @@ static func apply_default_state(state: GameStateScript) -> void:
 	state._unlocked_recipe_ids = [GameBalance.INITIAL_RECIPE_ID]
 	state._pending_products = []
 	state._alchemy_slot_count = GameBalance.ALCHEMY_SLOT_COUNT_DEFAULT
+	state._inspiration_masters = []
+	# 🔵 Issue #67（FR-714-008）。ひらめいたレシピはラン間で持ち越さない（_unlocked_recipe_idsも上で初期化済み）
+	state._inspiration_state = InspirationState.new()
 	state._current_daily_order = null
 	state._daily_order_masters = []
 	state._market_rates = {}
@@ -39,6 +42,7 @@ static func apply_default_state(state: GameStateScript) -> void:
 	state._warned_missing_rank_master_ids = {}
 	state._in_exam = false
 	state._exam_state = ExamState.new()
+	state._exam_rule_masters = {}
 	state._last_exam_outcome = ExamOutcome.Value.CONTINUE
 	state._has_cleared_game = false
 	state._can_purchase_permanent = false

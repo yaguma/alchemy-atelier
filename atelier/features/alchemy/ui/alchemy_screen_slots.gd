@@ -110,11 +110,15 @@ static func find_material(
 
 
 # 🔵 在庫に存在しなくなった投入済みIDを取り除いた新しい配列を返す。調合成功時のリセットもこの経路で成立する
+## 🔵 PR #76レビュー指摘対応。投入枠の上限（max_slots）を超えた分も取り除き、在庫一覧へ戻す。
+## 投入済みのまま試験ルールで枠が減ると、超過分は枠にも在庫一覧にも出ず、実行もできなくなるため
 static func drop_missing_placed_ids(
-	placed_material_ids: Array[String], inventory: Array[MaterialInstance]
+	placed_material_ids: Array[String], inventory: Array[MaterialInstance], max_slots: int
 ) -> Array[String]:
 	var kept: Array[String] = []
 	for instance_id in placed_material_ids:
+		if kept.size() >= max_slots:
+			break
 		if find_material(inventory, instance_id) != null:
 			kept.append(instance_id)
 	return kept

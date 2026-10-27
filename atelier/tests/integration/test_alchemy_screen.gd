@@ -1057,3 +1057,152 @@ func test_中間素材を調合すると在庫一覧に追加され納品待ち�
 	assert_int(_pending_count()).is_equal(0)
 	assert_int(_inventory_list(screen).get_entry_count()).is_equal(1)
 	assert_str(screen.get_toast_text()).contains("聖水")
+
+
+# Issue #67（FR-714）熟練ひらめき
+
+
+func _setup_inspiration(mastery: int) -> void:
+	var high := _make_recipe(&"recipe_high", "上級回復薬")
+	var recipes := {RECIPE_ID: _make_recipe(RECIPE_ID, "テストレシピ"), &"recipe_high": high}
+	GameState._set_recipe_masters_for_test(recipes)
+	var inspiration := InspirationMaster.new()
+	inspiration.id = &"insp_test"
+	inspiration.source_recipe_id = RECIPE_ID
+	inspiration.required_traits = [&"heal"] as Array[StringName]
+	inspiration.result_recipe_id = &"recipe_high"
+	inspiration.min_rank_id = &"rank_e"
+	GameState._set_inspiration_for_test(
+		[inspiration] as Array[InspirationMaster], {RECIPE_ID: mastery}
+	)
+	var rank := RankMaster.new()
+	rank.id = "rank_e"
+	rank.traits_unlocked = true
+	rank.inspiration_unlocked = true
+	GameState._set_rank_masters_for_test({&"rank_e": rank})
+	GameState._set_current_rank_id_for_test(&"rank_e")
+
+
+func test_ひらめき解禁ランクではレシピ選択時に熟練度とひらめき確率が表示される() -> void:
+	_setup_inspiration(2)
+	var screen := _make_screen()
+
+	_select_recipe(screen, RECIPE_ID)
+
+	var mastery_label := screen.find_child("MasteryLabel", true, false) as Label
+	assert_bool(mastery_label.visible).is_true()
+	assert_str(mastery_label.text).contains("2/%d" % GameBalance.INSPIRATION_CEILING_COUNT)
+	assert_str(mastery_label.text).contains("40%")  # 次の3回目の確率 10% + 15% * 2
+
+
+func test_ひらめき未解禁のランクでは熟練度が表示されない() -> void:
+	var screen := _make_screen()
+
+	_select_recipe(screen, RECIPE_ID)
+
+	assert_bool((screen.find_child("MasteryLabel", true, false) as Label).visible).is_false()
+
+
+## 🔵 PR #75レビュー指摘対応。ひらめく先がないレシピに「次のひらめき」を出すと、無駄な修行を促してしまう
+func test_ひらめく先がないレシピでは熟練度が表示されない() -> void:
+	_setup_inspiration(2)
+	GameState._set_unlocked_recipe_ids_for_test([RECIPE_ID, &"recipe_high"] as Array[StringName])
+	var screen := _make_screen()
+
+	_select_recipe(screen, RECIPE_ID)
+
+	assert_bool((screen.find_child("MasteryLabel", true, false) as Label).visible).is_false()
+
+
+## 🔵 PR #75レビュー指摘対応。当選しても候補がなければ熟練度は天井を超えて増える（FR-714-007）
+func test_熟練度が天井を超えても表示は天井で止まる() -> void:
+	_setup_inspiration(GameBalance.INSPIRATION_CEILING_COUNT + 2)
+	var screen := _make_screen()
+
+	_select_recipe(screen, RECIPE_ID)
+
+	var mastery_label := screen.find_child("MasteryLabel", true, false) as Label
+	var ceiling := GameBalance.INSPIRATION_CEILING_COUNT
+	assert_str(mastery_label.text).contains("%d/%d" % [ceiling, ceiling])
+	assert_str(mastery_label.text).contains("100%")
+
+
+func test_ひらめくとトーストで知らせ新しいレシピが選択肢に加わる() -> void:
+	_setup_inspiration(GameBalance.INSPIRATION_CEILING_COUNT - 1)
+	_inject_material("mat_1", 3, [&"heal"])
+	var screen := _make_screen()
+	_select_recipe(screen, RECIPE_ID)
+	_place_material(screen, "mat_1")
+
+	_find_button(screen, "ExecuteButton").pressed.emit()
+
+	assert_str(screen.get_toast_text()).contains("上級回復薬")
+	var option_button := screen.find_child("RecipeOptionButton", true, false) as OptionButton
+	var found := false
+	for index in range(option_button.item_count):
+		if option_button.get_item_metadata(index) == &"recipe_high":
+			found = true
+	assert_bool(found).is_true()
+
+
+# Issue #68（FR-715-004/006）試験ルール
+
+
+func _start_rule_exam(rule_type: StringName, progress: Dictionary = {}) -> void:
+	var rule := ExamRuleMaster.new()
+	rule.id = &"exam_rule_test"
+	rule.rule_type = rule_type
+	rule.display_text = "テストの試験"
+	rule.turn_limit = 2
+	rule.target_count = 2
+	rule.slot_limit = 1
+	GameState._set_exam_rule_masters_for_test({rule.id: rule})
+	var exam_state := ExamState.new()
+	exam_state.exam_turn_limit = 2
+	exam_state.exam_rule_id = rule.id
+	exam_state.progress = progress
+	GameState._set_exam_state_for_test(exam_state, true)
+
+
+func test_試験ルールの説明と進捗が試験中に表示される() -> void:
+	_start_rule_exam(ExamRuleMaster.RULE_DELIVER_ITEMS, {"delivered_count": 1})
+
+	var screen := _make_screen()
+
+	var rule_label := screen.find_child("ExamRuleLabel", true, false) as Label
+	assert_bool(rule_label.visible).is_true()
+	assert_str(rule_label.text).contains("テストの試験")
+	assert_str(rule_label.text).contains("1/2")
+
+
+func test_試験外では試験ルールの表示は出ない() -> void:
+	var screen := _make_screen()
+
+	assert_bool((screen.find_child("ExamRuleLabel", true, false) as Label).visible).is_false()
+
+
+func test_投入枠制限ルールの試験中は投入枠の数が減る() -> void:
+	_start_rule_exam(ExamRuleMaster.RULE_QUALITY_WITH_SLOT_LIMIT)
+
+	var screen := _make_screen()
+
+	var container := screen.find_child("SlotsContainer", true, false) as Container
+	assert_int(container.get_child_count()).is_equal(1)
+
+
+## 🔵 PR #76レビュー指摘対応。投入済みのまま投入枠制限の試験が始まると、超過分が枠にも在庫一覧にも
+## 出ず、実行ボタンも押せないまま理由が分からなくなっていた
+func test_投入枠制限の試験が始まると枠を超えた投入済み素材は在庫一覧に戻る() -> void:
+	_inject_material("mat_1", 3)
+	_inject_material("mat_2", 3)
+	var screen := _make_screen()
+	_select_recipe(screen, RECIPE_ID)
+	_place_material(screen, "mat_1")
+	_place_material(screen, "mat_2")
+	_start_rule_exam(ExamRuleMaster.RULE_QUALITY_WITH_SLOT_LIMIT)
+
+	GameState.exam_started.emit()
+
+	assert_that(_find_slot_view(screen, 0).get_status()).is_equal(AlchemySlotView.Status.FILLED)
+	assert_int(_inventory_list(screen).get_entry_count()).is_equal(1)
+	assert_bool(_find_button(screen, "ExecuteButton").disabled).is_false()

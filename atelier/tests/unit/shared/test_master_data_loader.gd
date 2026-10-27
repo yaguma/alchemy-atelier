@@ -34,7 +34,8 @@ func test_materialsカテゴリで実データの全件をロードする() -> v
 			material_count += 1
 
 	assert_int(seed_count).is_equal(2)
-	assert_int(material_count).is_equal(4)  # 🔵 Issue #66で聖水（中間素材）を追加
+	# 🔵 Issue #66で聖水、Issue #67で金粉・祝福の金粉（いずれも中間素材）を追加
+	assert_int(material_count).is_equal(6)
 
 
 func test_ロードしたSeedMasterのフィールドが実データと一致する() -> void:

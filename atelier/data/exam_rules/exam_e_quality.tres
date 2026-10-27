@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="ExamRuleMaster" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://features/rank/resources/exam_rule_master.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"exam_e_quality"
+rule_type = &"quality_with_slot_limit"
+display_text = "投入枠3で品質C以上の品を納めよ"
+turn_limit = 2
+target_count = 1
+slot_limit = 3
+min_quality = 3
+reward_recipe_ids = Array[StringName]([])

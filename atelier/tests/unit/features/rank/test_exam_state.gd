@@ -69,3 +69,16 @@ func test_全フィールドが0のExamStateもcloneで正しく複製される(
 	assert_float(cloned.exam_quota_max).is_equal(0.0)
 	assert_int(cloned.exam_elapsed_turn).is_equal(0)
 	assert_int(cloned.exam_turn_limit).is_equal(0)
+
+
+# Issue #68（FR-715）
+func test_cloneは試験ルールIDと進捗を独立したコピーとして引き継ぐ() -> void:
+	var exam_state := ExamState.new()
+	exam_state.exam_rule_id = &"exam_a"
+	exam_state.progress = {"delivered_count": 1}
+
+	var cloned := exam_state.clone()
+	cloned.progress["delivered_count"] = 9
+
+	assert_that(cloned.exam_rule_id).is_equal(&"exam_a")
+	assert_int(int(exam_state.progress["delivered_count"])).is_equal(1)

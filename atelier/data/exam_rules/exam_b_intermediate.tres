@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="ExamRuleMaster" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://features/rank/resources/exam_rule_master.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"exam_b_intermediate"
+rule_type = &"use_intermediate"
+display_text = "中間素材を使った品を納めよ"
+turn_limit = 2
+target_count = 1
+reward_recipe_ids = Array[StringName]([])

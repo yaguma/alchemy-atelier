@@ -11,6 +11,7 @@ signal turn_growth_advanced(turn: int)  # 🔴 UI再描画トリガ用の新規�
 signal materials_rotted(instance_ids: Array)  # 🔵 Issue #64（FR-711-006）。Array[String]相当
 signal product_crafted(product: ProductInstance)  # 🔵 FR-112
 signal intermediate_crafted(material: MaterialInstance)  # 🔵 Issue #66（FR-713-002）
+signal recipe_inspired(result_recipe_id: StringName, source_recipe_id: StringName, traits: Array)
 # 🔴 garden の plant_seed_failed/harvest_failed パターン踏襲（FR-113）
 signal execute_alchemy_failed(recipe_id: StringName, error_code: StringName)
 signal delivered(results: Array[DeliveryResult])  # 🔴 FR-108
@@ -46,6 +47,8 @@ var _unlocked_recipe_ids: Array[StringName] = [GameBalance.INITIAL_RECIPE_ID]  #
 var _pending_products: Array[ProductInstance] = []  # 🔴 FR-008 ギルド納品待ちキュー
 # 🔵 FR-006「実行時権威」の暫定置き場（_garden_slot_countと同様、本plan内ではGameStateが仮に保持する）
 var _alchemy_slot_count: int = GameBalance.ALCHEMY_SLOT_COUNT_DEFAULT
+var _inspiration_masters: Array[InspirationMaster] = []  # 🔵 Issue #67。ひらめき対応表
+var _inspiration_state: InspirationState = InspirationState.new()  # 🔵 Issue #67。熟練度等
 
 # --- ギルド納品（guild）関連フィールド ---
 # 🔴 CON-010。マスター未ロード時・達成可能な依頼が無い時は既定値nullのままでも納品が成立する
@@ -78,6 +81,7 @@ var _in_exam: bool = false
 # 🟡 design phase確定。_rank_stateと同型パターンだが、ExamStateはRankMasterを再参照せず
 # start_exam()時点で計算済みのexam_quota_maxを自身のフィールドとして保持する自己完結型
 var _exam_state: ExamState = ExamState.new()
+var _exam_rule_masters: Dictionary = {}  # 🔵 Issue #68。Dictionary[StringName, ExamRuleMaster]
 # 🔵 FR-113（_last_rank_outcomeと同型）。試験結果確定後にcommit_exam_outcome()が
 # 冪等に返すための直近確定結果（後続taskで使用）
 var _last_exam_outcome: ExamOutcome.Value = ExamOutcome.Value.CONTINUE
@@ -92,71 +96,9 @@ var _purchased_upgrade_counts: Dictionary = {}  # 🔵 FR-010 Dictionary[StringN
 var _upgrade_masters: Dictionary = {}  # 🔵 FR-011 Dictionary[StringName, UpgradeMaster]
 
 
-# 内部Dictionary/Arrayフィールドを直接返すと呼び出し元が改変できてしまうため、
-# 辞書リテラルを都度生成しduplicate(true)でディープコピーを保証する（state-management.md）。
-# garden_state/inventoryはカスタムRefCounted型を含むため、clone()を明示的に呼ぶ（🔵 AC-014, FR-403）。
-# 🔴 Array.map()の戻り値は型付き配列(Array[MaterialInstance])ではなく素のArrayになり、
-# 呼び出し元で型付き変数へ代入する際に実行時エラーとなるため、明示的に型付き配列を構築する
-# （GardenState.clone()と同じ既知の罠）
+## 防御的コピー済みの読み取り専用ビューを返す（組み立て本体はGameStateViewDelegate）
 func get_state() -> Dictionary:
-	var cloned_inventory: Array[MaterialInstance] = []
-	for material in _inventory:
-		cloned_inventory.append(material.clone())
-
-	var cloned_pending_products: Array[ProductInstance] = []
-	for product in _pending_products:
-		cloned_pending_products.append(product.clone())
-
-	return {
-		"current_phase": _current_phase,
-		"gold": _gold,
-		"current_turn": _current_turn,
-		"garden_state": _garden_state.clone(),
-		"seed_inventory": _seed_inventory.duplicate(true),
-		# 🔴 タスク018（GardenScreen）実装のための新規補完。PlantSlotView.setup()/SeedInventoryList.setup()
-		# がSeedMasterを必要とするため公開する。マスターデータ（Infrastructure層、Resourceは不変前提）の
-		# ためDictionary自体の浅いduplicate()のみで防御的コピー要件を満たす
-		"seed_masters": _seed_masters.duplicate(),
-		# 🔴 GardenState.plantsは埋まっているスロットのみを保持し空きスロットを表現しないため、
-		# GardenScreenが全スロット（空き含む）を描画するには庭の総スロット数が別途必要
-		"garden_slot_count": _garden_slot_count,
-		"inventory": cloned_inventory,
-		# 🔵 Issue #64（FR-711-007）。seed_masters公開と同型。AlchemyScreenが素材ごとの劣化間隔から
-		# 次の劣化までの残りターンを表示するために必要。Resourceは不変前提のため浅いduplicate()で十分
-		"material_masters": _material_masters.duplicate(),
-		# 🔵 CON-001。seed_masters公開と同型。AlchemyScreenがレシピ詳細（名称・必要素材等）を
-		# 描画するために必要。マスターデータ（Resourceは不変前提）のため浅いduplicate()で十分
-		"recipe_masters": _recipe_masters.duplicate(),
-		# 🔵 CON-002。garden_slot_count公開と同型。AlchemyScreenが投入枠を空き含めて
-		# 描画するために必要。int値型のため複製不要
-		"alchemy_slot_count": _alchemy_slot_count,
-		# 🔴 要素がStringName（値型相当）のため浅い複製で十分（FR-403）
-		"unlocked_recipe_ids": _unlocked_recipe_ids.duplicate(),
-		"pending_products": cloned_pending_products,
-		# 🔴 DailyOrderMasterは@export var（プリミティブ）のみで構成されるが、Resource自体は
-		# 参照型のため他フィールドと同様clone()してから返す（state-management.md防御的コピー要件）
-		"current_daily_order": _current_daily_order.clone() if _current_daily_order else null,
-		# 🔵 Issue #65。値がfloat（値型）のDictionaryのため浅いduplicate()で十分
-		"market_rates": _market_rates.duplicate(),
-		# 🔵 FR-006。StringName/intは値型のため複製不要。RankStateは参照型のためclone()する（FR-410）
-		"current_rank_id": _current_rank_id,
-		"demotion_count": _demotion_count,
-		"rank_state": _rank_state.clone(),
-		# 🔵 FR-009, AC-018。試験ビュー5フィールドはすべて値型のため、_exam_state.clone()のような
-		# 明示的コピー呼び出しは不要（値型コピーで防御性が保たれる、design phase確定）
-		"in_exam": _in_exam,
-		"exam_quota": _exam_state.exam_quota,
-		"exam_quota_max": _exam_state.exam_quota_max,
-		"exam_elapsed_turn": _exam_state.exam_elapsed_turn,
-		"exam_turn_limit": _exam_state.exam_turn_limit,
-		"can_purchase_permanent": _can_purchase_permanent,  # 🔵 FR-017
-		# 🔵 FR-007。seed_masters/recipe_masters公開と同型。UpgradeMasterはResource（不変前提の
-		# マスターデータ）のため、Dictionary自体の浅いduplicate()のみで防御的コピー要件を満たす
-		"upgrade_masters": _upgrade_masters.duplicate(),
-		# 🔵 FR-008。値がint（値型）のDictionaryのため、浅いduplicate()でキー追加/削除・値上書きの
-		# いずれからも_purchased_upgrade_counts本体を保護できる
-		"purchased_upgrade_counts": _purchased_upgrade_counts.duplicate(),
-	}
+	return GameStateViewDelegate.build_state(self)
 
 
 func set_phase(next: StringName) -> void:
@@ -421,6 +363,11 @@ func _set_rank_masters_for_test(masters: Dictionary) -> void:
 	GameStateTestSupport.set_rank_masters(self, masters)
 
 
+## 🟡 テスト専用。実.tresロードを介さずExamRuleMasterを直接注入する（Issue #68）
+func _set_exam_rule_masters_for_test(masters: Dictionary) -> void:
+	GameStateTestSupport.set_exam_rule_masters(self, masters)
+
+
 ## 🟡 テスト専用。current_rank_idを昇格・降格を介さず直接注入する（FR-301）
 func _set_current_rank_id_for_test(rank_id: StringName) -> void:
 	GameStateTestSupport.set_current_rank_id(self, rank_id)
@@ -470,6 +417,10 @@ func _set_purchased_upgrade_counts_for_test(counts: Dictionary) -> void:
 ## （apply_upgrade()の所持ゴールド境界値テスト用の新規補完）
 func _set_gold_for_test(gold: int) -> void:
 	GameStateTestSupport.set_gold(self, gold)
+
+
+func _set_inspiration_for_test(masters: Array[InspirationMaster], mastery: Dictionary = {}) -> void:
+	GameStateTestSupport.set_inspiration(self, masters, mastery)
 
 
 # テスト分離専用。デバッグビルドガードは他のテスト専用API群と同じくGameStateTestSupport.guard()

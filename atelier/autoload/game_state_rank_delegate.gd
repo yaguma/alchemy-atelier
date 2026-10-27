@@ -28,6 +28,13 @@ static func load_rank_master_data(state: GameStateScript) -> void:
 		rank_masters[rank_id] = rank
 	state._rank_masters = rank_masters
 
+	# 🔵 Issue #68。試験ルールはランクと寿命が同じマスターデータのため、ここで一緒に読み込む
+	# （GameStateの公開メソッド数がgdlintの上限に達しているため、専用のload_*を増やさない）
+	var exam_rules: Dictionary = {}
+	for rule in MasterDataLoader.load_all(&"exam_rules"):
+		exam_rules[(rule as ExamRuleMaster).id] = rule
+	state._exam_rule_masters = exam_rules
+
 	if state._rank_state_initialized:
 		return
 
@@ -39,7 +46,7 @@ static func load_rank_master_data(state: GameStateScript) -> void:
 		state._warn_missing_rank_master()
 		return
 
-	state._rank_state = RankQuotaResolver.reset_for_retry(initial_rank_master)
+	_start_rank(state, initial_rank_master)
 	state._rank_state_initialized = true
 
 
@@ -87,9 +94,7 @@ static func commit_rank_outcome(state: GameStateScript) -> Result:
 
 	if outcome == RankOutcome.Value.DEMOTION:
 		state._demotion_count += 1
-		state._rank_state = RankQuotaResolver.reset_for_retry(
-			state._get_current_rank_master_or_fallback()
-		)
+		_start_rank(state, state._get_current_rank_master_or_fallback())
 	elif outcome == RankOutcome.Value.PROMOTION_ELIGIBLE and not state._in_exam:
 		_start_exam(state)
 
@@ -122,7 +127,17 @@ static func _start_exam(state: GameStateScript) -> void:
 		push_error("現在ランクのexam_turn_limitが不正なため試験を開始できません: %s" % state._current_rank_id)
 		return
 
-	state._exam_state = PromotionExamResolver.start_exam(rank_master)
+	# 🔵 Issue #68（FR-715）。予告された試験ルールで試験を始める。予告がない・マスターが見つからない
+	# 場合は従来の試験ノルマ方式（rule=null）にする。ノルマ以外のルールで制限ターンが不正なら、
+	# exam_quota<=0による誤SUCCESSを防ぐため上と同じく試験を開始しない
+	var rule: ExamRuleMaster = state._exam_rule_masters.get(
+		state._rank_state.announced_exam_rule_id
+	)
+	if rule != null and rule.rule_type != ExamRuleMaster.RULE_QUOTA and rule.turn_limit <= 0:
+		push_error("試験ルールのturn_limitが不正なため試験を開始できません: %s" % rule.id)
+		return
+
+	state._exam_state = PromotionExamResolver.start_exam(rank_master, rule)
 	state._in_exam = true
 	state.exam_started.emit()  # 🟡 FR-302
 
@@ -154,7 +169,7 @@ static func evaluate_exam_outcome(state: GameStateScript) -> ExamOutcome.Value:
 	if not state._in_exam:
 		return ExamOutcome.Value.CONTINUE
 
-	return PromotionExamResolver.resolve_outcome(state._exam_state)
+	return PromotionExamResolver.resolve_outcome(state._exam_state, current_exam_rule(state))
 
 
 ## 🔵 FR-108〜113。evaluate_exam_outcome()を実行直前に再評価してから状態へ確定反映する。
@@ -209,6 +224,7 @@ static func commit_exam_outcome(state: GameStateScript) -> Result:
 ## 同様exam_outcome_confirmed発行後に呼び出し元が発行する
 static func _commit_exam_success(state: GameStateScript) -> bool:
 	state._can_purchase_permanent = true  # 🔵 FR-110。既存3分岐すべてに一律適用される位置
+	_grant_exam_rewards(state)  # 🔵 Issue #68（FR-715-005）。合格報酬も同じく全分岐に適用する
 	var next_rank_id := RankProgression.get_next_rank_id(state._current_rank_id)
 
 	if next_rank_id == &"":
@@ -232,7 +248,7 @@ static func _commit_exam_success(state: GameStateScript) -> bool:
 	state._current_rank_id = next_rank_id
 	# 🟡 design phase確認済み。RankQuotaResolver.reset_for_retryは「同ランク再挑戦専用」ではなく
 	# 「RankMasterのquota_maxからRankStateを初期化する」汎用関数のため、次ランク初期化にも流用する
-	state._rank_state = RankQuotaResolver.reset_for_retry(next_rank_master)
+	_start_rank(state, next_rank_master)
 	state._rank_state_initialized = true
 	state._in_exam = false
 	return false
@@ -242,7 +258,32 @@ static func _commit_exam_success(state: GameStateScript) -> bool:
 ## demotion_countを+1する（commit_rank_outcome()のDEMOTION分岐と同型）
 static func _commit_exam_failure(state: GameStateScript) -> void:
 	state._demotion_count += 1
-	state._rank_state = RankQuotaResolver.reset_for_retry(
-		state._get_current_rank_master_or_fallback()
-	)
+	_start_rank(state, state._get_current_rank_master_or_fallback())
 	state._in_exam = false
+
+
+## 🔵 Issue #68（FR-715-002）。ランクの開始（初回・昇格・降格による再挑戦）時にRankStateを初期化し、
+## そのランクの候補から次の昇格試験ルールを予告する。乱数はRngServiceから払い出して渡す
+static func _start_rank(state: GameStateScript, rank_master: RankMaster) -> void:
+	state._rank_state = RankQuotaResolver.reset_for_retry(rank_master)
+	# 🔴 候補がないランクでは乱数を消費しない（日替わり指定などRngServiceの他の払い出し順を変えないため）
+	if rank_master == null or rank_master.exam_rule_pool.is_empty():
+		return
+	state._rank_state.announced_exam_rule_id = ExamRuleResolver.announce(
+		rank_master.exam_rule_pool, RngService.randf()
+	)
+
+
+## 🔵 Issue #68。実施中の試験ルール。従来の試験ノルマ方式（ルールなし）ならnull
+static func current_exam_rule(state: GameStateScript) -> ExamRuleMaster:
+	return state._exam_rule_masters.get(state._exam_state.exam_rule_id)
+
+
+## 🔵 Issue #68（FR-715-005）。合格した試験ルールの合格報酬のレシピを解禁する（重複は追加しない）
+static func _grant_exam_rewards(state: GameStateScript) -> void:
+	var rule := current_exam_rule(state)
+	if rule == null:
+		return
+	for recipe_id in rule.reward_recipe_ids:
+		if not state._unlocked_recipe_ids.has(recipe_id):
+			state._unlocked_recipe_ids.append(recipe_id)
