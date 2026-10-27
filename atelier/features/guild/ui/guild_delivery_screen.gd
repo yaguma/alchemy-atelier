@@ -1,5 +1,5 @@
 class_name GuildDeliveryScreen
-extends Control
+extends ForwardingControl
 
 ## ギルド納品結果画面。納品1件ごとの結果リスト・合計貢献度/合計報酬・ランクノルマ簡易バーを表示し、
 ## 「続ける」ボタンで導線シグナルを発行する（US-001〜US-401, AC-001〜AC-008）。
@@ -40,6 +40,9 @@ var _total_reward: float = 0.0
 ## 子孫へ伝播しないため実質no-opだった（ルート自身はテキストを持たない）。garden_screen.gd等の
 ## 既存実装と同じく、テキストを持つ各ノードへ個別に適用する
 func _ready() -> void:
+	# 🔴 コードレビュー指摘対応（PR #62）。GuildDeliveryScreenはextends Controlのラッパーのため
+	# ForwardingControl（shared/ui/forwarding_control.gd）経由でContentPanelの実サイズを転送する
+	_bind_minimum_size_forward([_content_panel])
 	UiTheme.apply_panel_style(_content_panel)
 	_entry_container.add_theme_constant_override("separation", ENTRY_SEPARATION)
 	_continue_button.pressed.connect(_on_continue_pressed)

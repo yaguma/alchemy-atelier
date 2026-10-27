@@ -306,3 +306,52 @@ func test_品質1の素材は鮮度ラベルが腐敗までの表記になる() 
 
 	assert_str(_find_label(list, "mat_1", "FreshnessLabel").text).is_equal("腐敗まで2T")
 	assert_str(_find_label(list, "mat_2", "FreshnessLabel").text).is_equal("劣化まで2T")
+
+
+## 🔴 コードレビュー指摘対応の回帰テスト。MaterialInventoryListはextends Controlのため、
+## _get_minimum_size()をEntryContainer/EmptyStateLabelへ転送する対応をしないと親のVBoxContainer
+## （alchemy_screen.tscn）へ常に(0,0)を報告し、行が0高さに潰れて他の行と重なって描画される
+## 不具合があった。在庫あり・空状態それぞれで確認する。
+func test_get_minimum_sizeが在庫の内容に応じて0より大きくなる() -> void:
+	var list := _make_list()
+	var no_tags: Array[StringName] = []
+	list.setup([_make_material("mat_1", &"herb_common", 3, no_tags)])
+
+	var min_size := list.get_combined_minimum_size()
+
+	assert_float(min_size.y).is_greater(0.0)
+
+
+func test_get_minimum_sizeが空状態でも0より大きくなる() -> void:
+	var list := _make_list()
+
+	list.setup([])
+
+	var min_size := list.get_combined_minimum_size()
+
+	assert_float(min_size.y).is_greater(0.0)
+
+
+## 🔴 コードレビュー指摘対応（PR #62フォローアップ）。表示中に素材配置/取消でsetup()が
+## 再呼び出しされ件数が変わっても、ForwardingControl経由でEntryContainerの
+## minimum_size_changedを購読しているため、ノードをツリーから外さずに
+## get_combined_minimum_size()が追従することを確認する。
+func test_get_minimum_sizeがsetupの再呼び出しで件数増加に追従する() -> void:
+	var list := _make_list()
+	var no_tags: Array[StringName] = []
+	list.setup([_make_material("mat_1", &"herb_common", 3, no_tags)])
+	var min_size_before := list.get_combined_minimum_size()
+
+	(
+		list
+		. setup(
+			[
+				_make_material("mat_1", &"herb_common", 3, no_tags),
+				_make_material("mat_2", &"ore_common", 2, no_tags),
+				_make_material("mat_3", &"gem_common", 4, no_tags),
+			]
+		)
+	)
+	var min_size_after := list.get_combined_minimum_size()
+
+	assert_float(min_size_after.y).is_greater(min_size_before.y)

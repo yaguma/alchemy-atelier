@@ -1,5 +1,5 @@
 class_name UpgradeItemList
-extends Control
+extends ForwardingControl
 
 ## 1タブ分（恒久 or 消耗）のアイテム一覧を表示し、購入操作の起点となる表示専用コンポーネント。
 ## GameStateに依存せず、整形済み配列をsetup()で受け取る（SeedInventoryListと同型）。
@@ -39,6 +39,9 @@ func get_entry_count() -> int:
 
 
 func _ready() -> void:
+	# 🔴 コードレビュー指摘対応（PR #62）。UpgradeItemListはextends Controlのラッパーのため
+	# ForwardingControl（shared/ui/forwarding_control.gd）経由でEntryContainerの実サイズを転送する
+	_bind_minimum_size_forward([_entry_container])
 	_entry_container.add_theme_constant_override("separation", UiTheme.SPACING_LIST_ENTRY)
 	_rebuild()
 

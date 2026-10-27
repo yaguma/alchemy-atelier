@@ -1,5 +1,5 @@
 class_name SeedInventoryList
-extends Control
+extends ForwardingControl
 
 ## 手持ちの種一覧を表示し、植え付け操作の起点となる表示専用コンポーネント。
 ## GameStateに依存せず、seed_inventoryとseed_mastersをsetup()で受け取る
@@ -32,6 +32,9 @@ func get_entry_count() -> int:
 
 
 func _ready() -> void:
+	# 🔴 コードレビュー指摘対応（PR #62）。SeedInventoryListはextends Controlのラッパーのため
+	# ForwardingControl（shared/ui/forwarding_control.gd）経由でEntryContainerの実サイズを転送する
+	_bind_minimum_size_forward([_entry_container])
 	_entry_container.add_theme_constant_override("separation", ENTRY_SEPARATION)
 	_rebuild()
 

@@ -1,5 +1,5 @@
 class_name PlantSlotView
-extends Control
+extends ForwardingControl
 
 ## 庭の1スロットを表示する表示専用コンポーネント（FR-201〜204, NFR-201, AC-010）。
 ## 空き/生育中/収穫可能/枯死警告の4状態を色・アイコン・テキストの併記で表示する。
@@ -42,6 +42,9 @@ var _harvest_enabled: bool = false
 ## DotGothic16フォントを統合する。HarvestButton=確定操作でPRIMARY、WaitButton=
 ## 「様子を見る」という消極的な操作でSECONDARYとした（タスクファイルの暫定割り当てに従う）
 func _ready() -> void:
+	# 🔴 コードレビュー指摘対応（PR #62）。PlantSlotViewはextends Controlのラッパーのため
+	# ForwardingControl（shared/ui/forwarding_control.gd）経由でSlotPanelの実サイズを転送する
+	_bind_minimum_size_forward([_slot_panel])
 	UiTheme.apply_panel_style(_slot_panel)
 	_harvest_button.pressed.connect(_on_harvest_pressed)
 	_wait_button.pressed.connect(_on_wait_pressed)
