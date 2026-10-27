@@ -14,6 +14,7 @@ const LABEL_NEW_GAME := "はじめから"
 const LABEL_CONTINUE := "つづきから"
 const LABEL_SETTINGS := "せってい"
 const LABEL_QUIT := "終了"
+const LABEL_CODEX := "ずかん"
 
 
 func before_test() -> void:
@@ -29,14 +30,23 @@ func after_test() -> void:
 # 正常系: メニュー構成
 
 
-func test_ボタンははじめからつづきからせってい終了の4つのみ存在する() -> void:
+## 🔵 Issue #69（FR-716-006）で「ずかん」を追加し5項目になった
+func test_ボタンははじめからつづきからずかんせってい終了の5つのみ存在する() -> void:
 	var title := _make_title()
 
 	var texts := _collect_button_texts(title)
 
 	assert_array(texts).contains_exactly_in_any_order(
-		[LABEL_NEW_GAME, LABEL_CONTINUE, LABEL_SETTINGS, LABEL_QUIT]
+		[LABEL_NEW_GAME, LABEL_CONTINUE, LABEL_CODEX, LABEL_SETTINGS, LABEL_QUIT]
 	)
+
+
+func test_ずかん押下で図鑑画面が開く() -> void:
+	var title := _make_title()
+
+	_find_button(title, LABEL_CODEX).pressed.emit()
+
+	assert_object(title.find_child("CodexPanel", true, false)).is_not_null()
 
 
 func test_初期状態では遷移が要求されていない() -> void:

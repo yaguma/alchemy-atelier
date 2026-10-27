@@ -5,14 +5,23 @@ const RANK_ID := &"rank_test"
 const BASE_CONTRIBUTION := 10.0
 const BASE_REWARD := 5.0
 const SLOT_COUNT := 2
+const CODEX_TEST_PATH := "user://test_codex_alchemy_screen.json"
 
 
 func before_test() -> void:
+	# 🔵 Issue #69。ひらめくとCodexServiceが図鑑ファイルへ書き込むため、本番の図鑑を汚さないよう差し替える
+	CodexService.reset_for_test(CODEX_TEST_PATH)
 	GameState.reset_for_test()
 	GameState._set_recipe_masters_for_test({RECIPE_ID: _make_recipe(RECIPE_ID, "テストレシピ")})
 	GameState._set_unlocked_recipe_ids_for_test([RECIPE_ID] as Array[StringName])
 	GameState._set_alchemy_slot_count_for_test(SLOT_COUNT)
 	_set_rank(false)
+
+
+func after_test() -> void:
+	if FileAccess.file_exists(CODEX_TEST_PATH):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(CODEX_TEST_PATH))
+	CodexService.reset_for_test(CODEX_TEST_PATH)
 
 
 func _make_recipe(id: StringName, recipe_name: String) -> RecipeMaster:
