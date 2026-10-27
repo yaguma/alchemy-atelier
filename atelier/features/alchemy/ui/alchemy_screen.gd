@@ -53,6 +53,7 @@ var _turns_until_decay: Dictionary = {}  # 🔵 Issue #64。_inventoryと同じ�
 var _market_rates: Dictionary = {}  # 🔵 Issue #65。プレビューとレシピ選択の相場表示に使う
 var _recipe_mastery: Dictionary = {}  # 🔵 Issue #67。熟練度表示に使う
 var _inspiration_unlocked: bool = false  # 🔵 Issue #67
+var _inspirable_recipe_ids: Array = []  # 🔵 PR #75レビュー指摘対応。まだひらめく先がある元レシピ
 # 🔴 コードレビュー指摘対応。_recompute_preview()のたびにGameState.get_state()を再度フル呼び出し
 # していた（_inventory/_recipe_masters同様に_refresh()時点でキャッシュすべきコスト）のを解消する。
 # GameState.resolve_daily_order_for_delivery()経由で取得するため、試験中(_in_exam)は
@@ -188,6 +189,7 @@ func _refresh() -> Dictionary:
 		state["market_rates"], AlchemyScreenSlots.recipe_ids_of(state["pending_products"])
 	)
 	_recipe_mastery = state["recipe_mastery"]
+	_inspirable_recipe_ids = state["inspirable_recipe_ids"]
 	_inspiration_unlocked = GameState.get_current_rank_master().inspiration_unlocked
 	_slot_state.max_slots = state["alchemy_slot_count"]
 	# 🔴 コードレビュー指摘対応。_recompute_preview()側でGameState.get_state()を再度呼ばずに済むよう
@@ -244,6 +246,7 @@ func _update_mastery_label() -> void:
 		_slot_state.selected_recipe_id,
 		_recipe_mastery,
 		_inspiration_unlocked,
+		_inspirable_recipe_ids,
 		MASTERY_TEXT_FORMAT
 	)
 

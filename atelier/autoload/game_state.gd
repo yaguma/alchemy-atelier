@@ -138,6 +138,11 @@ func get_state() -> Dictionary:
 		"pending_products": cloned_pending_products,
 		"recipe_mastery": _inspiration_state.mastery.duplicate(),  # 🔵 Issue #67
 		"inspired_recipe_ids": _inspiration_state.inspired_recipe_ids.duplicate(),
+		# 🔵 PR #75レビュー指摘対応。調合画面が熟練度を出すレシピを絞るために使う（新規配列のため複製不要）
+		"inspirable_recipe_ids":
+		InspirationResolver.inspirable_source_recipe_ids(
+			_inspiration_masters, _current_rank_id, _unlocked_recipe_ids
+		),
 		# 🔴 DailyOrderMasterは@export var（プリミティブ）のみで構成されるが、Resource自体は
 		# 参照型のため他フィールドと同様clone()してから返す（state-management.md防御的コピー要件）
 		"current_daily_order": _current_daily_order.clone() if _current_daily_order else null,
