@@ -93,6 +93,10 @@
 - [ ] `Tween`・`Timer`が適切に停止される
 - [ ] シーン跨ぎのノード参照が残っていない（`queue_free()`後の参照保持がない）
 
+### UI
+
+- [ ] 「実コンテンツを持つContainer（PanelContainer/VBoxContainer等）を丸ごと包むだけのControl」を新規作成し、それを`GridContainer`/`VBoxContainer`等のContainer系ノードの子として配置する場合、`extends Control`ではなく`extends ForwardingControl`（`shared/ui/forwarding_control.gd`）を使い、`_ready()`で`_bind_minimum_size_forward([...])`を呼んでいる（🔴PR #62で6箇所に渡り個別に踏まれた罠。詳細は[`ui-components.md`](./ui-components.md)「Controlラッパーの最小サイズ転送」参照）
+
 ---
 
 ## コミット前の必須確認
