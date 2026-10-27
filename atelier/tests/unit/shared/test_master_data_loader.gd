@@ -143,7 +143,38 @@ func test_実データに対しvalidate_referencesがtrueを返す() -> void:
 	assert_bool(result).is_true()
 
 
+func test_実データの中間素材レシピの作成物はすべて素材マスターに存在する() -> void:
+	var recipes := MasterDataLoader.load_all(&"recipes")
+	var materials := MasterDataLoader.load_all(&"materials")
+
+	var result := MasterDataLoader.validate_recipe_outputs(recipes, materials)
+
+	assert_bool(result).is_true()
+
+
+func test_納品用レシピは作成物IDが空でもvalidate_recipe_outputsを通る() -> void:
+	var recipe := RecipeMaster.new()
+	recipe.id = &"recipe_product"
+
+	var result := MasterDataLoader.validate_recipe_outputs([recipe], [])
+
+	assert_bool(result).is_true()
+
+
 # 異常系
+
+
+func test_中間素材レシピの作成物IDが素材マスターにない場合validate_recipe_outputsがfalseを返す() -> void:
+	var recipe := RecipeMaster.new()
+	recipe.id = &"recipe_holy_water"
+	recipe.kind = RecipeMaster.KIND_INTERMEDIATE
+	recipe.output_material_id = &"material_holy_watr"
+	var material := MaterialMaster.new()
+	material.id = &"material_holy_water"
+
+	var result := MasterDataLoader.validate_recipe_outputs([recipe], [material])
+
+	assert_bool(result).is_false()
 
 
 func test_未解決のproduces_material_idがある場合validate_referencesがfalseを返す() -> void:

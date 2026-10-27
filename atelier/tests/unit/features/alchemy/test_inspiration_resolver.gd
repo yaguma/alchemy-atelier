@@ -200,3 +200,55 @@ func test_input_traitsは投入素材の特性の和集合で触媒を除く() -
 	assert_array(InspirationResolver.input_traits(materials)).contains_exactly(
 		[&"holy"] as Array[StringName]
 	)
+
+
+# inspirable_source_recipe_ids（PR #75レビュー指摘対応）
+
+
+func test_ひらめく余地のある元レシピを重複なく返す() -> void:
+	var holy := _make_master(&"insp_holy", [&"holy"] as Array[StringName], &"recipe_holy_water")
+	var heal := _make_master(&"insp_heal", [&"heal"] as Array[StringName], &"recipe_high")
+	var gold := _make_master(
+		&"insp_gold", [&"gold"] as Array[StringName], &"recipe_gold_dust", &"rank_e", &"recipe_mana"
+	)
+
+	var source_ids := InspirationResolver.inspirable_source_recipe_ids(
+		[holy, heal, gold] as Array[InspirationMaster], &"rank_e", _no_unlocked()
+	)
+
+	assert_array(source_ids).contains_exactly([SOURCE, &"recipe_mana"] as Array[StringName])
+
+
+func test_結果がすべて解禁済みの元レシピは含まれない() -> void:
+	var holy := _make_master(&"insp_holy", [&"holy"] as Array[StringName], &"recipe_holy_water")
+	var unlocked: Array[StringName] = [&"recipe_holy_water"]
+
+	var source_ids := InspirationResolver.inspirable_source_recipe_ids(
+		[holy] as Array[InspirationMaster], &"rank_e", unlocked
+	)
+
+	assert_array(source_ids).is_empty()
+
+
+func test_解禁ランクに届かない対応表しかない元レシピは含まれない() -> void:
+	var holy := _make_master(
+		&"insp_holy", [&"holy"] as Array[StringName], &"recipe_holy_water", &"rank_c"
+	)
+
+	var source_ids := InspirationResolver.inspirable_source_recipe_ids(
+		[holy] as Array[InspirationMaster], &"rank_e", _no_unlocked()
+	)
+
+	assert_array(source_ids).is_empty()
+
+
+func test_一部の結果だけ解禁済みなら元レシピは含まれる() -> void:
+	var holy := _make_master(&"insp_holy", [&"holy"] as Array[StringName], &"recipe_holy_water")
+	var heal := _make_master(&"insp_heal", [&"heal"] as Array[StringName], &"recipe_high")
+	var unlocked: Array[StringName] = [&"recipe_holy_water"]
+
+	var source_ids := InspirationResolver.inspirable_source_recipe_ids(
+		[holy, heal] as Array[InspirationMaster], &"rank_e", unlocked
+	)
+
+	assert_array(source_ids).contains_exactly([SOURCE] as Array[StringName])

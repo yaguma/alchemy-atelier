@@ -28,6 +28,39 @@ func test_納品後はそのレシピの相場倍率が下落幅だけ下がる(
 	)
 
 
+# 🔵 PR #73レビュー指摘対応。納品待ちの調合物を順に納品した後の見込み相場
+func test_納品待ちの同じレシピの数だけ見込み相場が下がる() -> void:
+	var pending: Array[StringName] = [RECIPE_A, RECIPE_B, RECIPE_A]
+
+	var projected := MarketRateResolver.project_after_deliveries({}, pending)
+
+	assert_float(MarketRateResolver.get_rate(projected, RECIPE_A)).is_equal_approx(
+		GameBalance.MARKET_RATE_DEFAULT - GameBalance.MARKET_DROP_STEP * 2, 0.0001
+	)
+	assert_float(MarketRateResolver.get_rate(projected, RECIPE_B)).is_equal_approx(
+		GameBalance.MARKET_RATE_DEFAULT - GameBalance.MARKET_DROP_STEP, 0.0001
+	)
+
+
+# 境界値
+func test_納品待ちが空なら見込み相場は現在の相場と同じ() -> void:
+	var pending: Array[StringName] = []
+
+	var projected := MarketRateResolver.project_after_deliveries({RECIPE_A: 0.8}, pending)
+
+	assert_float(MarketRateResolver.get_rate(projected, RECIPE_A)).is_equal_approx(0.8, 0.0001)
+
+
+# 異常系
+func test_project_after_deliveriesは引数の辞書を書き換えない() -> void:
+	var original := {RECIPE_A: 1.0}
+	var pending: Array[StringName] = [RECIPE_A]
+
+	MarketRateResolver.project_after_deliveries(original, pending)
+
+	assert_float(original[RECIPE_A]).is_equal_approx(1.0, 0.0001)
+
+
 func test_納品後も他のレシピの相場倍率は変わらない() -> void:
 	var rates := MarketRateResolver.after_delivery({RECIPE_B: 0.9}, RECIPE_A)
 

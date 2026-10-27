@@ -47,22 +47,44 @@ static func find_candidates(
 	unlocked_recipe_ids: Array[StringName]
 ) -> Array[InspirationMaster]:
 	var candidates: Array[InspirationMaster] = []
-	var current_rank_order := GameBalance.RANK_ORDER.find(current_rank_id)
-	if current_rank_order < 0:
-		return candidates
-
 	for master in masters:
 		if master.source_recipe_id != source_recipe_id:
 			continue
-		if unlocked_recipe_ids.has(master.result_recipe_id):
-			continue
-		var min_rank_order := GameBalance.RANK_ORDER.find(master.min_rank_id)
-		if min_rank_order < 0 or current_rank_order < min_rank_order:
+		if not _is_open(master, current_rank_id, unlocked_recipe_ids):
 			continue
 		if not _contains_all(traits, master.required_traits):
 			continue
 		candidates.append(master)
 	return candidates
+
+
+## 🔵 PR #75レビュー指摘対応。投入特性を問わず、まだひらめく余地がある元レシピのIDを返す
+## （解禁ランクを満たし、結果のレシピが未解禁の対応表を1件以上持つもの）。
+## 調合画面はここに含まれないレシピの熟練度・ひらめき確率を表示しない
+## （ひらめく先がないのに「次のひらめき100%」と表示して修行を促さないため）
+static func inspirable_source_recipe_ids(
+	masters: Array[InspirationMaster],
+	current_rank_id: StringName,
+	unlocked_recipe_ids: Array[StringName]
+) -> Array[StringName]:
+	var source_ids: Array[StringName] = []
+	for master in masters:
+		if source_ids.has(master.source_recipe_id):
+			continue
+		if _is_open(master, current_rank_id, unlocked_recipe_ids):
+			source_ids.append(master.source_recipe_id)
+	return source_ids
+
+
+## 現在ランクが解禁ランク以上で、結果のレシピがまだ解禁されていないか
+static func _is_open(
+	master: InspirationMaster, current_rank_id: StringName, unlocked_recipe_ids: Array[StringName]
+) -> bool:
+	if unlocked_recipe_ids.has(master.result_recipe_id):
+		return false
+	var current_rank_order := GameBalance.RANK_ORDER.find(current_rank_id)
+	var min_rank_order := GameBalance.RANK_ORDER.find(master.min_rank_id)
+	return current_rank_order >= 0 and min_rank_order >= 0 and current_rank_order >= min_rank_order
 
 
 ## 🔵 必要特性の数が最も多い（より具体的な）候補群から、rng_value（0以上1未満）で1つ選ぶ。

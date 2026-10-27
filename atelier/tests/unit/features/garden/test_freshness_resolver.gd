@@ -10,6 +10,26 @@ func _make_material(quality: int, elapsed: int = 0) -> MaterialInstance:
 # 正常系
 
 
+# 🔵 PR #72レビュー指摘対応。在庫一覧の「腐敗まで」表記の判定に使う
+func test_品質2以上の素材は次の劣化で腐敗しない() -> void:
+	assert_bool(FreshnessResolver.rots_at_next_decay(_make_material(2))).is_false()
+
+
+# 境界値
+func test_品質1の素材は次の劣化で腐敗する() -> void:
+	assert_bool(FreshnessResolver.rots_at_next_decay(_make_material(1))).is_true()
+
+
+# 🔵 rots_at_next_decayとage_materialの判定が一致することを固定する（UI表示と実処理の乖離防止）
+func test_rots_at_next_decayが真の素材はage_materialの劣化タイミングで腐敗する() -> void:
+	var material := _make_material(1, 1)
+
+	var aged := FreshnessResolver.age_material(material, 2)
+
+	assert_bool(FreshnessResolver.rots_at_next_decay(material)).is_true()
+	assert_bool(aged.is_rotten).is_true()
+
+
 func test_age_materialで鮮度経過ターンが1加算された新しいインスタンスが返る() -> void:
 	var material := _make_material(3, 0)
 
