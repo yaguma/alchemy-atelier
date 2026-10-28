@@ -98,6 +98,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 正式なビジュアルデザインガイドの策定（[`ui-design/overview.md`](docs/design/atelier-alchemy-core/ui-design/overview.md) のカラーパレット等は暫定案）
 - 🔴 2026-09-06修正: 本節はCI・エクスポートビルド設定を「ともに未構築」と記載したまま更新されていなかったが、実際にはCI（GitHub Actions）はPR #47（`.github/workflows/ci.yml`）で構築済み。エクスポートビルド設定（`export_presets.cfg`）もWindows Desktop向けDebugビルドのみ整備済み（2026-09-06、[`docs/dev/plans/export-build-settings/`](docs/dev/plans/export-build-settings/)参照）。Release向け設定・他プラットフォーム対応・CIからのエクスポート自動化は未対応
 - 🔵 2026-09-06追加: タイトル画面・設定画面・ゲーム中の一時停止メニューは実装済み（上記「アーキテクチャ方針」節直前の修正コメント、[`docs/dev/plans/title-settings-screens-extension/`](docs/dev/plans/title-settings-screens-extension/)参照）。BGM/SE音量設定はAudioBusLayout未整備のため現状no-op（実際の音声再生機能自体が本プロジェクトに未実装）で、将来音声を追加する際は`project.godot`へのバス追加が必要
+- 🔵 2026-10-29追加: Godot MCP（godot-ai v4.3.1）を導入済み（Issue #80/PR #84。導入手順は[`README.md`](README.md)「Godot MCP（godot-ai）」節）。Claude Codeからゲームを起動し、スクリーンショット・UI要素・ゲームログを取得して見た目を確認できる。画面の目視確認は[`godot-visual-check`スキル](.claude/skills/godot-visual-check/SKILL.md)（`/godot-visual-check`）で行う（Issue #81）。ただし**調査用でありCIでは使わない**。回帰テストは引き続きGdUnit4で書く（[`godot-debug-tools.md`](.claude/rules/godot-debug-tools.md)参照）。上記「結合プレイの確認」「人間による検証」は、MCPで画面を撮れるようになっても人間のプレイによる確認が必要な点は変わらない
 
 ---
 
