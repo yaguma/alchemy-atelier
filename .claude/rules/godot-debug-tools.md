@@ -1,14 +1,16 @@
 # Godot デバッグ・調査ツール運用ルール
 
-> 🔴 2026-08-06新規作成: 旧`playwright-mcp.md`・`playwright-mcp-cookbook.md`（ブラウザ版Phaserゲーム前提）を置き換える。技術スタックがGodot 4.x + GDScriptに確定済み（`CLAUDE.md`参照）だが、**本環境にはGodot用のブラウザ自動操作MCP相当のツールは存在しない**（Unity向けの`UnityMCP`はあるがGodotには非対応）。そのため調査・再現・手動検証のワークフローはPlaywrightMCPとは根本的に異なる形に置き換える。
+> 🔴 2026-08-06新規作成: 旧`playwright-mcp.md`・`playwright-mcp-cookbook.md`（ブラウザ版Phaserゲーム前提）を置き換える。作成当時は、Godotを外部から操作するMCPがこの環境に無かったため、調査・再現・手動検証のワークフローをPlaywrightMCPとは別の形で定めた。
 > 🔴 2026-08-10改訂: Godot 4.7のAsset Store移行期にGUTが導入できなかったため、テストフレームワークをGdUnit4に切り替えた。本ファイルのGUT前提の記述を全面的にGdUnit4に置き換えた（実際に`atelier/tests/integration/`でGdUnit4テストの動作確認済み）。
+> 🔴 2026-10-29改訂（Issue #81）: Godot MCP（godot-ai v4.3.1、Issue #80/PR #84）を導入したため、「Godot用の自動操作MCPは存在しない」という前提を撤回した。Claude Codeから、ゲームの起動・スクリーンショット取得・UI要素の取得・クリック入力・実行中ゲームでのGDScript実行・ゲームログ取得ができる（2026-10-29に実機で動作確認済み）。手順は[`godot-visual-check`スキル](../skills/godot-visual-check/SKILL.md)にまとめた。ただし**MCPによる確認は調査用であり、回帰テストは引き続きGdUnit4で書く**。導入手順・運用上の注意は[`README.md`](../../README.md)「Godot MCP（godot-ai）」節を参照。
 
 ## 基本原則
 
-- **自動化された状態注入（旧`browser_evaluate`相当）はGodotに標準では存在しない**。再現手順は基本的に**GdUnit4統合テストとして書く**ことで「壊れない再現コード」にする（[`testing.md`](./testing.md)「E2E相当のテスト」参照）
-- 一度きりの調査・目視確認は**Godotエディタでの実行 + リモートシーンツリー**で行う
+- 再現手順は基本的に**GdUnit4統合テストとして書く**ことで「壊れない再現コード」にする（[`testing.md`](./testing.md)「E2E相当のテスト」参照）
+- 一度きりの調査・目視確認は、**Godot MCP**（[`godot-visual-check`スキル](../skills/godot-visual-check/SKILL.md)）か、**Godotエディタでの実行 + リモートシーンツリー**で行う
+- MCPの`game_eval`（実行中ゲームでのGDScript実行）による状態注入は調査用の一時操作であり、「検証済みの動作」の根拠にはしない
 - 調査で得た再現手順は**必ずGdUnit4テストに昇格**を検討する
-- **CIでのGodotエディタ手動操作は当然行わない**（CIはGdUnit4 CLI一択）
+- **CIではMCPもGodotエディタの手動操作も使わない**（CIはGdUnit4 CLI一択。ヘッドレス起動ではMCPプラグインは無効になる）
 
 ---
 
@@ -16,8 +18,12 @@
 
 | 用途 | 手法 |
 |------|------|
-| バグ1回の再現・スクリーンショット撮影 | Godotエディタでの手動プレイ + `Debugger`パネル |
-| ランダム探索・状態の直接確認 | エディタ実行中のリモートシーンツリー（`Remote`タブ） |
+| 画面の見た目の確認・スクリーンショット撮影 | Godot MCP: `project_run` → `editor_screenshot`（`source: "game"`, `max_resolution: 960`以下）→ `project_manage`（`op: "stop"`）。手順は[`godot-visual-check`スキル](../skills/godot-visual-check/SKILL.md) |
+| 実行中のエラー・警告の確認 | Godot MCP: `logs_read`（`source: "game"`。起動時のパースエラーは`source: "editor"`） |
+| 表示中のUI要素（パス・テキスト・矩形）の確認 | Godot MCP: `game_manage`（`op: "get_ui_elements"`） |
+| 状態の確認・特定画面への移動（調査用） | Godot MCP: `editor_manage`（`op: "game_eval"`）でGDScriptを実行、または`game_manage`（`op: "input_mouse"`）でボタンを押す |
+| バグ1回の再現（MCPが使えない場合） | Godotエディタでの手動プレイ + `Debugger`パネル |
+| ランダム探索・状態の直接確認（MCPが使えない場合） | エディタ実行中のリモートシーンツリー（`Remote`タブ） |
 | 状態を直接注入して特定シナリオを再現したい | GdUnit4の`before_test`でシーン/Autoloadを直接操作するテストコードを書く（下記「状態セットアップ雛形」参照） |
 | 回帰テスト・再発防止 | GdUnit4のシーンレベル統合テスト（`tests/integration/`） |
 | CI実行 | GdUnit4 CLI（`cd atelier && ./addons/gdUnit4/runtest.sh`。`GODOT_BIN`は事前にシステム環境変数として設定済み前提）一択 |
@@ -26,7 +32,7 @@
 判断の優先順:
 
 1. 既存のGdUnit4統合テストで再現できるなら、それを拡張する
-2. 再現テストがまだ無く一度だけ確認したい場合は、エディタでの手動プレイ + リモートシーンツリー
+2. 再現テストがまだ無く一度だけ確認したい場合は、Godot MCP（使えなければエディタでの手動プレイ + リモートシーンツリー）
 3. 調査で得た再現手順は、GdUnit4統合テストへ移植して回帰テスト化する
 
 ---
@@ -117,15 +123,19 @@ func test_調合を実行して納品まで到達する() -> void:
 3. 雛形3（在庫構築）※必要な場合のみ
 4. 対象操作の実行
 5. `assert_*`で結果検証
-6. 必要ならスクリーンショット（下記「目視確認用スクリーンショット」）で状態を記録。`_save_debug_screenshot()`は`await`を含むコルーチンのため、呼び出し側も`await _save_debug_screenshot(...)`とすること
-
-各ステップ後にアサーションを挟み、失敗したら中断して原因調査する。
+各ステップ後にアサーションを挟み、失敗したら中断して原因調査する。GdUnit4は`--headless`で実行されるため、テスト中の画面はスクリーンショットに撮れない。見た目を確かめたい場合は、同じ状態をGodot MCPで作って撮影する（[`godot-visual-check`スキル](../skills/godot-visual-check/SKILL.md)参照）。
 
 ---
 
 ## 目視確認用スクリーンショット
 
-自動テスト中にスクリーンショットを撮りたい場合は`Viewport.get_texture().get_image().save_png()`を使う。
+通常はGodot MCPの`editor_screenshot`（`source: "game"`）を使う（「調査手法の判断フロー」参照）。撮影結果はツール結果に画像として返るだけで、ファイルには保存されない。
+
+### MCPを使えない場合の代替手段: `_save_debug_screenshot()`
+
+> 🔴 2026-10-29改訂（Issue #81）: 以下の関数はルール上の例として書かれているだけで、プロジェクトには実装されていない。MCPで撮影できるようになったため、MCPが使えない環境（プラグインが接続できない等）で、ゲーム側にコードを一時的に足してでも画像を残したい場合の代替手段に格下げした。
+
+撮影したい場面のスクリプトに一時的に追加し、`Viewport.get_texture().get_image().save_png()`で保存する。`await`を含むコルーチンのため、呼び出し側も`await _save_debug_screenshot(...)`とすること。
 
 > 🔴 `res://`はエクスポート後にPCKへ固められ読み取り専用になるため、書き込み先には必ず`user://`を使う。`save_png()`はエラー時に`Error`（非OK）を返すだけで例外を投げないため、戻り値を必ず確認する。また撮影直前に描画完了を待たないとキャプチャが空・前フレームの内容になることがあるため`await RenderingServer.frame_post_draw`を挟む。
 >
@@ -174,18 +184,18 @@ user://debug-screenshots/20260806/delivery-item-selected-02.png
 
 ## コンソール出力の確認
 
-Godotエディタの`Output`パネル、および`Debugger`パネルの`Errors`タブでエラー・警告を確認する。GdUnit4実行時はターミナル出力にテスト結果とともにエラーが流れる。
+Godot MCPの`logs_read`で、実行中ゲームの`push_error`/`push_warning`/標準出力（`source: "game"`）と、エディタ側のスクリプトエラー（`source: "editor"`）を取得できる。起動時のパースエラーはゲームログには出ず`source: "editor"`側に出る点に注意する。MCPを使わない場合は、Godotエディタの`Output`パネル、および`Debugger`パネルの`Errors`タブで確認する。GdUnit4実行時はターミナル出力にテスト結果とともにエラーが流れる。
 
 ### 対応ルール
 
 - 想定外のエラー・警告を検出したら即座に操作を中断し原因調査する
-- スクリーンショット撮影前に必ずコンソール（`Output`/`Debugger`）を確認する（不具合の取りこぼしを防ぐ）
+- スクリーンショット撮影の前後にログ（`logs_read`、または`Output`/`Debugger`）を確認する（不具合の取りこぼしを防ぐ）
 
 ---
 
 ## 将来検討: 開発用デバッグコンソール
 
-ブラウザ版の`browser_evaluate`のような「実行中に任意の状態を注入する」操作は、Godotには標準機能として存在しない。頻繁に必要になる場合は、以下のような**ゲーム内蔵の開発者コンソール**（デバッグビルド限定で有効化するAutoload + オーバーレイUI）の追加を検討する。
+ブラウザ版の`browser_evaluate`のような「実行中に任意の状態を注入する」操作は、Godot MCPの`editor_manage`（`op: "game_eval"`）でAIからはできるようになった（2026-10-29、Issue #81）。人間がプレイ中に同じことをしたい場合で、デバッグパネル（`DebugPanel`）のボタンでは足りないときは、以下のような**ゲーム内蔵の開発者コンソール**（デバッグビルド限定で有効化するAutoload + オーバーレイUI）の追加を検討する。
 
 ```gdscript
 # 将来実装イメージ（未実装、TBD）
@@ -213,9 +223,10 @@ func _execute_command(command: String) -> void:
 ### 禁止
 
 - 本番配布ビルドでのデバッグコンソール有効化（`OS.is_debug_build()`ガード必須）
-- リモートシーンツリーでの値書き換えを「検証済みの動作」として扱う（あくまで調査用の一時操作）
+- リモートシーンツリーでの値書き換えや、MCPの`game_eval`で作った状態を「検証済みの動作」として扱う（あくまで調査用の一時操作）
 - `debug-*.png`や`user://debug-screenshots/`から手動コピーした調査用画像のコミット
-- CIでのGodotエディタGUI操作（CIはGdUnit4 CLIのみ）
+- CIでのGodotエディタGUI操作・Godot MCPの利用（CIはGdUnit4 CLIのみ）
+- MCPで確認していない画面を「確認済み」と報告する（MCPが使えなかった場合はその旨を明言する）
 
 ### PRレビュー観点
 
@@ -230,6 +241,13 @@ func _execute_command(command: String) -> void:
 | 症状 | 原因 | 対処 |
 |------|------|------|
 | リモートシーンツリーにAutoloadが出てこない | `project.godot`のAutoload登録漏れ | `Project > Project Settings > Autoload`を確認 |
+| MCPツールが`PLUGIN_DISCONNECTED`を返す／`session_manage`（`op: "list"`）が`count: 0` | Godotエディタが起動していない、またはGodot AIプラグインがMCPサーバーに接続していない | `godot --path atelier --editor`でエディタを開き、接続されるまで待ってから`session_manage`で再確認する（Claude Codeの再起動は不要） |
+| `project_run`が`status: "not_live"`を返す | ゲームがまだ起動途中 | `editor_state`を呼び直し、`game_status.status == "live"`になるのを待つ |
+| `game_status.status == "break"` | 起動時のスクリプトエラーでゲームが止まっている | `logs_read`（`source: "editor"`, `include_details: true`）で原因を確認し、`project_manage`（`op: "stop"`）してから修正する |
+| `editor_screenshot`が失敗する（サイズ超過） | `max_resolution: 0`（フル解像度）はMCPの1MB上限を超える | `max_resolution`を`960`以下にする |
+| `editor_screenshot`の結果に`stale_frame: true` | ゲームウィンドウが裏に回り、描画が止まっている | ゲームウィンドウを前面に出して撮り直す |
+| `game_eval`が`EVAL_GAME_NOT_READY` | ゲームが起動途中、またはウィンドウが裏に回っている | 少し待つか、ウィンドウを前面に出して再実行する |
+| ヘッドレス実行で`MCP \| plugin disabled in headless mode`と出る | 仕様（ヘッドレスではプラグインは何もしない） | 対処不要。CIやGdUnit4 CLIの実行には影響しない |
 | GdUnit4テストが`Node not found`で失敗 | `auto_free()`/`scene_runner()`未使用、またはシーンツリー未接続でのノード参照 | テスト対象を`auto_free()`+`add_child()`、またはシーン全体なら`scene_runner()`で構築してから操作する |
 | シグナル購読が二重に呼ばれる | `_ready()`が複数回呼ばれるノード構成（シーン再インスタンス化等） | `is_connected()`チェックを徹底する（[`state-management.md`](./state-management.md)参照） |
 | パラメータ化テストのケースが想定通り実行されない | `test_parameters`配列の要素の型・順序が関数引数の並びと不一致 | GdUnit4公式ドキュメントの`test_parameters`構文と照合し、関数引数の並びとデータセットの各要素順序が対応しているか確認 |
