@@ -47,13 +47,39 @@ Godotエディタのメニューから「エディタ > エクスポートテン
 使用中のGodotバージョン（4.7系）に対応するテンプレートをダウンロード・インストールする。
 数百MB〜1GB程度のダウンロードを伴うため、CI等では別途キャッシュ戦略が必要（本READMEの対象外）。
 
+### Godot MCP（godot-ai）: AIによる画面スクショ・ログ取得（任意）
+
+Claude Codeからゲームを起動し、スクリーンショットとゲームログを取得するためのMCPサーバー[godot-ai](https://github.com/hi-godot/godot-ai)（MIT）を導入している（Issue #80）。GdUnit4は`--headless`で実行されるため描画されず、見た目の確認はこちらで行う。
+
+| 構成要素 | 場所 |
+|---|---|
+| Godotアドオン（v4.3.1） | `atelier/addons/godot_ai/`（`project.godot`でエディタプラグインとして有効化済み） |
+| ゲーム側ヘルパー | `_mcp_game_helper` Autoload（プラグインが自動登録する。エクスポート時はプラグインが除去する） |
+| MCPサーバー登録 | リポジトリ直下の`.mcp.json`（`uvx`で`godot-ai==4.3.1`をバージョン固定で起動する） |
+
+#### 前提
+
+- [uv](https://docs.astral.sh/uv/getting-started/installation/)（`uvx`コマンド）がPATHにあること。Windowsでは`irm https://astral.sh/uv/install.ps1 | iex`で導入できる
+- 匿名テレメトリを送らないよう、ユーザー環境変数`GODOT_AI_DISABLE_TELEMETRY=true`を設定しておく（`.mcp.json`側でも`--disable-telemetry`を指定済みだが、エディタが起動するサーバープロセスにも効かせるため）
+
+#### 使い方
+
+1. Godotエディタで`atelier/`を開く（`godot --path atelier`）。プラグインがMCPサーバーを`127.0.0.1:8000`（HTTP）/`127.0.0.1:9500`（WebSocket）で起動する
+2. リポジトリ直下でClaude Codeを起動し、初回のみ`.mcp.json`の`godot-ai`サーバーを承認する
+3. Claude Codeから`project_run`（起動）→`editor_screenshot`（`source: "game"`）→`logs_read`（`source: "game"`）→`project_manage`（`op: "stop"`）の順で使える
+
+- `editor_screenshot`は`max_resolution`を`960`以下にする。`0`（1280×720のフル解像度）はMCPの1MB上限を超えて失敗する
+- エディタのGodot AIドックの**Configure**ボタンは押さない。`.mcp.json`を書き換え、他スコープの`godot-ai`設定も削除する
+- ドックの**Update**ボタンは使わない。アドオンを更新するときは、リリースを手動で取得してハッシュを確認し、`.mcp.json`のバージョン固定と合わせてPRで更新する
+- ヘッドレス起動（CIのGdUnit4・エクスポート）では、プラグインは`MCP | plugin disabled in headless mode`と出力して何もしない
+
 ## エクスポートビルド（Windows Desktop / Debug）
 
 ```bash
 godot --headless --path atelier --export-debug "Windows Desktop" build/windows/atelier-alchemy.exe
 ```
 
-出力先は `atelier/build/windows/atelier-alchemy.exe`（Git管理対象外）。エクスポートテンプレート未導入の場合は上記コマンドがエラーで終了するため、先に「エクスポートテンプレート（初回のみ）」を実施すること。
+出力先は `atelier/build/windows/atelier-alchemy.exe`（Git管理対象外）。godot-aiアドオン（`addons/godot_ai/*`）は`export_presets.cfg`の`exclude_filter`でビルドから除外している。エクスポートテンプレート未導入の場合は上記コマンドがエラーで終了するため、先に「エクスポートテンプレート（初回のみ）」を実施すること。
 
 ## テスト実行
 

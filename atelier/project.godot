@@ -21,18 +21,18 @@ RngService="*res://autoload/rng_service.gd"
 SaveService="*res://autoload/save_service.gd"
 SettingsService="*res://autoload/settings_service.gd"
 CodexService="*res://autoload/codex_service.gd"
+_mcp_game_helper="*res://addons/godot_ai/runtime/game_helper.gd"
 
 [display]
 
 window/size/viewport_width=1280
 window/size/viewport_height=720
 window/stretch/mode="viewport"
-window/stretch/aspect="keep"
 window/stretch/scale_mode="integer"
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/gdUnit4/plugin.cfg")
+enabled=PackedStringArray("res://addons/gdUnit4/plugin.cfg", "res://addons/godot_ai/plugin.cfg")
 
 [gui]
 
