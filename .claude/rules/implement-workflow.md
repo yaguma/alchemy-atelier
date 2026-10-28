@@ -118,6 +118,8 @@ gdformat --check atelier/features/ atelier/shared/ atelier/autoload/
 いずれかが失敗している場合はコミットしない。
 pre-commitフックが設定されていれば同様に自動チェックされるが、事前に確認することを推奨する。
 
+> 🔵 2026-10-29追記（Issue #82）: Claude CodeのPostToolUseフック（`.claude/settings.json`→`.claude/hooks/gdscript-lint.sh`）により、`atelier/{features,shared,autoload}/`配下の`.gd`をWrite/Editした直後に、**編集したファイル1つだけ**へ`gdformat --check`と`gdlint`が自動実行される。違反があればフックがClaudeへ内容を返すので、その場で修正する（フックは自動整形しない。修正方針は下記「リント違反時」に従う）。ただしフックは編集ファイル単体しか見ないため、上記のコミット前全体チェックは引き続き必須。gdtoolkit未導入の環境ではフックは警告のみ出してスキップする。
+
 ---
 
 ## エラー対応フロー

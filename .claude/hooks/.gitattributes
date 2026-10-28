@@ -1,0 +1,2 @@
+# core.autocrlf=true環境でCRLF化されるとbashが`\r`を含むコマンドとして解釈し失敗するため、LFに固定する
+*.sh text eol=lf

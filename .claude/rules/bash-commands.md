@@ -309,6 +309,8 @@ gdformat --check atelier/features/ atelier/shared/ atelier/autoload/
 
 全てパスしてからコミットすること。pre-commitフックが設定されていれば同様に検証されるが、事前に確認することで修正の手戻りを減らせる。
 
+> 🔵 2026-10-29追記（Issue #82）: `.gd`のWrite/Edit時は、Claude CodeのPostToolUseフック（`.claude/hooks/gdscript-lint.sh`）が編集ファイル単体に`gdformat --check`/`gdlint`を自動実行する（対象はCIと同じ`atelier/{features,shared,autoload}/`配下のみ）。フックは編集ファイル以外を見ないため、上記2・3のディレクトリ全体チェックは省略しない。
+
 ### `cd` の安全な使用
 
 `cd`は作業ディレクトリを変更するため、後続コマンドに影響を与える。
