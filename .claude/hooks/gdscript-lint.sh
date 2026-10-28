@@ -53,7 +53,8 @@ if ! command -v gdformat > /dev/null 2>&1 || ! command -v gdlint > /dev/null 2>&
 fi
 
 # atelier/.gdlintrc をCIと同じく解決させるため、atelier/をカレントにして実行する
-atelier_dir="${normalized_path%%/atelier/*}/atelier"
+# %%（最長一致）だと親ディレクトリにも"atelier"がある場合に手前で切れるため、%（最短一致）で最後の/atelier/を使う
+atelier_dir="${normalized_path%/atelier/*}/atelier"
 cd "$atelier_dir" 2> /dev/null || warn "atelier/ディレクトリに移動できませんでした: $atelier_dir"
 
 format_output=$(gdformat --check "$file_path" 2>&1)
