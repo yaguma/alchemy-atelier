@@ -126,6 +126,18 @@ func test_レシピ選択と素材投入で投入枠が埋まりプレビュー�
 	assert_str(_preview_label_text(screen, "ValueLabel")).is_equal("見込み貢献度: 17.5 / 見込み報酬: 8.8")
 
 
+## 🔴 Issue #87の回帰テスト。投入枠がSlotsContainer（GridContainer）内で高さ0に潰れると、
+## SlotPanelが他の要素の上へはみ出して重なって描画される
+func test_投入枠のSlotsContainerが0高さに潰れない() -> void:
+	var screen := _make_screen()
+	var container := screen.find_child("SlotsContainer", true, false) as Container
+
+	assert_int(container.get_child_count()).is_greater(0)
+	for child in container.get_children():
+		assert_float((child as Control).get_combined_minimum_size().y).is_greater(0.0)
+	assert_float(container.get_combined_minimum_size().y).is_greater(0.0)
+
+
 func test_投入済み素材は在庫一覧から除外される() -> void:
 	_inject_material("mat_1", 3)
 	_inject_material("mat_2", 3)

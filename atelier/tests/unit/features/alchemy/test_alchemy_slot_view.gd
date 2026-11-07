@@ -175,3 +175,16 @@ func test_get_slot_indexがsetupとsetup_emptyに渡した値と一致する() -
 
 	view.setup(GameBalance.ALCHEMY_SLOT_COUNT_DEFAULT - 1, _make_material(1, tags))
 	assert_int(view.get_slot_index()).is_equal(GameBalance.ALCHEMY_SLOT_COUNT_DEFAULT - 1)
+
+
+## 🔴 Issue #87の回帰テスト。AlchemySlotViewがextends Controlのままだと親のGridContainer
+## （alchemy_screen.tscnのSlotsContainer）へ常に(0,0)を報告し、投入枠の行が0高さに潰れて
+## SlotPanelがレシピ選択やプレビューの上へはみ出して描画される不具合があった。
+func test_get_combined_minimum_sizeがSlotPanelの内容に応じて0より大きくなる() -> void:
+	var view := _make_view()
+	view.setup_empty(0)
+
+	var min_size := view.get_combined_minimum_size()
+
+	assert_float(min_size.x).is_greater(0.0)
+	assert_float(min_size.y).is_greater(0.0)
