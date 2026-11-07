@@ -1,5 +1,5 @@
 class_name DebugPanel
-extends Control
+extends VBoxContainer
 
 ## デバッグビルド限定で画面上に常設表示するQA専用操作パネル（ゴールド付与/ノルマ即達成/
 ## 次ランクへジャンプの3ボタン）。debug-playtest-support Plan タスク002。
@@ -8,7 +8,12 @@ extends Control
 ## 🔵 ボタン自体はdisabled条件を一切持たない。押下可否の実際の判定は
 ## GameState側（task 001のGameStateDebugDelegate.guard()等）にすべて委譲されており、
 ## 本パネルは単にGameStateのデバッグAPIを呼び出すだけの薄い結線に徹する。
+## 🔴 Issue #90。左上に常時展開していたためRankHudのランク名・ノルマバーを隠していた。
+## 画面左下に置き（grow_vertical=BEGINで上方向へ伸びる）、既定では「DEBUG」トグルだけを出して
+## 操作ボタン群は折りたたむ。
 
+@onready var _content_panel: PanelContainer = %ContentPanel
+@onready var _toggle_button: Button = %ToggleButton
 @onready var _add_gold_button: Button = %AddGoldButton
 @onready var _force_end_turn_button: Button = %ForceEndTurnButton
 @onready var _jump_rank_button: Button = %JumpRankButton
@@ -19,9 +24,20 @@ func _ready() -> void:
 	if not OS.is_debug_build():
 		queue_free()
 		return
+	_toggle_button.toggled.connect(_on_toggle_toggled)
+	_content_panel.visible = _toggle_button.button_pressed
 	_add_gold_button.pressed.connect(_on_add_gold_pressed)
 	_force_end_turn_button.pressed.connect(_on_force_end_turn_pressed)
 	_jump_rank_button.pressed.connect(_on_jump_rank_pressed)
+
+
+## 操作ボタン群が展開されているかを返す
+func is_expanded() -> bool:
+	return _content_panel.visible
+
+
+func _on_toggle_toggled(toggled_on: bool) -> void:
+	_content_panel.visible = toggled_on
 
 
 func _on_add_gold_pressed() -> void:
