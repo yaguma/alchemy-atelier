@@ -79,7 +79,7 @@ Claude Codeからゲームを起動し、スクリーンショットとゲーム
 godot --headless --path atelier --export-debug "Windows Desktop" build/windows/atelier-alchemy.exe
 ```
 
-出力先は `atelier/build/windows/atelier-alchemy.exe`（Git管理対象外）。godot-aiアドオン（`addons/godot_ai/*`）は`export_presets.cfg`の`exclude_filter`でビルドから除外している。エクスポートテンプレート未導入の場合は上記コマンドがエラーで終了するため、先に「エクスポートテンプレート（初回のみ）」を実施すること。
+出力先は `atelier/build/windows/atelier-alchemy.exe`（Git管理対象外）。開発用のファイル（godot-aiアドオン`addons/godot_ai/*`、GdUnit4本体`addons/gdUnit4/*`、テストコード`tests/*`）は`export_presets.cfg`の`exclude_filter`でビルドから除外している（ゲーム本体のコードはこれらを参照しない。有効化済みエディタプラグインの`plugin.cfg`のパス文字列だけはプロジェクト設定経由でPCKに残る）。エクスポートテンプレート未導入の場合は上記コマンドがエラーで終了するため、先に「エクスポートテンプレート（初回のみ）」を実施すること。
 
 ## テスト実行
 
