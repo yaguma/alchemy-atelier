@@ -34,18 +34,23 @@ layout_mode = 2
 unique_name_in_owner = true
 layout_mode = 2
 
-[node name="TabBar" type="HBoxContainer" parent="RootLayout/HeaderBar"]
+[node name="TabBarPanel" type="PanelContainer" parent="RootLayout/HeaderBar"]
 unique_name_in_owner = true
 layout_mode = 2
 mouse_filter = 2
 
-[node name="GardenTabButton" type="Button" parent="RootLayout/HeaderBar/TabBar"]
+[node name="TabBar" type="HBoxContainer" parent="RootLayout/HeaderBar/TabBarPanel"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+
+[node name="GardenTabButton" type="Button" parent="RootLayout/HeaderBar/TabBarPanel/TabBar"]
 unique_name_in_owner = true
 layout_mode = 2
 toggle_mode = true
 text = "庭"
 
-[node name="AlchemyTabButton" type="Button" parent="RootLayout/HeaderBar/TabBar"]
+[node name="AlchemyTabButton" type="Button" parent="RootLayout/HeaderBar/TabBarPanel/TabBar"]
 unique_name_in_owner = true
 layout_mode = 2
 toggle_mode = true

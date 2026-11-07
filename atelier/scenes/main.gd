@@ -45,6 +45,7 @@ var _pending_exam_outcome: ExamOutcome.Value = ExamOutcome.Value.CONTINUE
 @onready var _result_screen: ResultScreen = %ResultScreen  # 🔵
 @onready var _garden_tab_button: Button = %GardenTabButton  # 🔵 FR-101
 @onready var _alchemy_tab_button: Button = %AlchemyTabButton  # 🔵 FR-102
+@onready var _tab_bar_panel: PanelContainer = %TabBarPanel  # 🔴 Issue #89
 @onready var _rank_hud: RankHud = %RankHud  # 🔵 FR-103
 # 🔵 4画面より後ろの子として配置しているため、描画順で常に最前面になる
 @onready var _settings_overlay_layer: Control = %SettingsOverlayLayer  # 🔵 FR-103
@@ -316,6 +317,9 @@ func _set_tabs_disabled(disabled: bool) -> void:
 # 差が視認しづらいため、フォント適用のみをここで行い、バリアント自体の切り替えは
 # _update_tab_selected_visual()に委ねる（選択中=PRIMARY/非選択=SECONDARYで明確な色差を出す）
 func _apply_tab_bar_style() -> void:
+	# 🔴 Issue #89。各画面のBackdropはScreenLayer（TabBarより下）しか覆わないため、TabBarの行に
+	# 何も敷かないとGodotの既定クリアカラー（ダークグレー）が見える（design-guide.mdのダーク背景禁止）
+	UiTheme.apply_panel_style(_tab_bar_panel)
 	for button: Button in [_garden_tab_button, _alchemy_tab_button]:
 		UiTheme.apply_pixel_font(button)
 
