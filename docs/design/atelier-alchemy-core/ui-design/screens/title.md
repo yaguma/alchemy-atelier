@@ -41,7 +41,7 @@
 └─────────────────────────────────────────────┘
 ```
 
-🔵 `LogoContainer`（画面上部6%〜42%）に紋章＋ロゴ文字、`RootContainer`（画面上部46%〜100%）に4ボタンを縦積みで配置するレイアウトは`title_screen.tscn`の`anchor_top`/`anchor_bottom`値をそのまま反映したもの（実装済み、提案ではない）。基準解像度は`atelier/project.godot`の`window/size/viewport_width=1280`/`viewport_height=720`・`window/stretch/scale_mode="integer"`（ゲーム全体に適用、`title-screen-redesign`のCross-Plan Dependencies参照）。
+🔵 `LogoContainer`（画面上部2%〜36%）に紋章＋ロゴ文字、`RootContainer`（画面上部36%〜100%）に5ボタンを縦積みで配置するレイアウトは`title_screen.tscn`の`anchor_top`/`anchor_bottom`値をそのまま反映したもの（実装済み、提案ではない。🔴 2026-11-08 Issue #88: 「ずかん」追加で5ボタンになり「終了」が下端からはみ出したため、旧6%〜42%／46%〜100%から変更した）。基準解像度は`atelier/project.godot`の`window/size/viewport_width=1280`/`viewport_height=720`・`window/stretch/scale_mode="integer"`（ゲーム全体に適用、`title-screen-redesign`のCross-Plan Dependencies参照）。
 
 ## UI要素
 

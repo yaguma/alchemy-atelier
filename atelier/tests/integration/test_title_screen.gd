@@ -41,6 +41,32 @@ func test_ボタンははじめからつづきからずかんせってい終了�
 	)
 
 
+## 🔴 Issue #88の回帰テスト。5ボタン化で「終了」が画面下端からはみ出していた。
+## ヘッドレス実行時のウィンドウサイズに依存しないよう、設計解像度へ明示的に合わせて検証する
+func test_全ボタンが設計解像度の画面内に収まる() -> void:
+	var title := _make_title()
+	var design_size := Vector2(
+		ProjectSettings.get_setting("display/window/size/viewport_width"),
+		ProjectSettings.get_setting("display/window/size/viewport_height")
+	)
+	title.position = Vector2.ZERO
+	title.size = design_size
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	var screen_rect := Rect2(Vector2.ZERO, design_size)
+	for button in _collect_buttons(title):
+		var rect := button.get_global_rect()
+		assert_bool(screen_rect.encloses(rect)).override_failure_message(
+			"%s が画面外にはみ出している: %s" % [button.text, rect]
+		).is_true()
+		# ボタン領域を広げた結果ロゴと重なっていないことも確認する
+		var logo_rect := (title.find_child("LogoLabel", true, false) as Control).get_global_rect()
+		assert_bool(logo_rect.intersects(rect)).override_failure_message(
+			"%s がロゴと重なっている: %s / %s" % [button.text, rect, logo_rect]
+		).is_false()
+
+
 func test_ずかん押下で図鑑画面が開く() -> void:
 	var title := _make_title()
 
