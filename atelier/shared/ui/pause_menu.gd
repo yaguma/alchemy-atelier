@@ -10,6 +10,9 @@ extends Control
 signal closed  # 「閉じる」押下時。呼び出し元（MainScene）が自身の参照をnullへ戻すために購読する
 
 const TITLE_SCENE_PATH := "res://features/title/ui/title_screen.tscn"
+## 🔴 Issue #91。自分自身のシーンをpreloadすると循環参照になりエディタで`Parse Error: Busy`が
+## 出るため、open_singleton()では実行時にload()する
+const SCENE_PATH := "res://shared/ui/pause_menu.tscn"
 const MAIN_THEME := preload("res://shared/theme/main_theme.tres")
 
 ## 🟡 遷移を実際に実行するか。統合テストではシーン差し替えがGdUnit4のテストランナー自身の
@@ -106,7 +109,7 @@ static func open_singleton(
 ) -> PauseMenu:
 	if is_instance_valid(current):
 		return current
-	var menu: PauseMenu = (preload("res://shared/ui/pause_menu.tscn") as PackedScene).instantiate()
+	var menu: PauseMenu = (load(SCENE_PATH) as PackedScene).instantiate()
 	menu.closed.connect(on_closed)
 	overlay_parent.add_child(menu)
 	return menu

@@ -14,6 +14,9 @@ const DISCOVERED_FORMAT := "%s（%s × %s）"  # 🟡 ui-design未確定の暫�
 const SUMMARY_FORMAT := "発見 %d/%d"
 const NO_TRAITS_TEXT := "特性なし"
 const MAIN_THEME := preload("res://shared/theme/main_theme.tres")
+## 🔴 Issue #91。自分自身のシーンをpreloadすると循環参照になりエディタで`Parse Error: Busy`が
+## 出るため、open_singleton()では実行時にload()する
+const SCENE_PATH := "res://shared/ui/codex_panel.tscn"
 
 var _entry_texts: Array[String] = []
 var _discovered_count: int = 0
@@ -51,9 +54,7 @@ static func open_singleton(
 ) -> CodexPanel:
 	if is_instance_valid(current):
 		return current
-	var panel: CodexPanel = (
-		(preload("res://shared/ui/codex_panel.tscn") as PackedScene).instantiate()
-	)
+	var panel: CodexPanel = (load(SCENE_PATH) as PackedScene).instantiate()
 	panel.closed.connect(on_closed)
 	overlay_parent.add_child(panel)
 	return panel
