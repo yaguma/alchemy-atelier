@@ -29,14 +29,31 @@ func _make_main() -> MainScene:
 # 正常系
 
 
-func test_RankHudとTabBarが共にHeaderBarの子である() -> void:
+## 🔴 Issue #89でTabBarをTabBarPanel（ドット絵パネル）で包んだため、HeaderBarの直接の子は
+## RankHudとTabBarPanelになる
+func test_RankHudとTabBarPanelが共にHeaderBarの子でありTabBarはTabBarPanelの中にある() -> void:
 	var main := _make_main()
 
 	var rank_hud := main.find_child("RankHud", true, false) as Control
+	var tab_bar_panel := main.find_child("TabBarPanel", true, false) as Control
 	var tab_bar := main.find_child("TabBar", true, false) as Control
 
-	assert_object(rank_hud.get_parent()).is_equal(tab_bar.get_parent())
+	assert_object(rank_hud.get_parent()).is_equal(tab_bar_panel.get_parent())
 	assert_str(rank_hud.get_parent().name).is_equal("HeaderBar")
+	assert_object(tab_bar.get_parent()).is_equal(tab_bar_panel)
+
+
+## 🔴 Issue #89の回帰テスト。TabBar（背景なしのHBoxContainer）の行には何も描画されず、
+## Godotの既定クリアカラー（ダークグレー）がそのまま見えていた。行全体にドット絵パネルを敷く
+func test_TabBarの行にドット絵パネルが敷かれている() -> void:
+	var main := _make_main()
+
+	var tab_bar_panel := main.find_child("TabBarPanel", true, false) as PanelContainer
+
+	assert_object(tab_bar_panel).is_not_null()
+	assert_object(tab_bar_panel.get_theme_stylebox("panel")).is_same(
+		UiTheme.make_panel_stylebox()
+	)
 
 
 func test_HeaderBarがVBoxContainerである() -> void:
@@ -47,13 +64,13 @@ func test_HeaderBarがVBoxContainerである() -> void:
 	assert_object(header_bar).is_instanceof(VBoxContainer)
 
 
-func test_TabBarがRankHudより後の子としてHeaderBar内に並んでいる() -> void:
+func test_TabBarPanelがRankHudより後の子としてHeaderBar内に並んでいる() -> void:
 	var main := _make_main()
 
 	var rank_hud := main.find_child("RankHud", true, false) as Control
-	var tab_bar := main.find_child("TabBar", true, false) as Control
+	var tab_bar_panel := main.find_child("TabBarPanel", true, false) as Control
 
-	assert_int(tab_bar.get_index()).is_greater(rank_hud.get_index())
+	assert_int(tab_bar_panel.get_index()).is_greater(rank_hud.get_index())
 
 
 func test_レイアウト確定後にTabBarのY座標がRankHudの高さ以上になり重ならない() -> void:
