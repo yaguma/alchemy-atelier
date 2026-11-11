@@ -53,6 +53,15 @@ gdformat --check atelier/features/ atelier/shared/ atelier/autoload/            
 - Critical指摘の修正後は再レビューを実施
 - Warning/Info指摘のみの修正は、修正内容の確認のみでよい
 
+### Step 5.5: マージ判定（merge-readiness）
+
+> 🔵 2026-11-11追記: 「人がコードを見ずにマージしてよいか」を[`merge-readiness`スキル](../skills/merge-readiness/SKILL.md)（`/merge-readiness <PR番号>`）で判定する。経緯は[`docs/dev/plans/merge-readiness-gate/plan.md`](../../docs/dev/plans/merge-readiness-gate/plan.md)。
+
+- 判定は`AUTO_MERGE_OK` / `HUMAN_REVIEW_REQUIRED` / `BLOCKED`の3段階。スキルはマージしない（判定と「人が見るべき箇所」を出すだけ）
+- `HUMAN_REVIEW_REQUIRED`のときは、レポートの「人が見るべき箇所」を人が確認するか、足りない検証を足して再判定する
+- 判定はPR本文のTest plan（[`.github/pull_request_template.md`](../../.github/pull_request_template.md)）を読む。実施できなかった検証は`[ ]`のまま理由を書き、実施済みにしない
+- 現段階（Phase 1）では`AUTO_MERGE_OK`でも人がマージボタンを押す。判定と人の判断のずれを記録してから自動マージに進む
+
 ### Step 6: マージ
 
 - 全てのCIチェックがパスしていること
