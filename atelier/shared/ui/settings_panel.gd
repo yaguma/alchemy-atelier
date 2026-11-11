@@ -10,6 +10,9 @@ extends Control
 ## 自身の保持する参照をnullへ戻すために購読する
 signal closed
 
+## 🔴 Issue #91。自分自身のシーンをpreloadすると循環参照になりエディタで`Parse Error: Busy`が
+## 出るため、open_singleton()では実行時にload()する
+const SCENE_PATH := "res://shared/ui/settings_panel.tscn"
 const MAIN_THEME := preload("res://shared/theme/main_theme.tres")
 ## 🔵 FR-303。Godot組み込みアクション。既定でEscapeキーが割り当てられている
 const ACTION_CANCEL: StringName = &"ui_cancel"
@@ -132,9 +135,7 @@ static func open_singleton(
 ) -> SettingsPanel:
 	if is_instance_valid(current):
 		return current
-	var panel: SettingsPanel = (
-		(preload("res://shared/ui/settings_panel.tscn") as PackedScene).instantiate()
-	)
+	var panel: SettingsPanel = (load(SCENE_PATH) as PackedScene).instantiate()
 	panel.closed.connect(on_closed)
 	overlay_parent.add_child(panel)
 	return panel

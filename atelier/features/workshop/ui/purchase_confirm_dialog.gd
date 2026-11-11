@@ -12,6 +12,9 @@ signal confirmed(upgrade_id: StringName)
 signal cancelled
 
 ## 🔵 Godot組み込みアクション。既定でEscapeキーが割り当てられている
+## 🔴 Issue #91。自分自身のシーンをpreloadすると「シーン → スクリプト → 同じシーン」の循環参照になり、
+## エディタ起動時に`Parse Error: Busy`が出るため、open_singleton()では実行時にload()する
+const SCENE_PATH := "res://features/workshop/ui/purchase_confirm_dialog.tscn"
 const ACTION_CANCEL: StringName = &"ui_cancel"
 # 🔵 workshop_screen.gd/upgrade_item_row.gdのゴールド・価格表示フォーマットを踏襲する
 # （rank_hud.gd GOLD_FORMATと同じく、他Featureのui/を参照しない運用ルールに従い
@@ -129,10 +132,7 @@ static func open_singleton(
 ) -> PurchaseConfirmDialog:
 	if is_instance_valid(current):
 		return current
-	var dialog: PurchaseConfirmDialog = (
-		(preload("res://features/workshop/ui/purchase_confirm_dialog.tscn") as PackedScene)
-		. instantiate()
-	)
+	var dialog: PurchaseConfirmDialog = (load(SCENE_PATH) as PackedScene).instantiate()
 	dialog.confirmed.connect(on_confirmed)
 	dialog.cancelled.connect(on_cancelled)
 	overlay_parent.add_child(dialog)
