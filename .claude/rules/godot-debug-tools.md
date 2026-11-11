@@ -4,13 +4,26 @@
 > 🔴 2026-08-10改訂: Godot 4.7のAsset Store移行期にGUTが導入できなかったため、テストフレームワークをGdUnit4に切り替えた。本ファイルのGUT前提の記述を全面的にGdUnit4に置き換えた（実際に`atelier/tests/integration/`でGdUnit4テストの動作確認済み）。
 > 🔴 2026-10-29改訂（Issue #81）: Godot MCP（godot-ai v4.3.1、Issue #80/PR #84）を導入したため、「Godot用の自動操作MCPは存在しない」という前提を撤回した。Claude Codeから、ゲームの起動・スクリーンショット取得・UI要素の取得・クリック入力・実行中ゲームでのGDScript実行・ゲームログ取得ができる（2026-10-29に実機で動作確認済み）。手順は[`godot-visual-check`スキル](../skills/godot-visual-check/SKILL.md)にまとめた。ただし**MCPによる確認は調査用であり、回帰テストは引き続きGdUnit4で書く**。導入手順・運用上の注意は[`README.md`](../../README.md)「Godot MCP（godot-ai）」節を参照。
 
+> 🔵 2026-11-12改訂（Issue #93）: MCPの使い道に「ローカル実行の描画E2E」（`tests/e2e_mcp/`）を加えた。描画されないGdUnit4では見つけにくいレイアウト崩れ（画面外へのはみ出し・Containerの子の潰れ・背景の欠落）を、Controlの矩形と状態の値で機械的に判定する回帰チェックとして使う。ただし**CIでは動かせないため、回帰テストの主役は引き続きGdUnit4**であり、描画E2Eはローカルで実行する補助とする。実行手順は[`README.md`](../../README.md)「描画E2E」節を参照。
+
 ## 基本原則
 
 - 再現手順は基本的に**GdUnit4統合テストとして書く**ことで「壊れない再現コード」にする（[`testing.md`](./testing.md)「E2E相当のテスト」参照）
 - 一度きりの調査・目視確認は、**Godot MCP**（[`godot-visual-check`スキル](../skills/godot-visual-check/SKILL.md)）か、**Godotエディタでの実行 + リモートシーンツリー**で行う
-- MCPの`game_eval`（実行中ゲームでのGDScript実行）による状態注入は調査用の一時操作であり、「検証済みの動作」の根拠にはしない
-- 調査で得た再現手順は**必ずGdUnit4テストに昇格**を検討する
-- **CIではMCPもGodotエディタの手動操作も使わない**（CIはGdUnit4 CLI一択。ヘッドレス起動ではMCPプラグインは無効になる）
+- 描画しないと分からないレイアウト崩れの再発防止は、**描画E2E**（`tests/e2e_mcp/`、`uv run --project tests/e2e_mcp atelier-e2e`）にシナリオ・チェックを足す。判定はスクリーンショットの画素比較ではなく矩形と状態の値で行う（見た目の小さな変更で壊れないようにするため）
+- MCPの`game_eval`（実行中ゲームでのGDScript実行）による状態注入は調査用の一時操作であり、「検証済みの動作」の根拠にはしない（描画E2Eでの`game_eval`は値の取得と後片付けに限る。画面の移動はボタン操作で行う）
+- 調査で得た再現手順は**必ずGdUnit4テストに昇格**を検討する。GdUnit4で書けない（描画が要る）ものは描画E2Eに足す
+- **CIではMCPもGodotエディタの手動操作も使わない**（CIはGdUnit4 CLI一択。ヘッドレス起動ではMCPプラグインは無効になる。描画E2EもCI対象外）
+
+### `godot-visual-check`スキルと描画E2Eの役割分担
+
+| | `godot-visual-check`スキル | 描画E2E（`tests/e2e_mcp/`） |
+|---|---|---|
+| 目的 | AIが画面を目で見る調査 | 既知の崩れが再発していないかの機械判定（回帰チェック） |
+| 判定 | スクリーンショットを見て判断（にじみ・9-slice・豆腐文字等も見る） | Controlの矩形・状態の値で自動判定、終了コードで成否 |
+| 実行者 | Claude Code（MCPツールを直接呼ぶ） | 人間またはClaude Code（コマンド1つ） |
+
+起動待ち（`editor_state`で`live`まで待つ）・ボタン押下（`input_mouse`をpressed→releaseの2回）・ログ確認（`logs_read`、`[godot_ai game_helper]`は無視）は共通の手順である。スキル側で手順を変えたら`tests/e2e_mcp/src/atelier_e2e/client.py`も合わせて直す。スキルの調査で見つけたレイアウト崩れは、GdUnit4に昇格できなければ描画E2Eのシナリオに足す。
 
 ---
 
@@ -26,6 +39,7 @@
 | ランダム探索・状態の直接確認（MCPが使えない場合） | エディタ実行中のリモートシーンツリー（`Remote`タブ） |
 | 状態を直接注入して特定シナリオを再現したい | GdUnit4の`before_test`でシーン/Autoloadを直接操作するテストコードを書く（下記「状態セットアップ雛形」参照） |
 | 回帰テスト・再発防止 | GdUnit4のシーンレベル統合テスト（`tests/integration/`） |
+| 描画しないと分からないレイアウト崩れの再発防止 | 描画E2E（`tests/e2e_mcp/`、ローカル専用。[`README.md`](../../README.md)「描画E2E」節） |
 | CI実行 | GdUnit4 CLI（`cd atelier && ./addons/gdUnit4/runtest.sh`。`GODOT_BIN`は事前にシステム環境変数として設定済み前提）一択 |
 | パフォーマンス測定 | Godotエディタ内蔵`Profiler`/`Monitors`（[`performance.md`](./performance.md)参照） |
 
@@ -225,7 +239,8 @@ func _execute_command(command: String) -> void:
 - 本番配布ビルドでのデバッグコンソール有効化（`OS.is_debug_build()`ガード必須）
 - リモートシーンツリーでの値書き換えや、MCPの`game_eval`で作った状態を「検証済みの動作」として扱う（あくまで調査用の一時操作）
 - `debug-*.png`や`user://debug-screenshots/`から手動コピーした調査用画像のコミット
-- CIでのGodotエディタGUI操作・Godot MCPの利用（CIはGdUnit4 CLIのみ）
+- CIでのGodotエディタGUI操作・Godot MCPの利用（CIはGdUnit4 CLIのみ。描画E2EもCIに組み込まない）
+- 描画E2Eを、GdUnit4で書ける回帰テストの代わりにする（GdUnit4で書けるものはGdUnit4で書く）
 - MCPで確認していない画面を「確認済み」と報告する（MCPが使えなかった場合はその旨を明言する）
 
 ### PRレビュー観点

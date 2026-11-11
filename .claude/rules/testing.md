@@ -132,7 +132,7 @@ GdUnit4の`monitor_signals()` / `assert_signal()`を使うと、Vitestの`vi.fn(
 
 ## E2E相当のテスト（シーンレベル統合テスト + 手動プレイテスト）
 
-Godotには Playwright CLI のようなブラウザ操作ベースのE2Eフレームワークが存在しない。クリティカルパス（ターン一巡・調合実行・納品決算等）は以下の2段構えでカバーし、見た目は3のGodot MCPで確認する。
+Godotには Playwright CLI のようなブラウザ操作ベースのE2Eフレームワークが存在しない。クリティカルパス（ターン一巡・調合実行・納品決算等）は以下の2段構えでカバーし、見た目は3のGodot MCPで確認する。描画しないと分からないレイアウト崩れの再発防止は、4の描画E2E（ローカル専用）で機械的に確かめる。
 
 ### 1. GdUnit4のシーンテスト（自動回帰用）
 
@@ -169,9 +169,29 @@ Godotエディタでの実行、またはエクスポートしたデバッグビ
 - CIでは実行しない（ヘッドレス起動ではMCPプラグインは無効になる。CIはGdUnit4 CLIのみ）
 - MCPが使えない環境では2の手動プレイテストで代替し、「スクリーンショットによる確認はできていない」と明言する
 
+### 4. 描画E2E（godot-ai MCP、ローカル専用・CI対象外）
+
+> 🔵 2026-11-12追記（Issue #93）
+
+1のGdUnit4テストは描画されないため、画面外へのはみ出し・Containerの子の潰れ（`ForwardingControl`の付け忘れ）・背景の欠落といったレイアウト崩れを見つけにくい。そこで、Godot MCPで描画中のゲームをボタン操作で進め、Controlの矩形と状態の値で機械的に判定する描画E2Eを`tests/e2e_mcp/`（Python、`uv run`で実行）に置く。`atelier/`の外に置き、GdUnit4の`res://tests/`とは混ぜない。
+
+```bash
+# エディタでatelier/を開いた状態で、リポジトリ直下から実行する（終了コード 0=成功 / 1=失敗 / 2=環境の問題）
+uv run --project tests/e2e_mcp atelier-e2e
+
+# 判定ロジック（checks.py）の単体テスト（Godot不要）
+uv run --project tests/e2e_mcp pytest tests/e2e_mcp
+```
+
+- **回帰テストの主役はGdUnit4のまま**。描画E2EはCIで動かせない（GUIのエディタが要る）ため、UIを変更したときにローカルで実行する補助とする
+- 判定はスクリーンショットの画素比較ではなく、矩形と状態の値で行う（見た目の小さな変更でテストが壊れないようにするため）
+- 判定ロジックは`checks.py`の純粋関数に置き、pytestで単体テストする。GDScriptの`game_eval`は値の取得に限る
+- 新しいレイアウト崩れを直したら、GdUnit4で検証できない部分はシナリオを足し、修正前のコードで失敗することを確かめる
+- 実行手順・前提は[`README.md`](../../README.md)「描画E2E」節、`godot-visual-check`スキルとの役割分担は[`godot-debug-tools.md`](./godot-debug-tools.md)を参照
+
 ### 回帰テストへの昇格
 
-手動プレイテスト・MCPによる目視確認で見つけたバグは、再現手順を1のGdUnit4シーンテストへ昇格することを必ず検討する（例: `texture_filter`の値や`get_combined_minimum_size()`は統合テストで検証できる）。
+手動プレイテスト・MCPによる目視確認で見つけたバグは、再現手順を1のGdUnit4シーンテストへ昇格することを必ず検討する（例: `texture_filter`の値や`get_combined_minimum_size()`は統合テストで検証できる）。描画しないと再現しないものは4の描画E2Eに足す。
 
 ---
 
