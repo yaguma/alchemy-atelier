@@ -57,6 +57,32 @@ func test_パネルは表示状態である() -> void:
 	assert_bool(panel.visible).is_true()
 
 
+## 🔴 Issue #90。常時展開だと常駐UI（RankHud）を隠すため、既定では折りたたんでおく
+func test_初期状態では操作ボタン群が折りたたまれている() -> void:
+	var panel := _make_debug_panel()
+
+	var add_gold_button := panel.find_child("AddGoldButton", true, false) as Button
+
+	assert_bool(panel.is_expanded()).is_false()
+	assert_bool(add_gold_button.is_visible_in_tree()).is_false()
+
+
+func test_トグルボタンで操作ボタン群の展開と折りたたみを切り替えられる() -> void:
+	var panel := _make_debug_panel()
+	var toggle := panel.find_child("ToggleButton", true, false) as Button
+	var add_gold_button := panel.find_child("AddGoldButton", true, false) as Button
+
+	toggle.button_pressed = true
+
+	assert_bool(panel.is_expanded()).is_true()
+	assert_bool(add_gold_button.is_visible_in_tree()).is_true()
+
+	toggle.button_pressed = false
+
+	assert_bool(panel.is_expanded()).is_false()
+	assert_bool(add_gold_button.is_visible_in_tree()).is_false()
+
+
 # 正常系: ボタン押下→GameState連携
 
 

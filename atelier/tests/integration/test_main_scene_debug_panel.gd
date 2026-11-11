@@ -79,6 +79,38 @@ func test_庭調合工房結果いずれのフェーズ表示中もDebugPanelは
 		assert_bool(_find_debug_panel(main).visible).is_true()
 
 
+## 🔴 Issue #90の回帰テスト。DebugPanelが画面左上に固定されRankHudのランク名とノルマバーを
+## 隠していた。折りたたみ時・展開時のどちらでも重ならないことを確かめる
+func test_DebugPanelは折りたたみ時も展開時もRankHudのランク名とノルマバーに重ならない() -> void:
+	var main := _make_main()
+	var panel := _find_debug_panel(main)
+	var rank_name_label := main.find_child("RankNameLabel", true, false) as Control
+	var quota_bar := main.find_child("QuotaBar", true, false) as Control
+
+	for expanded in [false, true]:
+		(panel.find_child("ToggleButton", true, false) as Button).button_pressed = expanded
+		await await_idle_frame()
+
+		var panel_rect := panel.get_global_rect()
+		# 画面外へ逃がして重なりを避けたのではなく、画面左下に収まっていることも確かめる
+		assert_float(panel_rect.end.y).is_equal_approx(main.get_global_rect().end.y, 0.5)
+		assert_float(panel_rect.position.x).is_equal_approx(0.0, 0.5)
+		(
+			assert_bool(panel_rect.intersects(rank_name_label.get_global_rect()))
+			. override_failure_message(
+				"expanded=%s: DebugPanel %s がランク名と重なる" % [expanded, panel_rect]
+			)
+			. is_false()
+		)
+		(
+			assert_bool(panel_rect.intersects(quota_bar.get_global_rect()))
+			. override_failure_message(
+				"expanded=%s: DebugPanel %s がノルマバーと重なる" % [expanded, panel_rect]
+			)
+			. is_false()
+		)
+
+
 func test_調合フェーズ表示中にゴールド付与ボタンで所持ゴールドが増加する() -> void:
 	var main := _make_main()
 	GameState.set_phase(&"alchemy")
