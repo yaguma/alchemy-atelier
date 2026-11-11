@@ -1,5 +1,5 @@
 class_name AlchemySlotView
-extends Control
+extends ForwardingControl
 
 ## 調合の投入枠1件を表示する表示専用コンポーネント（AC-003, AC-005）。
 ## 空き/投入済みの2状態を色とテキストの併記で表示し、投入済み枠のみクリア操作を受け付ける。
@@ -25,6 +25,9 @@ var _material_text: String = ""
 
 
 func _ready() -> void:
+	# 🔴 Issue #87。親のSlotsContainer（GridContainer）へSlotPanelの実サイズを報告しないと
+	# 行が0高さに潰れ、SlotPanelがレシピ選択やプレビューの上へはみ出して重なる
+	_bind_minimum_size_forward([_slot_panel])
 	# 🟡 make_panel_stylebox()はバリアント無しの単一キャッシュ済みStyleBoxTextureを返すため、
 	# 呼び出しごとの再生成コストは無い（UiTheme.make_panel_stylebox()実装参照）
 	UiTheme.apply_panel_style(_slot_panel)
