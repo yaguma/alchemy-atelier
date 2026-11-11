@@ -10,17 +10,20 @@ PR作成前にコードベースの品質を自動検証し、問題があれば
 
 1. **Flakyテスト検出**: テストを実行し、不安定なテストを検出・記録
 2. **サブエージェント実行リトライ**: 失敗したサブエージェントタスクの自動リトライ指針
-3. **完了前検証スイープ**: PR作成前にテスト・型チェック・リント・ビルドを一括実行し、失敗項目を自動修正
+3. **完了前検証スイープ**: PR作成前にテスト・静的解析・フォーマット・インポート確認を一括実行し、失敗項目を自動修正
 
 ## 前提条件
 
-- プロジェクトルートに `package.json` が存在する
-- `pnpm` がインストールされている
-- 以下のコマンドが利用可能:
-  - `pnpm test -- --run`（ユニットテスト）
-  - `pnpm typecheck`（型チェック）
-  - `pnpm lint`（リント）
-  - `pnpm build`（ビルド）
+- `atelier/project.godot` が存在する（Godot 4.x + GDScriptプロジェクト）
+- システム環境変数 `GODOT_BIN`（Godot実行ファイルの絶対パス）が設定済み（設定手順は[`README.md`](../../README.md)「開発環境セットアップ」参照）
+- `gdtoolkit`（`gdlint` / `gdformat`）がインストールされている
+- 以下のコマンドが利用可能（詳細は[`bash-commands.md`](../rules/bash-commands.md)参照）:
+  - `cd atelier && ./addons/gdUnit4/runtest.sh -a res://tests/ -c`（GdUnit4のユニット/統合テスト。**`atelier/`へ`cd`してから実行する**。`-c`で失敗後も全件実行する）
+  - `gdlint atelier/features/ atelier/shared/ atelier/autoload/`（静的解析）
+  - `gdformat --check atelier/features/ atelier/shared/ atelier/autoload/`（フォーマットチェック）
+  - `godot --headless --path atelier --import`（インポート・スクリプトパース確認）
+
+> クリーンチェックアウト直後は `.godot/` インポートキャッシュが無いため、先に `godot --headless --path atelier --import` を完了させてからテストを実行する（インポートと同時にテストを走らせると不安定になる）。
 
 ## 実行手順
 
@@ -31,7 +34,7 @@ Flakyテスト（実行ごとに成功/失敗が変わる不安定なテスト�
 #### Step 1.1: 初回テスト実行
 
 1. VOICEVOX音声通知: 「フレイキーテスト検出を開始するのだ」（speaker=3, speedScale=1.3）
-2. `pnpm test -- --run` を実行する（タイムアウト: 120000ms）
+2. `cd atelier` した上で `./addons/gdUnit4/runtest.sh -a res://tests/ -c` を実行する（タイムアウト: 120000ms。`-c` は失敗後も全件実行するオプション）
 3. 実行結果を記録する:
    - 全テストがパスした場合 → Step 1.4へスキップ
    - 失敗テストがある場合 → 失敗テスト名のリストを記録し、Step 1.2へ
@@ -42,7 +45,8 @@ Flakyテスト（実行ごとに成功/失敗が変わる不安定なテスト�
 
 1. リトライカウンターを初期化（retry_count = 0, max_retries = 3）
 2. 失敗テストを個別に再実行する:
-   - `pnpm test -- --run <テストファイルパス>`
+   - `cd atelier && ./addons/gdUnit4/runtest.sh -a res://tests/<失敗テストファイルのパス>.gd`
+   - 特定テストケースのみ再実行したい場合は、同ファイルを `-a` で指定し、他ケースを `-i "ファイル名.gd:除外テスト名"` で除外する
 3. 各リトライの結果を記録する:
    - **成功した場合**: 「Flaky候補」としてマーク
    - **失敗した場合**: retry_count をインクリメント
@@ -64,7 +68,7 @@ Flakyテスト（実行ごとに成功/失敗が変わる不安定なテスト�
 # Flakyテストレポート
 
 **検出日時**: YYYY-MM-DD HH:mm:ss
-**実行環境**: Node.js vX.X.X / pnpm vX.X.X
+**実行環境**: Godot X.X.X / GdUnit4 vX.X.X
 
 ## 検出されたFlakyテスト
 
@@ -144,10 +148,13 @@ PR作成前に全品質チェックを一括実行し、失敗した項目の自
 
 | 順序 | チェック | コマンド | タイムアウト |
 |------|---------|---------|-------------|
-| 1 | ユニットテスト | `pnpm test -- --run` | 120000ms |
-| 2 | 型チェック | `pnpm typecheck` | 120000ms |
-| 3 | リント | `pnpm lint` | 120000ms |
-| 4 | ビルド | `pnpm build` | 120000ms |
+| 1 | GdUnit4テスト | `cd atelier && ./addons/gdUnit4/runtest.sh -a res://tests/ -c` | 120000ms |
+| 2 | 静的解析 | `gdlint atelier/features/ atelier/shared/ atelier/autoload/` | 120000ms |
+| 3 | フォーマット | `gdformat --check atelier/features/ atelier/shared/ atelier/autoload/` | 120000ms |
+| 4 | インポート確認 | `godot --headless --path atelier --import` | 120000ms |
+
+> テスト実行後は作業ディレクトリが `atelier/` のまま残る。以降のコマンドはリポジトリルート基準のパスなので、`cd ..` で戻すか絶対パスで指定する。
+> エクスポートビルド（`--export-debug`）はWindows Desktop向けDebugのみ整備済みで時間もかかるため、本スイープには含めない。
 
 3. 各チェックの結果を記録する:
    - PASS: 成功
@@ -157,33 +164,34 @@ PR作成前に全品質チェックを一括実行し、失敗した項目の自
 
 失敗した項目に対して、以下の順序で自動修正を試みる:
 
-##### リントエラーの自動修正
+##### フォーマット違反の自動修正
 
-1. `pnpm lint:fix` を実行
-2. 再度 `pnpm lint` で確認
-3. 修正できなかったエラーを記録
+1. `gdformat --diff <変更ファイル...>` で差分が意図通りか確認する
+2. **変更したファイルのみ**に `gdformat <変更ファイル...>` を適用する（ディレクトリ一括実行は無関係な既存ファイルまで書き換えるため禁止。[`implement-workflow.md`](../rules/implement-workflow.md)「リント違反時」参照）
+3. 再度 `gdformat --check atelier/features/ atelier/shared/ atelier/autoload/` で確認
 
-##### 型エラーの自動修正
+##### 静的解析エラーの自動修正
 
-1. エラーメッセージからエラー箇所（ファイル・行番号）を特定
-2. エラー内容を分析し、修正可能か判断:
-   - 型の不一致 → 適切な型アノテーションを追加
-   - 未定義プロパティ → 型定義の確認・修正
-   - インポートエラー → インポートパスの修正
-3. 修正を適用し、`pnpm typecheck` で再確認
+1. `gdlint` の指摘からエラー箇所（ファイル・行番号）を特定
+2. 指摘内容を分析し、修正可能か判断:
+   - 型注釈の欠落 → 適切な型注釈を追加（`Variant`の無条件使用は不可。[`coding-style.md`](../rules/coding-style.md)参照）
+   - 命名規則違反 → snake_case / PascalCase / UPPER_SNAKE_CASE に修正
+   - 未使用変数・引数 → 削除、または `_` プレフィックスを付与
+3. 修正を適用し、`gdlint` で再確認
 
 ##### テストエラーの自動修正
 
-1. エラーメッセージからテスト失敗箇所を特定
+1. GdUnit4の出力からテスト失敗箇所（テストファイル・テスト名）を特定
 2. テストコードまたは実装コードのどちらに問題があるか分析
-3. 明確なバグ（タイポ、パス間違い等）は自動修正
+3. 明確なバグ（タイポ、`class_name`・`preload`パス間違い等）は自動修正
 4. ロジックの変更が必要な場合はユーザーに報告
+5. `Nonexistent function 'xxx' in base 'previously freed'` はAutoloadを `monitor_signals(obj)` で第2引数省略して監視した可能性が高い。`monitor_signals(obj, false)` を明示する（[`testing.md`](../rules/testing.md)参照）
 
-##### ビルドエラーの自動修正
+##### インポート/パースエラーの自動修正
 
-1. エラーメッセージから原因を特定
-2. インポートエラー、型エラー等は上記の手順で修正
-3. 設定ファイルの問題は修正提案をユーザーに報告
+1. `godot --headless --path atelier --import` の出力からエラー箇所を特定
+2. `class_name` の重複・`preload` パス誤り・自シーンの `preload` による循環参照（`Parse Error: Busy`。`load()` に置き換える）等を修正
+3. `project.godot` やアドオン設定の問題は修正せず、提案としてユーザーに報告
 
 #### Step 3.3: 修正後の再検証
 
@@ -208,10 +216,10 @@ PR作成前に全品質チェックを一括実行し、失敗した項目の自
 
 | チェック | 結果 | 備考 |
 |---------|------|------|
-| ユニットテスト | PASS/FAIL | 詳細 |
-| 型チェック | PASS/FAIL | 詳細 |
-| リント | PASS/FAIL | 詳細 |
-| ビルド | PASS/FAIL | 詳細 |
+| GdUnit4テスト | PASS/FAIL | 詳細 |
+| 静的解析（gdlint） | PASS/FAIL | 詳細 |
+| フォーマット（gdformat） | PASS/FAIL | 詳細 |
+| インポート確認 | PASS/FAIL | 詳細 |
 
 自動修正: X件実施（成功: Y件、失敗: Z件）
 再検証: N回実施
@@ -239,7 +247,7 @@ VOICEVOX音声通知: 最終結果に応じたメッセージ（speaker=3, speed
   │   └─ エスカレーション通知
   │
   └─ Phase 3: 完了前検証スイープ
-      ├─ 4つのチェック一括実行
+      ├─ 4つのチェック一括実行（テスト / gdlint / gdformat / インポート確認）
       ├─ 失敗項目の自動修正試行
       ├─ 修正後の再検証（最大2回）
       ├─ 最終判定
@@ -252,8 +260,10 @@ VOICEVOX音声通知: 最終結果に応じたメッセージ（speaker=3, speed
 
 | エラー | 対応 |
 |--------|------|
-| pnpmコマンドが見つからない | 「pnpmがインストールされていないのだ」と通知して終了 |
-| package.jsonが存在しない | 「プロジェクトルートにパッケージジェイソンがないのだ」と通知して終了 |
+| `GODOT_BIN` が未設定、またはGodot実行ファイルが見つからない | 「ゴドーのパスが設定されていないのだ」と通知して終了（設定手順はREADME参照） |
+| `gdlint` / `gdformat` が見つからない | 該当チェックをスキップ扱いとして記録し、「ジーディーツールキットが未導入なのだ」と通知。テスト結果のみで判定せず、最終判定を「条件付き許可」以下にする |
+| `atelier/project.godot` が存在しない | 「ゴドーのプロジェクトが見つからないのだ」と通知して終了 |
+| `Attempt to open script '...GdUnitCmdTool.gd' ... 'File not found'` | `atelier/` に `cd` していない。`cd atelier` してから再実行する（リトライ回数には数えない） |
 | タイムアウト | タイムアウトしたチェックを記録し、次のチェックに進む |
 | ディスク容量不足 | 「ディスク容量が不足しているのだ」と通知して終了 |
 
@@ -283,4 +293,5 @@ VOICEVOX音声通知: 最終結果に応じたメッセージ（speaker=3, speed
 - Phase 2はサブエージェント実行時に参照するガイドラインであり、単独実行はしない
 - Flakyテストレポート（`docs/reports/flaky-tests.md`）は追記モードで更新し、過去の記録を保持する
 - 自動修正は保守的に行い、不確実な修正はユーザーに確認を求める
-- ビルドやテストのキャッシュが問題を起こしている可能性がある場合は、キャッシュクリア後に再実行を検討する
+- インポートキャッシュ（`atelier/.godot/`）が問題を起こしている可能性がある場合は、`godot --headless --path atelier --import` を再実行してからテストを再実行する（`.godot/` の削除は破壊的操作のためユーザーに確認する）
+- GdUnit4はテスト内で `print()` を残さない・Autoloadの `monitor_signals` は `false` 指定、などの規約があるため、修正時は[`testing.md`](../rules/testing.md)に従う
