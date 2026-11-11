@@ -55,11 +55,13 @@ Claude Codeからゲームを起動し、スクリーンショットとゲーム
 |---|---|
 | Godotアドオン（v4.3.1） | `atelier/addons/godot_ai/`（`project.godot`でエディタプラグインとして有効化済み） |
 | ゲーム側ヘルパー | `_mcp_game_helper` Autoload（プラグインが自動登録する。エクスポート時はプラグインが除去する） |
-| MCPサーバー登録 | リポジトリ直下の`.mcp.json`（`uvx`で`godot-ai==4.3.1`をバージョン固定で起動する） |
+| MCPサーバー登録 | リポジトリ直下の`.mcp.json`（`uv tool install`で導入済みの`godot-ai`コマンドを起動する） |
 
 #### 前提
 
-- [uv](https://docs.astral.sh/uv/getting-started/installation/)（`uvx`コマンド）がPATHにあること。Windowsでは`irm https://astral.sh/uv/install.ps1 | iex`で導入できる
+- [uv](https://docs.astral.sh/uv/getting-started/installation/)がPATHにあること。Windowsでは`irm https://astral.sh/uv/install.ps1 | iex`で導入できる
+- MCPサーバーを`uv tool install godot-ai==4.3.1`でインストールしておくこと（`godot-ai`コマンドが`~/.local/bin`に入る。`uv tool update-shell`でPATHに追加できる）。バージョンはアドオン（`atelier/addons/godot_ai/`）と揃える
+  - 以前は`.mcp.json`から`uvx --isolated`で起動していたが、起動のたびに依存パッケージ73個を一時環境へコピーし直すため起動に約20秒かかり、Claude CodeのMCP接続待ち（30秒）を超えて`CONNECT_TIMEOUT`になっていた。事前インストールにすると約4秒で起動する
 - 匿名テレメトリを送らないよう、ユーザー環境変数`GODOT_AI_DISABLE_TELEMETRY=true`を設定しておく（`.mcp.json`側でも`--disable-telemetry`を指定済みだが、エディタが起動するサーバープロセスにも効かせるため）
 
 #### 使い方
@@ -70,7 +72,7 @@ Claude Codeからゲームを起動し、スクリーンショットとゲーム
 
 - `editor_screenshot`は`max_resolution`を`960`以下にする。`0`（1280×720のフル解像度）はMCPの1MB上限を超えて失敗する
 - エディタのGodot AIドックの**Configure**ボタンは押さない。`.mcp.json`を書き換え、他スコープの`godot-ai`設定も削除する
-- ドックの**Update**ボタンは使わない。アドオンを更新するときは、リリースを手動で取得してハッシュを確認し、`.mcp.json`のバージョン固定と合わせてPRで更新する
+- ドックの**Update**ボタンは使わない。アドオンを更新するときは、リリースを手動で取得してハッシュを確認し、PRで更新する。あわせて各自`uv tool install godot-ai==<新バージョン>`でMCPサーバーも同じバージョンに入れ直し、本README前提節のバージョンも書き換える
 - ヘッドレス起動（CIのGdUnit4・エクスポート）では、プラグインは`MCP | plugin disabled in headless mode`と出力して何もしない
 
 ## エクスポートビルド（Windows Desktop / Debug）
