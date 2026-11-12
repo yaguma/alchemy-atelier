@@ -87,8 +87,8 @@ GitHub Issueの複雑度・依存関係を自動分類し、独立したIssueを
    - 同一マイルストーンのIssueを関連グループとして検出
 
 3. **暗黙的依存の推定**
-   - 同じfeatureモジュール（`features/quest/`, `features/alchemy/` 等）に影響するIssueを検出
-   - 同じ共通サービス（`shared/services/`等）に影響するIssueを検出
+   - 同じfeatureモジュール（`atelier/features/garden/`, `atelier/features/alchemy/`, `atelier/features/guild/`, `atelier/features/rank/`, `atelier/features/workshop/` 等）に影響するIssueを検出
+   - 同じ共通コード（`atelier/shared/`、`atelier/autoload/`の`GameState`・`RngService`等）に影響するIssueを検出
    - アーキテクチャ変更（XL）は他のすべてのIssueの暗黙的前提と判定
 
 #### Step 1.4: グルーピングと優先順位付け
@@ -183,10 +183,10 @@ GitHub Issueの複雑度・依存関係を自動分類し、独立したIssueを
 #### Step 3.3: 統合テストの実行
 
 - 各ブランチのマージ後に以下を実行:
-  1. `pnpm typecheck` - 型チェック
-  2. `pnpm lint` - リントチェック
-  3. `pnpm test -- --run` - ユニットテスト
-  4. `pnpm build` - ビルド確認
+  1. `gdlint atelier/features/ atelier/shared/ atelier/autoload/` - 静的解析
+  2. `gdformat --check atelier/features/ atelier/shared/ atelier/autoload/` - フォーマットチェック
+  3. `cd atelier && ./addons/gdUnit4/runtest.sh -a res://tests/ -c` - GdUnit4テスト（`atelier/`へ`cd`してから実行。以降のコマンドはリポジトリルートに戻ってから実行する）
+  4. `godot --headless --path atelier --import` - インポート・スクリプトパース確認
 
 - テスト失敗時の対応:
   - 失敗内容をレポートに記録
